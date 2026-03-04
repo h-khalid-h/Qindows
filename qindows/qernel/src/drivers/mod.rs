@@ -10,6 +10,7 @@ pub mod audio_hda;
 pub mod console;
 pub mod gpu;
 pub mod gpu_compute;
+pub mod ioapic;
 pub mod keyboard;
 pub mod mouse;
 pub mod nvme;
