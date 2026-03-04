@@ -3,6 +3,8 @@
 //! IDT setup, CPU exception handlers, hardware IRQ dispatching,
 //! and the Q-Ring system call interface.
 
+pub mod handlers;
+
 use core::fmt;
 
 /// Interrupt Descriptor Table entry

@@ -17,6 +17,7 @@ pub mod embeddings;
 pub mod intent;
 pub mod models;
 pub mod summarizer;
+pub mod tokenizer;
 
 use alloc::vec::Vec;
 
