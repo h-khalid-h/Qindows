@@ -16,6 +16,7 @@ extern crate alloc;
 
 pub mod block;
 pub mod btree;
+pub mod compression;
 pub mod dedup;
 pub mod encryption;
 pub mod fsck;

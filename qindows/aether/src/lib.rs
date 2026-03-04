@@ -24,6 +24,7 @@ pub mod notifications;
 pub mod renderer;
 pub mod taskbar;
 pub mod theme;
+pub mod widgets;
 pub mod window;
 
 use alloc::vec::Vec;

@@ -17,6 +17,7 @@ extern crate alloc;
 pub mod dht;
 pub mod migration;
 pub mod protocol;
+pub mod tls;
 pub mod transport;
 
 use alloc::vec::Vec;
