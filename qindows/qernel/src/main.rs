@@ -28,6 +28,7 @@ pub mod scheduler;
 pub mod sentinel;
 pub mod settings;
 pub mod silo;
+pub mod smp;
 pub mod syscall;
 pub mod timer;
 

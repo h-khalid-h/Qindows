@@ -16,6 +16,7 @@ extern crate alloc;
 
 pub mod dht;
 pub mod protocol;
+pub mod transport;
 
 use alloc::vec::Vec;
 use alloc::string::String;
