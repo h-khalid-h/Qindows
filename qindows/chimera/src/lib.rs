@@ -10,6 +10,7 @@
 
 extern crate alloc;
 
+pub mod com;
 pub mod dll_resolver;
 pub mod gdi;
 pub mod pe_loader;
