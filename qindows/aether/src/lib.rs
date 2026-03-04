@@ -18,6 +18,7 @@ pub mod accessibility;
 pub mod animation;
 pub mod animations;
 pub mod clipboard;
+pub mod clipboard_mgr;
 pub mod context_menu;
 pub mod dnd;
 pub mod font;

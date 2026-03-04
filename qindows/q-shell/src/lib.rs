@@ -12,6 +12,7 @@ extern crate alloc;
 
 pub mod executor;
 pub mod history;
+pub mod pipe;
 pub mod scripting;
 
 use alloc::string::String;

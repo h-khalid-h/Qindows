@@ -6,6 +6,7 @@
 pub mod heap;
 pub mod page_alloc;
 pub mod paging;
+pub mod slab;
 pub mod vmm;
 
 use spin::Mutex;
