@@ -17,6 +17,7 @@ extern crate alloc;
 
 pub mod capability;
 pub mod crypto;
+pub mod dma;
 pub mod drivers;
 pub mod gdt;
 pub mod interrupts;
@@ -35,6 +36,7 @@ pub mod silo;
 pub mod smp;
 pub mod syscall;
 pub mod timer;
+pub mod watchdog;
 
 use core::panic::PanicInfo;
 

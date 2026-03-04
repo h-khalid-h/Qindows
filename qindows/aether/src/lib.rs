@@ -25,6 +25,7 @@ pub mod notifications;
 pub mod renderer;
 pub mod taskbar;
 pub mod theme;
+pub mod theme_engine;
 pub mod widgets;
 pub mod window;
 
