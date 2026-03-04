@@ -27,6 +27,7 @@ pub mod key_rotation;
 pub mod quota;
 pub mod snapshot;
 pub mod vfs;
+pub mod wal;
 
 use alloc::string::String;
 use alloc::vec::Vec;

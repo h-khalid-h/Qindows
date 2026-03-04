@@ -16,6 +16,7 @@ pub mod bci;
 pub mod embeddings;
 pub mod intent;
 pub mod models;
+pub mod slots;
 pub mod summarizer;
 pub mod tokenizer;
 

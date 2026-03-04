@@ -11,6 +11,7 @@
 extern crate alloc;
 
 pub mod dll_resolver;
+pub mod gdi;
 pub mod pe_loader;
 pub mod registry;
 pub mod threading;
