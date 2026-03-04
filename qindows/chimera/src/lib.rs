@@ -13,6 +13,7 @@ extern crate alloc;
 pub mod dll_resolver;
 pub mod pe_loader;
 pub mod registry;
+pub mod threading;
 pub mod win32_api;
 
 use alloc::string::String;

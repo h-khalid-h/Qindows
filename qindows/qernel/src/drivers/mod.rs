@@ -9,6 +9,7 @@ pub mod apic;
 pub mod audio_hda;
 pub mod console;
 pub mod gpu;
+pub mod gpu_compute;
 pub mod keyboard;
 pub mod mouse;
 pub mod nvme;
