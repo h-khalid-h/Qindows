@@ -49,7 +49,7 @@ pub fn compress(input: &[u8]) -> Vec<u8> {
     // Write original length as a 4-byte LE header
     output.extend_from_slice(&(input.len() as u32).to_le_bytes());
 
-    let mut hash_table = [0usize; HASH_SIZE];
+    let mut hash_table = [usize::MAX; HASH_SIZE];
     let mut pos = 0;
     let mut anchor = 0; // Start of un-matched (literal) data
 
@@ -59,9 +59,9 @@ pub fn compress(input: &[u8]) -> Vec<u8> {
         hash_table[h] = pos;
 
         // Check if we have a match
-        if ref_pos > 0
+        if ref_pos != usize::MAX
+            && pos > ref_pos
             && pos - ref_pos <= MAX_OFFSET
-            && pos >= ref_pos
             && input[ref_pos..ref_pos + MIN_MATCH] == input[pos..pos + MIN_MATCH]
         {
             let match_len = match_length(input, ref_pos, pos);

@@ -66,6 +66,9 @@ impl SubsystemWatchdog {
     pub fn check(&mut self, now_ns: u64) -> Option<WatchdogAction> {
         if !self.alive { return None; }
 
+        // Guard against underflow (e.g. when last_heartbeat hasn't been set yet)
+        if now_ns <= self.last_heartbeat { return None; }
+
         if now_ns - self.last_heartbeat > self.timeout_ns {
             self.expirations += 1;
 

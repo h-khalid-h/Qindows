@@ -270,8 +270,10 @@ impl VirtualMemoryManager {
         if entry.is_present() {
             entry.phys_addr() as *mut PageTable
         } else {
-            // In production: allocate a frame from page_alloc
-            let frame_phys = 0u64; // Would call page_alloc::alloc_frame()
+            // Allocate a physical frame for the new page table
+            let frame = super::page_alloc::alloc_frame()
+                .expect("VMM: out of physical memory for page table");
+            let frame_phys = frame.0;
             let table = frame_phys as *mut PageTable;
             // Zero the table
             core::ptr::write_bytes(table, 0, 1);

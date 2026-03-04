@@ -309,13 +309,33 @@ impl Interpreter {
                 if *b == 0 { Err(ScriptError::DivisionByZero) }
                 else { Ok(Value::Int(a / b)) }
             }
-            (Value::Int(a), BinOp::Mod, Value::Int(b)) => Ok(Value::Int(a % b)),
+            (Value::Int(a), BinOp::Mod, Value::Int(b)) => {
+                if *b == 0 { Err(ScriptError::DivisionByZero) }
+                else { Ok(Value::Int(a % b)) }
+            }
             (Value::Int(a), BinOp::Eq, Value::Int(b)) => Ok(Value::Bool(a == b)),
             (Value::Int(a), BinOp::Ne, Value::Int(b)) => Ok(Value::Bool(a != b)),
             (Value::Int(a), BinOp::Lt, Value::Int(b)) => Ok(Value::Bool(a < b)),
             (Value::Int(a), BinOp::Gt, Value::Int(b)) => Ok(Value::Bool(a > b)),
             (Value::Int(a), BinOp::Le, Value::Int(b)) => Ok(Value::Bool(a <= b)),
             (Value::Int(a), BinOp::Ge, Value::Int(b)) => Ok(Value::Bool(a >= b)),
+
+            // Float arithmetic
+            (Value::Float(a), BinOp::Add, Value::Float(b)) => Ok(Value::Float(a + b)),
+            (Value::Float(a), BinOp::Sub, Value::Float(b)) => Ok(Value::Float(a - b)),
+            (Value::Float(a), BinOp::Mul, Value::Float(b)) => Ok(Value::Float(a * b)),
+            (Value::Float(a), BinOp::Div, Value::Float(b)) => {
+                if *b == 0.0 { Err(ScriptError::DivisionByZero) }
+                else { Ok(Value::Float(a / b)) }
+            }
+            (Value::Float(a), BinOp::Lt, Value::Float(b)) => Ok(Value::Bool(a < b)),
+            (Value::Float(a), BinOp::Gt, Value::Float(b)) => Ok(Value::Bool(a > b)),
+            (Value::Float(a), BinOp::Le, Value::Float(b)) => Ok(Value::Bool(a <= b)),
+            (Value::Float(a), BinOp::Ge, Value::Float(b)) => Ok(Value::Bool(a >= b)),
+
+            // Int-Float promotion
+            (Value::Int(a), BinOp::Add, Value::Float(b)) => Ok(Value::Float(*a as f64 + b)),
+            (Value::Float(a), BinOp::Add, Value::Int(b)) => Ok(Value::Float(a + *b as f64)),
 
             (Value::Str(a), BinOp::Concat, Value::Str(b)) => {
                 let mut s = a.clone();

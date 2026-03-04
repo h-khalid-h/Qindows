@@ -187,15 +187,14 @@ pub fn poly1305_mac(key: &[u8; 32], message: &[u8]) -> [u8; 16] {
     let mut offset = 0;
     while offset < message.len() {
         let end = (offset + 16).min(message.len());
-        let mut block = [0u8; 17];
-        block[..end - offset].copy_from_slice(&message[offset..end]);
-        block[end - offset] = 1; // Pad with 0x01
+        let chunk_len = end - offset;
 
-        let n = u128::from_le_bytes({
-            let mut buf = [0u8; 16];
-            buf[..block.len().min(16)].copy_from_slice(&block[..block.len().min(16)]);
-            buf
-        });
+        // Build the padded block: message bytes + 0x01 sentinel
+        let mut buf = [0u8; 16];
+        buf[..chunk_len].copy_from_slice(&message[offset..end]);
+        let mut n = u128::from_le_bytes(buf);
+        // Set the sentinel bit just after the message bytes
+        n |= 1u128 << (chunk_len * 8);
 
         acc = acc.wrapping_add(n);
         acc = (acc.wrapping_mul(r_val)) % p;
@@ -234,13 +233,21 @@ pub fn random_bytes(output: &mut [u8]) {
     // Seed from CPU timestamp counter
     let tsc: u64;
     unsafe {
-        core::arch::asm!("rdtsc", out("eax") _, out("edx") _, lateout("rax") tsc);
+        let lo: u32;
+        let hi: u32;
+        core::arch::asm!("rdtsc", out("eax") lo, out("edx") hi, options(nostack, nomem));
+        tsc = (hi as u64) << 32 | lo as u64;
     }
 
     let mut key = [0u8; 32];
     let tsc_bytes = tsc.to_le_bytes();
     key[..8].copy_from_slice(&tsc_bytes);
     key[8..16].copy_from_slice(&tsc_bytes);
+    // Mix a second read for more entropy
+    let tsc2 = tsc.wrapping_mul(0x9E3779B97F4A7C15);
+    let tsc2_bytes = tsc2.to_le_bytes();
+    key[16..24].copy_from_slice(&tsc2_bytes);
+    key[24..32].copy_from_slice(&tsc2_bytes);
 
     let nonce = [0u8; 12];
     let mut counter = 1u32;

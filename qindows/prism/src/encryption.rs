@@ -15,6 +15,78 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+// Local crypto helpers — in the final link these resolve to qernel::crypto
+fn chacha20_crypt(key: &[u8; 32], nonce: &[u8; 12], data: &mut [u8]) {
+    // ChaCha20 XOR cipher — simplified version matching qernel::crypto interface
+    let mut state = [0u32; 16];
+    state[0] = 0x61707865; state[1] = 0x3320646e;
+    state[2] = 0x79622d32; state[3] = 0x6b206574;
+    for i in 0..8 {
+        state[4 + i] = u32::from_le_bytes([key[i*4], key[i*4+1], key[i*4+2], key[i*4+3]]);
+    }
+    for i in 0..3 {
+        state[13 + i] = u32::from_le_bytes([nonce[i*4], nonce[i*4+1], nonce[i*4+2], nonce[i*4+3]]);
+    }
+    let mut counter = 1u32;
+    let mut offset = 0;
+    while offset < data.len() {
+        state[12] = counter;
+        let mut working = state;
+        for _ in 0..10 { // 20 rounds
+            for (a,b,c,d) in [(0,4,8,12),(1,5,9,13),(2,6,10,14),(3,7,11,15),
+                               (0,5,10,15),(1,6,11,12),(2,7,8,13),(3,4,9,14)] {
+                working[a] = working[a].wrapping_add(working[b]); working[d] ^= working[a]; working[d] = working[d].rotate_left(16);
+                working[c] = working[c].wrapping_add(working[d]); working[b] ^= working[c]; working[b] = working[b].rotate_left(12);
+                working[a] = working[a].wrapping_add(working[b]); working[d] ^= working[a]; working[d] = working[d].rotate_left(8);
+                working[c] = working[c].wrapping_add(working[d]); working[b] ^= working[c]; working[b] = working[b].rotate_left(7);
+            }
+        }
+        for i in 0..16 { working[i] = working[i].wrapping_add(state[i]); }
+        let block_len = (data.len() - offset).min(64);
+        for i in 0..block_len {
+            data[offset + i] ^= working[i / 4].to_le_bytes()[i % 4];
+        }
+        offset += 64;
+        counter += 1;
+    }
+}
+
+fn poly1305_mac(key: &[u8; 32], message: &[u8]) -> [u8; 16] {
+    let mut r = [0u8; 16];
+    r.copy_from_slice(&key[..16]);
+    r[3] &= 15; r[7] &= 15; r[11] &= 15; r[15] &= 15;
+    r[4] &= 252; r[8] &= 252; r[12] &= 252;
+    let r_val = u128::from_le_bytes(r);
+    let p: u128 = (1u128 << 130) - 5;
+    let mut acc: u128 = 0;
+    let mut offset = 0;
+    while offset < message.len() {
+        let end = (offset + 16).min(message.len());
+        let chunk_len = end - offset;
+        let mut buf = [0u8; 16];
+        buf[..chunk_len].copy_from_slice(&message[offset..end]);
+        let mut n = u128::from_le_bytes(buf);
+        n |= 1u128 << (chunk_len * 8);
+        acc = acc.wrapping_add(n);
+        acc = (acc.wrapping_mul(r_val)) % p;
+        offset += 16;
+    }
+    let mut s_buf = [0u8; 16];
+    s_buf.copy_from_slice(&key[16..32]);
+    acc = acc.wrapping_add(u128::from_le_bytes(s_buf));
+    let result = acc.to_le_bytes();
+    let mut mac = [0u8; 16];
+    mac.copy_from_slice(&result[..16]);
+    mac
+}
+
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() { return false; }
+    let mut diff = 0u8;
+    for i in 0..a.len() { diff |= a[i] ^ b[i]; }
+    diff == 0
+}
+
 /// Key length (256 bits).
 pub const KEY_LEN: usize = 32;
 /// Nonce length (96 bits).
@@ -197,10 +269,10 @@ impl EncryptionEngine {
 
         // Encrypt (ChaCha20)
         let mut ciphertext = data.to_vec();
-        // In production: crate::crypto::chacha20_crypt(object_key.as_bytes(), &nonce, &mut ciphertext);
+        chacha20_crypt(object_key.as_bytes(), &nonce, &mut ciphertext);
 
         // Compute MAC (Poly1305)
-        let tag = [0u8; TAG_LEN]; // Would call poly1305_mac
+        let tag = poly1305_mac(object_key.as_bytes(), &ciphertext);
 
         self.stats.objects_encrypted += 1;
         self.stats.bytes_encrypted += data.len() as u64;
@@ -233,11 +305,15 @@ impl EncryptionEngine {
         let object_key = key.derive_object_key(oid);
 
         // Verify MAC first (authenticate-then-decrypt)
-        // In production: verify poly1305 tag
+        let expected_tag = poly1305_mac(object_key.as_bytes(), &blob.ciphertext);
+        if !constant_time_eq(&expected_tag, &blob.tag) {
+            self.stats.auth_failures += 1;
+            return Err(CryptoError::AuthenticationFailed);
+        }
 
         // Decrypt
         let mut plaintext = blob.ciphertext.clone();
-        // In production: crate::crypto::chacha20_crypt(object_key.as_bytes(), &blob.nonce, &mut plaintext);
+        chacha20_crypt(object_key.as_bytes(), &blob.nonce, &mut plaintext);
 
         self.stats.objects_decrypted += 1;
         self.stats.bytes_decrypted += plaintext.len() as u64;
@@ -260,6 +336,10 @@ impl EncryptionEngine {
     /// Rotate the volume key (re-encrypts all objects).
     pub fn rotate_volume_key(&mut self, new_key: [u8; KEY_LEN]) {
         if let Some(ref mut key) = self.volume_key {
+            // Zeroize old key material before overwriting
+            for byte in &mut key.bytes {
+                unsafe { core::ptr::write_volatile(byte, 0); }
+            }
             key.bytes = new_key;
             key.generation += 1;
         }

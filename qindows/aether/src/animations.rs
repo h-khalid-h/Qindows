@@ -32,35 +32,37 @@ impl Easing {
         match self {
             Easing::Linear => t,
             Easing::EaseIn => t * t * t,
-            Easing::EaseOut => 1.0 - (1.0 - t).powi(3),
+            Easing::EaseOut => {
+                let inv = 1.0 - t;
+                1.0 - inv * inv * inv
+            }
             Easing::EaseInOut => {
                 if t < 0.5 {
                     4.0 * t * t * t
                 } else {
-                    1.0 - (-2.0 * t + 2.0).powi(3) / 2.0
+                    let inv = -2.0 * t + 2.0;
+                    1.0 - (inv * inv * inv) / 2.0
                 }
             }
             Easing::CubicBezier(x1, y1, x2, y2) => {
                 // Simplified cubic bezier (approximate)
                 let ct = t;
-                let a = 3.0 * x1 - 3.0 * x2 + 1.0;
-                let b = 3.0 * x2 - 6.0 * x1;
-                let c = 3.0 * x1;
-                let _ = a * ct * ct * ct + b * ct * ct + c * ct;
                 let ya = 3.0 * y1 - 3.0 * y2 + 1.0;
                 let yb = 3.0 * y2 - 6.0 * y1;
                 let yc = 3.0 * y1;
+                let _ = (x1, x2); // x-axis control points used in full Newton-Raphson solve
                 ya * ct * ct * ct + yb * ct * ct + yc * ct
             }
             Easing::Spring { stiffness, damping, mass } => {
                 let omega = (stiffness / mass).sqrt();
                 let zeta = damping / (2.0 * (stiffness * mass).sqrt());
                 if zeta < 1.0 {
-                    // Underdamped
+                    // Underdamped spring
                     let wd = omega * (1.0 - zeta * zeta).sqrt();
-                    1.0 - (-zeta * omega * t).exp()
-                        * ((zeta * omega * t / wd).cos() + zeta / (1.0 - zeta * zeta).sqrt() * (wd * t).sin())
+                    let decay = (-zeta * omega * t).exp();
+                    1.0 - decay * ((wd * t).cos() + (zeta * omega / wd) * (wd * t).sin())
                 } else {
+                    // Critically/overdamped
                     1.0 - (-omega * t).exp() * (1.0 + omega * t)
                 }
             }
