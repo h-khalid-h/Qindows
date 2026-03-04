@@ -27,6 +27,7 @@ pub mod scheduler;
 pub mod sentinel;
 pub mod silo;
 pub mod syscall;
+pub mod timer;
 
 use core::panic::PanicInfo;
 

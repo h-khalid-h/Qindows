@@ -12,6 +12,8 @@
 
 extern crate alloc;
 
+pub mod models;
+
 use alloc::vec::Vec;
 
 /// A neural pattern signature — the "fingerprint" of a thought.
