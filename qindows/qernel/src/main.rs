@@ -22,6 +22,7 @@ pub mod interrupts;
 pub mod ipc;
 pub mod loader;
 pub mod memory;
+pub mod power;
 pub mod scheduler;
 pub mod sentinel;
 pub mod silo;
