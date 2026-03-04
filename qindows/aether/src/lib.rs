@@ -16,6 +16,8 @@ extern crate alloc;
 
 pub mod animation;
 pub mod input;
+pub mod lockscreen;
+pub mod taskbar;
 pub mod theme;
 pub mod window;
 

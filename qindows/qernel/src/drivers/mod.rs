@@ -8,5 +8,7 @@ pub mod apic;
 pub mod console;
 pub mod gpu;
 pub mod keyboard;
+pub mod nvme;
 pub mod pci;
 pub mod serial;
+pub mod virtio_net;

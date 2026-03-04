@@ -14,6 +14,7 @@
 
 extern crate alloc;
 
+pub mod block;
 pub mod btree;
 pub mod journal;
 
