@@ -1,0 +1,8 @@
+[package]
+name = "aether"
+version.workspace = true
+edition.workspace = true
+description = "Aether — Vector Compositor Engine for Qindows"
+
+[dependencies]
+# No kernel dependencies — Aether runs in user space

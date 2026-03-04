@@ -1,0 +1,15 @@
+# Qindows Build Configuration
+# Uses custom bare-metal target for kernel crates
+
+[build]
+target = "x86_64-unknown-none"
+
+[target.x86_64-unknown-none]
+runner = "qemu-system-x86_64 -bios /usr/share/OVMF/OVMF.fd -drive format=raw,file="
+
+# Kernel-mode crates use panic=abort (no unwinding in bare metal)
+rustflags = ["-C", "link-arg=-Tqernel/linker.ld"]
+
+[unstable]
+build-std = ["core", "compiler_builtins", "alloc"]
+build-std-features = ["compiler-builtins-mem"]

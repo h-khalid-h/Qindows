@@ -1,0 +1,171 @@
+//! # Interrupt Handling
+//!
+//! IDT setup, CPU exception handlers, hardware IRQ dispatching,
+//! and the Q-Ring system call interface.
+
+use core::fmt;
+
+/// Interrupt Descriptor Table entry
+#[derive(Debug, Clone, Copy)]
+#[repr(C, packed)]
+pub struct IdtEntry {
+    offset_low: u16,
+    selector: u16,
+    ist: u8,
+    type_attr: u8,
+    offset_mid: u16,
+    offset_high: u32,
+    _reserved: u32,
+}
+
+impl IdtEntry {
+    pub const fn empty() -> Self {
+        IdtEntry {
+            offset_low: 0,
+            selector: 0,
+            ist: 0,
+            type_attr: 0,
+            offset_mid: 0,
+            offset_high: 0,
+            _reserved: 0,
+        }
+    }
+
+    /// Set the handler function for this interrupt vector.
+    pub fn set_handler(&mut self, handler: u64, cs: u16) {
+        self.offset_low = handler as u16;
+        self.offset_mid = (handler >> 16) as u16;
+        self.offset_high = (handler >> 32) as u32;
+        self.selector = cs;
+        self.type_attr = 0x8E; // Present, Ring 0, 64-bit Interrupt Gate
+        self.ist = 0;
+    }
+}
+
+/// The full IDT (256 entries).
+#[repr(C, align(16))]
+pub struct Idt {
+    pub entries: [IdtEntry; 256],
+}
+
+impl Idt {
+    pub const fn new() -> Self {
+        Idt {
+            entries: [IdtEntry::empty(); 256],
+        }
+    }
+}
+
+/// The IDT pointer structure for LIDT instruction.
+#[repr(C, packed)]
+pub struct IdtPointer {
+    pub limit: u16,
+    pub base: u64,
+}
+
+// Static IDT
+static mut IDT: Idt = Idt::new();
+
+/// Initialize the Interrupt Descriptor Table.
+///
+/// Sets up handlers for:
+/// - CPU exceptions (Division Error, Page Fault, Double Fault, etc.)
+/// - Hardware IRQs via the APIC (Keyboard, Timer, etc.)
+/// - System call vector (0x80 — the Q-Ring entry point)
+pub fn init() {
+    unsafe {
+        // ── CPU Exceptions ──
+        IDT.entries[0].set_handler(division_error as u64, 0x08);
+        IDT.entries[6].set_handler(invalid_opcode as u64, 0x08);
+        IDT.entries[8].set_handler(double_fault as u64, 0x08);
+        IDT.entries[13].set_handler(general_protection as u64, 0x08);
+        IDT.entries[14].set_handler(page_fault as u64, 0x08);
+
+        // ── Hardware IRQs (APIC mapped to vectors 32+) ──
+        IDT.entries[32].set_handler(timer_handler as u64, 0x08);
+        IDT.entries[33].set_handler(keyboard_handler as u64, 0x08);
+
+        // ── Q-Ring System Call (vector 0x80) ──
+        IDT.entries[0x80].set_handler(syscall_handler as u64, 0x08);
+        // Make the syscall gate accessible from Ring 3 (user space)
+        IDT.entries[0x80].type_attr = 0xEE; // Present, Ring 3, Interrupt Gate
+
+        // Load the IDT
+        let idt_ptr = IdtPointer {
+            limit: (core::mem::size_of::<Idt>() - 1) as u16,
+            base: &IDT as *const Idt as u64,
+        };
+        core::arch::asm!("lidt [{}]", in(reg) &idt_ptr, options(readonly, nostack));
+    }
+
+    crate::serial_println!("[OK] Interrupt Descriptor Table loaded (256 vectors)");
+}
+
+// ── Exception Handlers ──────────────────────────────────────────────
+
+extern "x86-interrupt" fn division_error() {
+    crate::serial_println!("EXCEPTION: Division Error (#DE)");
+    loop { unsafe { core::arch::asm!("hlt") }; }
+}
+
+extern "x86-interrupt" fn invalid_opcode() {
+    crate::serial_println!("EXCEPTION: Invalid Opcode (#UD)");
+    loop { unsafe { core::arch::asm!("hlt") }; }
+}
+
+extern "x86-interrupt" fn double_fault() {
+    crate::serial_println!("!!! DOUBLE FAULT — SYSTEM HALTED !!!");
+    loop { unsafe { core::arch::asm!("hlt") }; }
+}
+
+extern "x86-interrupt" fn general_protection() {
+    crate::serial_println!("EXCEPTION: General Protection Fault (#GP)");
+    crate::serial_println!("Sentinel: Q-Manifest violation detected. Silo vaporized.");
+    loop { unsafe { core::arch::asm!("hlt") }; }
+}
+
+extern "x86-interrupt" fn page_fault() {
+    crate::serial_println!("EXCEPTION: Page Fault (#PF)");
+    loop { unsafe { core::arch::asm!("hlt") }; }
+}
+
+// ── Hardware IRQ Handlers ───────────────────────────────────────────
+
+extern "x86-interrupt" fn timer_handler() {
+    // Called by the APIC timer every ~1ms.
+    // In production: drives the Fiber scheduler's time-slicing.
+    unsafe { send_eoi(); }
+}
+
+extern "x86-interrupt" fn keyboard_handler() {
+    // Read the scancode from the PS/2 controller
+    let scancode: u8;
+    unsafe {
+        core::arch::asm!("in al, 0x60", out("al") scancode, options(nomem, nostack));
+    }
+    // In production: push to the Q-Shell's async input buffer
+    crate::serial_println!("Keyboard: scancode {:#04x}", scancode);
+    unsafe { send_eoi(); }
+}
+
+// ── System Call Handler ─────────────────────────────────────────────
+
+/// The Q-Ring system call entry point.
+///
+/// When a Q-Silo executes `int 0x80`, the CPU switches to Ring 0
+/// and this handler dispatches the request based on the syscall ID.
+extern "x86-interrupt" fn syscall_handler() {
+    // In production:
+    // - Read syscall ID from RAX
+    // - Read arguments from RDI, RSI, RDX, R10, R8, R9
+    // - Dispatch to the appropriate kernel service
+    // - Check capability tokens before granting access
+    unsafe { send_eoi(); }
+}
+
+/// Send End-Of-Interrupt signal to the APIC.
+unsafe fn send_eoi() {
+    // Local APIC EOI register at 0xFEE000B0
+    let eoi_reg = 0xFEE000B0 as *mut u32;
+    core::ptr::write_volatile(eoi_reg, 0);
+}

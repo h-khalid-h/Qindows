@@ -1,0 +1,7 @@
+[package]
+name = "chimera"
+version.workspace = true
+edition.workspace = true
+description = "Chimera Bridge — Win32/64 Legacy Support"
+
+[dependencies]

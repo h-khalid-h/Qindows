@@ -1,0 +1,7 @@
+[package]
+name = "synapse"
+version.workspace = true
+edition.workspace = true
+description = "Q-Synapse — Neural Integration (BCI)"
+
+[dependencies]

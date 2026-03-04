@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = [
+    "bootloader",
+    "qernel",
+    "prism",
+    "aether",
+    "q-shell",
+    "chimera",
+    "synapse",
+    "nexus",
+]
+
+[workspace.package]
+version = "1.0.0-genesis"
+edition = "2021"
+authors = ["The Qindows Project"]
+license = "MIT"
+repository = "https://github.com/h-khalid-h/Qindows"
+
+[workspace.dependencies]
+spin = "0.9"
+bitflags = "2.4"
+log = "0.4"

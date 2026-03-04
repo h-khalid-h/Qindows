@@ -1,0 +1,8 @@
+[package]
+name = "prism"
+version.workspace = true
+edition.workspace = true
+description = "Prism — Semantic Object Storage for Qindows"
+
+[dependencies]
+spin = { workspace = true }

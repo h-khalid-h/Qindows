@@ -1,0 +1,11 @@
+[package]
+name = "qernel"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "The Qindows Microkernel — Memory-safe, minimal, Rust-native"
+
+[dependencies]
+spin = { workspace = true }
+bitflags = { workspace = true }
+log = { workspace = true }

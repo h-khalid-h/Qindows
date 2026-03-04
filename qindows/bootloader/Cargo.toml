@@ -1,0 +1,10 @@
+[package]
+name = "qindows-bootloader"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+uefi = { version = "0.28", features = ["alloc"] }
+uefi-services = "0.25"
+log = { workspace = true }
