@@ -23,6 +23,7 @@ pub mod interrupts;
 pub mod ipc;
 pub mod loader;
 pub mod logging;
+pub mod manifest;
 pub mod memory;
 pub mod power;
 pub mod profiler;
