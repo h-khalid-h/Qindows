@@ -9,6 +9,7 @@ pub mod audio_hda;
 pub mod console;
 pub mod gpu;
 pub mod keyboard;
+pub mod mouse;
 pub mod nvme;
 pub mod pci;
 pub mod serial;
