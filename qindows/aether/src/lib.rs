@@ -18,6 +18,7 @@ pub mod animation;
 pub mod clipboard;
 pub mod font;
 pub mod input;
+pub mod layout;
 pub mod lockscreen;
 pub mod notifications;
 pub mod renderer;

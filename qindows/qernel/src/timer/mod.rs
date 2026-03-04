@@ -4,6 +4,8 @@
 //! Uses APIC timer ticks internally, calibrated against the PIT or TSC
 //! for accurate wall-clock time.
 
+pub mod hpet;
+
 use alloc::collections::BinaryHeap;
 use alloc::vec::Vec;
 use core::cmp::Ordering;

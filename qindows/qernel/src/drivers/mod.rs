@@ -4,6 +4,7 @@
 //! All production drivers run in User-Mode Silos.
 
 pub mod acpi;
+pub mod ahci;
 pub mod apic;
 pub mod audio_hda;
 pub mod console;
