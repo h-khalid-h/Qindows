@@ -14,6 +14,8 @@
 
 extern crate alloc;
 
+pub mod protocol;
+
 use alloc::vec::Vec;
 use alloc::string::String;
 

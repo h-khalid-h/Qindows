@@ -10,6 +10,8 @@
 
 extern crate alloc;
 
+pub mod pe_loader;
+
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::collections::BTreeMap;

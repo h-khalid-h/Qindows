@@ -14,6 +14,11 @@
 
 extern crate alloc;
 
+pub mod animation;
+pub mod input;
+pub mod theme;
+pub mod window;
+
 use alloc::vec::Vec;
 
 /// 2D vector
