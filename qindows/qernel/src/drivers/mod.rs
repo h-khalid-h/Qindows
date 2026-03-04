@@ -5,6 +5,7 @@
 
 pub mod acpi;
 pub mod apic;
+pub mod audio_hda;
 pub mod console;
 pub mod gpu;
 pub mod keyboard;

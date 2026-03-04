@@ -7,6 +7,8 @@
 //! If a Silo violates a law, the Sentinel revokes its scheduling
 //! token within microseconds.
 
+pub mod firewall;
+
 use crate::silo::{QSilo, SiloState};
 
 /// The 10 Laws of the Q-Manifest
