@@ -7,6 +7,8 @@
 //! Design: Single-Producer Single-Consumer (SPSC) rings with
 //! up to 50 messages batched in a single kernel trip.
 
+pub mod message_bus;
+
 use core::sync::atomic::{AtomicU64, Ordering};
 use alloc::vec::Vec;
 use crate::capability::{CapToken, Permissions};
