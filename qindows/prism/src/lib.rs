@@ -21,6 +21,7 @@ pub mod dedup;
 pub mod encryption;
 pub mod fsck;
 pub mod journal;
+pub mod quota;
 pub mod snapshot;
 pub mod vfs;
 

@@ -15,6 +15,7 @@
 extern crate alloc;
 
 pub mod dht;
+pub mod discovery;
 pub mod migration;
 pub mod protocol;
 pub mod tls;

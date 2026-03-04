@@ -11,6 +11,7 @@
 extern crate alloc;
 
 pub mod executor;
+pub mod scripting;
 
 use alloc::string::String;
 use alloc::vec::Vec;
