@@ -17,11 +17,15 @@ extern crate alloc;
 
 pub mod capability;
 pub mod drivers;
+pub mod gdt;
 pub mod interrupts;
+pub mod ipc;
+pub mod loader;
 pub mod memory;
 pub mod scheduler;
 pub mod sentinel;
 pub mod silo;
+pub mod syscall;
 
 use core::panic::PanicInfo;
 
@@ -38,63 +42,101 @@ pub struct BootInfo {
     pub memory_map_desc_size: u64,
 }
 
-/// The Qernel Entry Point.
+/// The Qernel Entry Point — 8-Phase Boot Sequence.
 ///
 /// Called by the bootloader after UEFI boot services have exited.
 /// This is the absolute beginning of Qindows — no standard library,
 /// no OS layer. We are talking directly to the CPU.
 #[no_mangle]
 pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
+    // Initialize serial port first (for debug output)
+    drivers::serial::SerialWriter::init();
+    serial_println!("Qernel boot sequence initiated...");
+
     // ── Phase 1: Memory ─────────────────────────────────────────
     // Initialize the physical memory manager with the UEFI memory map.
-    // This gives us the ability to allocate frames for page tables and Silos.
     let mut frame_allocator = memory::FrameAllocator::init(
         boot_info.memory_map_addr,
         boot_info.memory_map_entries,
         boot_info.memory_map_desc_size,
     );
-
-    // Set up kernel page tables with identity mapping
     memory::paging::init(&mut frame_allocator);
-
-    // Initialize the kernel heap (for dynamic allocations via `alloc`)
     memory::heap::init(&mut frame_allocator);
+    serial_println!("[OK] Phase 1: Memory (frames + paging + heap)");
 
-    // ── Phase 2: Interrupts ─────────────────────────────────────
-    // Install the IDT (Interrupt Descriptor Table) so the CPU can
-    // handle exceptions, hardware IRQs, and system calls.
+    // ── Phase 2: GDT ────────────────────────────────────────────
+    // Set up privilege levels (Ring 0 ↔ Ring 3) and the TSS
+    // for stack switching on system calls.
+    gdt::init();
+    serial_println!("[OK] Phase 2: GDT (Ring-0/Ring-3 segments + TSS)");
+
+    // ── Phase 3: IDT ────────────────────────────────────────────
+    // Install exception handlers, hardware IRQ dispatch, and
+    // the Q-Ring system call vector.
     interrupts::init();
+    serial_println!("[OK] Phase 3: IDT (256 vectors, exceptions + IRQs)");
 
-    // ── Phase 3: Aether Visual Root ─────────────────────────────
-    // Initialize the framebuffer using GOP data from the bootloader.
+    // ── Phase 4: APIC ───────────────────────────────────────────
+    // Replace the legacy 8259 PIC with the Local APIC.
+    // Configure the APIC timer for preemptive scheduling.
+    drivers::apic::init();
+    drivers::apic::init_ioapic();
+    serial_println!("[OK] Phase 4: APIC (Local + IO, timer @ vector 32)");
+
+    // ── Phase 5: Aether Display ─────────────────────────────────
+    // Initialize the framebuffer and draw the boot banner.
     let mut display = drivers::gpu::AetherFrameBuffer::new(
         boot_info.framebuffer_addr as *mut u32,
         boot_info.horizontal_resolution as usize,
         boot_info.vertical_resolution as usize,
         boot_info.pixels_per_scanline as usize,
     );
-
-    // Clear to the signature Qindows deep black
     display.clear(0x00_06_06_0E); // #06060E — the Qindows void
-
-    // Draw the boot indicator
     drivers::gpu::draw_boot_logo(&mut display);
 
-    // ── Phase 4: Sentinel ───────────────────────────────────────
-    // Start the AI law enforcement monitor on a dedicated CPU core.
-    // The Sentinel enforces the 10 Laws of the Q-Manifest.
-    sentinel::init();
+    // Boot console — text output on the framebuffer
+    let mut console = drivers::console::FramebufferConsole::new(
+        boot_info.horizontal_resolution as usize,
+        boot_info.vertical_resolution as usize,
+    );
+    console.print_banner(&mut display);
+    console.print_ok(&mut display, "Memory: frames + paging + kernel heap");
+    console.print_ok(&mut display, "GDT: Ring-0 / Ring-3 / TSS loaded");
+    console.print_ok(&mut display, "IDT: 256 interrupt vectors installed");
+    console.print_ok(&mut display, "APIC: Local + IO APIC, timer periodic");
+    console.print_ok(&mut display, "Aether: Framebuffer initialized");
+    serial_println!("[OK] Phase 5: Aether Display + Boot Console");
 
-    // ── Phase 5: Scheduler ──────────────────────────────────────
+    // ── Phase 6: System Calls ───────────────────────────────────
+    // Configure SYSCALL/SYSRET fast-path via MSRs.
+    syscall::init();
+    console.print_ok(&mut display, "SYSCALL/SYSRET fast-path configured");
+    serial_println!("[OK] Phase 6: SYSCALL/SYSRET MSRs configured");
+
+    // ── Phase 7: Sentinel ───────────────────────────────────────
+    // Start the AI law enforcement monitor.
+    sentinel::init();
+    console.print_ok(&mut display, "Sentinel: AI Law Enforcement ACTIVE");
+    serial_println!("[OK] Phase 7: Sentinel AI Auditor online");
+
+    // ── Phase 8: Scheduler ──────────────────────────────────────
     // Initialize the Fiber-based scheduler with SMP support.
     scheduler::init();
+    console.print_ok(&mut display, "Scheduler: Fiber engine ready");
+    serial_println!("[OK] Phase 8: Fiber Scheduler initialized");
 
     // ── Boot Complete ───────────────────────────────────────────
+    console.write_str(&mut display, "\n");
+    console.set_fg(0x00_06_D6_A0);
+    console.write_str(&mut display, "  QINDOWS QERNEL v1.0.0 ONLINE\n");
+    console.write_str(&mut display, "  THE MESH AWAITS.\n");
+
     serial_println!("╔══════════════════════════════════════╗");
     serial_println!("║    QINDOWS QERNEL v1.0.0 ONLINE     ║");
-    serial_println!("║    Memory · Interrupts · Aether      ║");
-    serial_println!("║    Sentinel · Scheduler              ║");
-    serial_println!("║    THE MESH AWAITS.                  ║");
+    serial_println!("║    8/8 Phases Complete               ║");
+    serial_println!("║    Memory · GDT · IDT · APIC        ║");
+    serial_println!("║    Aether · Syscall · Sentinel       ║");
+    serial_println!("║    Scheduler · THE MESH AWAITS.      ║");
     serial_println!("╚══════════════════════════════════════╝");
 
     // Enter the idle loop — HLT until an interrupt fires

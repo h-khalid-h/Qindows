@@ -6,6 +6,8 @@
 //!
 //! Performance: ~30% lower latency vs preemptive multitasking.
 
+pub mod context;
+
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
 use spin::Mutex;
