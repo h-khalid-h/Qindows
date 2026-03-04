@@ -18,8 +18,10 @@ pub mod dht;
 pub mod discovery;
 pub mod migration;
 pub mod nat;
+pub mod pool;
 pub mod protocol;
 pub mod reputation;
+pub mod shaper;
 pub mod tls;
 pub mod transport;
 

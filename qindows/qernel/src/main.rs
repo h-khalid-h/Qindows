@@ -36,6 +36,7 @@ pub mod silo;
 pub mod smp;
 pub mod syscall;
 pub mod timer;
+pub mod timer_wheel;
 pub mod watchdog;
 
 use core::panic::PanicInfo;
