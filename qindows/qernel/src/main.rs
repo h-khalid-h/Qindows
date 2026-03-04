@@ -26,6 +26,7 @@ pub mod logging;
 pub mod manifest;
 pub mod memory;
 pub mod power;
+pub mod process;
 pub mod profiler;
 pub mod scheduler;
 pub mod sentinel;

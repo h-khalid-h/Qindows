@@ -13,6 +13,7 @@
 extern crate alloc;
 
 pub mod bci;
+pub mod embeddings;
 pub mod intent;
 pub mod models;
 

@@ -14,6 +14,7 @@
 
 extern crate alloc;
 
+pub mod accessibility;
 pub mod animation;
 pub mod clipboard;
 pub mod font;
