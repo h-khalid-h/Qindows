@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qindows — The Final Operating System</title>
+  <meta name="description"
+    content="Qindows: A planetary-scale, intent-centric operating system. Rust-based microkernel. Vector-native rendering. Neural integration. The Global Mesh is now active.">
+  <meta name="theme-color" content="#0a0a14">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <!-- ============ PARTICLE CANVAS ============ -->
+  <canvas id="mesh-canvas"></canvas>
+
+  <!-- ============ NAVIGATION ============ -->
+  <nav id="main-nav" class="nav">
+    <div class="nav-inner">
+      <a href="#hero" class="nav-logo">
+        <span class="logo-q">Q</span><span class="logo-rest">indows</span>
+      </a>
+      <div class="nav-links" id="nav-links">
+        <a href="#architecture" class="nav-link">Architecture</a>
+        <a href="#qernel" class="nav-link">Qernel</a>
+        <a href="#prism" class="nav-link">Prism</a>
+        <a href="#aether" class="nav-link">Aether</a>
+        <a href="#subsystems" class="nav-link">Subsystems</a>
+        <a href="#mesh" class="nav-link">Mesh</a>
+        <a href="#manifest" class="nav-link">Manifest</a>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ============ HERO ============ -->
+  <section id="hero" class="hero">
+    <div class="hero-content">
+      <div class="hero-badge reveal">
+        <span class="badge-dot"></span>
+        Genesis Alpha · v1.0.0 · March 4, 2026
+      </div>
+      <h1 class="hero-title reveal">
+        <span class="hero-title-line">The Final</span>
+        <span class="hero-title-line hero-title-gradient">Operating System</span>
+      </h1>
+      <p class="hero-subtitle reveal">
+        A planetary-scale, intent-centric OS built on a Rust microkernel.
+        Vector-native rendering. Neural integration. Zero-trust security.
+        <strong>The Global Mesh is now active.</strong>
+      </p>
+      <div class="hero-actions reveal">
+        <button id="hero-start-btn" class="btn btn-primary btn-start">
+          <span>Start</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </button>
+        <a href="#architecture" class="btn btn-ghost">Explore Architecture</a>
+        <a href="#manifest" class="btn btn-ghost">Read the Manifest</a>
+      </div>
+      <div class="hero-metrics reveal">
+        <div class="metric">
+          <span class="metric-value" data-count="1.5">&lt;1.5s</span>
+          <span class="metric-label">Cold Boot</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value">&lt;2ms</span>
+          <span class="metric-label">Input Latency</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value">~450MB</span>
+          <span class="metric-label">Idle Footprint</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value">0</span>
+          <span class="metric-label">Reboots for Updates</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-scroll-hint">
+      <div class="scroll-line"></div>
+    </div>
+  </section>
+
+  <!-- ============ ARCHITECTURE OVERVIEW ============ -->
+  <section id="architecture" class="section">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-tag">System Architecture</span>
+        <h2 class="section-title">Five Concentric Layers.<br><span class="gradient-text">One Unified Intent.</span></h2>
+        <p class="section-desc">Qindows is designed as a radial, capability-based ecosystem. The most sensitive data
+          resides at the core; the user interface is the reactive skin.</p>
+      </div>
+
+      <div class="arch-stack reveal">
+        <div class="arch-layer" data-layer="5" style="--layer-color: #06d6a0;">
+          <div class="arch-layer-ring"></div>
+          <div class="arch-layer-info">
+            <span class="arch-label">User</span>
+            <h3>Aether / Q-Shell</h3>
+            <p>Direct Intent Interface — GPU-resident vector compositor and semantic command palette</p>
+          </div>
+        </div>
+        <div class="arch-layer" data-layer="4" style="--layer-color: #118ab2;">
+          <div class="arch-layer-ring"></div>
+          <div class="arch-layer-info">
+            <span class="arch-label">Logic</span>
+            <h3>Q-Silos</h3>
+            <p>Isolated Execution Environments — hardware-enforced sandboxes for every process</p>
+          </div>
+        </div>
+        <div class="arch-layer" data-layer="3" style="--layer-color: #7b2ff7;">
+          <div class="arch-layer-ring"></div>
+          <div class="arch-layer-info">
+            <span class="arch-label">Intelligence</span>
+            <h3>Sentinel / Synapse</h3>
+            <p>Law Enforcement & Neural Mapping — AI auditor and BCI integration</p>
+          </div>
+        </div>
+        <div class="arch-layer" data-layer="2" style="--layer-color: #ef476f;">
+          <div class="arch-layer-ring"></div>
+          <div class="arch-layer-info">
+            <span class="arch-label">Storage</span>
+            <h3>Prism Graph</h3>
+            <p>Immutable Object Memory — content-addressable, globally deduplicated</p>
+          </div>
+        </div>
+        <div class="arch-layer" data-layer="1" style="--layer-color: #ffd166;">
+          <div class="arch-layer-ring"></div>
+          <div class="arch-layer-info">
+            <span class="arch-label">Foundation</span>
+            <h3>Qernel (Rust)</h3>
+            <p>Minimal Resource Dispatcher — scheduling, IPC, memory mapping in Ring 0</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QERNEL ============ -->
+  <section id="qernel" class="section section-dark">
+    <div class="container">
+      <div class="split-layout">
+        <div class="split-text reveal">
+          <span class="section-tag">Foundation Layer</span>
+          <h2 class="section-title">The Qernel<br><span class="gradient-text">Memory-Safe. Minimal. Rust.</span></h2>
+          <p>Unlike hybrid kernels, the Qernel operates on a Zero-Trust microkernel principle. Only the absolute minimum
+            — scheduling, IPC, and memory mapping — runs in Ring 0. All drivers and services are hosted in isolated
+            User-Mode Silos.</p>
+          <div class="feature-pills">
+            <div class="pill">
+              <span class="pill-icon">🛡️</span>
+              <div>
+                <strong>70% fewer exploits</strong>
+                <span>Rust eliminates buffer overflows at compile-time</span>
+              </div>
+            </div>
+            <div class="pill">
+              <span class="pill-icon">⚡</span>
+              <div>
+                <strong>&lt;10ms driver recovery</strong>
+                <span>Sentinel restarts crashed drivers without interruption</span>
+              </div>
+            </div>
+            <div class="pill">
+              <span class="pill-icon">🔄</span>
+              <div>
+                <strong>Async Q-Ring IPC</strong>
+                <span>Ring-buffered syscalls — 50 requests in one kernel trip</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="split-code reveal">
+          <div class="code-window">
+            <div class="code-header">
+              <div class="code-dots"><span></span><span></span><span></span></div>
+              <span class="code-filename">qernel/src/main.rs</span>
+            </div>
+            <pre class="code-body"><code><span class="kw">#![no_std]</span>
+<span class="kw">#![no_main]</span>
+
+<span class="kw">use</span> core::panic::PanicInfo;
+
+<span class="cm">/// The Qernel Entry Point</span>
+<span class="at">#[no_mangle]</span>
+<span class="kw">pub extern</span> <span class="st">"C"</span> <span class="kw">fn</span> <span class="fn">_start</span>() -> <span class="ty">!</span> {
+    <span class="cm">// 1. Memory — know where data lives</span>
+    <span class="kw">let mut</span> mm = <span class="ty">QMemoryManager</span>::init();
+
+    <span class="cm">// 2. Interrupts — react to hardware</span>
+    interrupts::init_idt();
+
+    <span class="cm">// 3. Aether — visual root</span>
+    <span class="kw">let mut</span> gpu = <span class="ty">AetherFrameBuffer</span>::new(
+        <span class="num">0xE0000000</span>, <span class="num">1920</span>, <span class="num">1080</span>
+    );
+    gpu.clear(<span class="num">0x000000</span>);
+
+    <span class="cm">// 4. Sentinel — law enforcement</span>
+    <span class="kw">let</span> sentinel = <span class="ty">Fiber</span>::new(sentinel_main);
+    <span class="ty">Q_SCHEDULER</span>.pin_to_core(sentinel, <span class="num">1</span>);
+
+    q_print!(<span class="st">"Qindows Qernel v1.0 Online."</span>);
+
+    <span class="kw">loop</span> { x86_64::instructions::hlt(); }
+}</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PRISM ============ -->
+  <section id="prism" class="section">
+    <div class="container">
+      <div class="split-layout split-reverse">
+        <div class="split-text reveal">
+          <span class="section-tag">Storage Layer</span>
+          <h2 class="section-title">Prism Object Graph<br><span class="gradient-text">The Death of the Folder.</span>
+          </h2>
+          <p>Qindows replaces hierarchical file systems and the Registry with the Prism Object Graph. Every file, email,
+            and message is a Semantic Object in a multi-dimensional graph — found by meaning, not by name.</p>
+          <div class="feature-pills">
+            <div class="pill">
+              <span class="pill-icon">🔗</span>
+              <div>
+                <strong>Content-Addressable</strong>
+                <span>Data stored by cryptographic hash — global deduplication</span>
+              </div>
+            </div>
+            <div class="pill">
+              <span class="pill-icon">⏳</span>
+              <div>
+                <strong>Immutable & Versioned</strong>
+                <span>Every change creates a Shadow Object — instant time travel</span>
+              </div>
+            </div>
+            <div class="pill">
+              <span class="pill-icon">🧠</span>
+              <div>
+                <strong>Semantic Search</strong>
+                <span>"Show me the contract from Sarah" — finds by context, not filename</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="split-code reveal">
+          <div class="code-window">
+            <div class="code-header">
+              <div class="code-dots"><span></span><span></span><span></span></div>
+              <span class="code-filename">qernel/src/prism/resolve.rs</span>
+            </div>
+            <pre class="code-body"><code><span class="cm">/// The "Hello World" of Qindows Storage</span>
+<span class="kw">pub fn</span> <span class="fn">q_resolve_intent</span>(
+    identity: &amp;<span class="ty">AuthToken</span>,
+    query:    &amp;<span class="ty">str</span>,
+    limit:    <span class="ty">u32</span>,
+) -> <span class="ty">Result</span>&lt;<span class="ty">Vec</span>&lt;<span class="ty">ObjectHandle</span>&gt;, <span class="ty">QError</span>&gt; {
+
+    <span class="cm">// Semantic query — not a path lookup</span>
+    <span class="kw">let</span> results = <span class="ty">Prism</span>::query(query)
+        .with_context(<span class="ty">Context</span>::ActiveSession)
+        .filter_by_capability(identity)?;
+
+    <span class="cm">// Returns Handles, not file paths</span>
+    <span class="ty">Ok</span>(results)
+}
+
+<span class="cm">// Q-Node: 4KB metadata, always in L3 cache</span>
+<span class="kw">pub struct</span> <span class="ty">QNode</span> {
+    oid:         <span class="ty">u256</span>,  <span class="cm">// Cryptographic hash</span>
+    entropy_key: <span class="ty">Key</span>,   <span class="cm">// Unique encryption</span>
+    vector_hash: <span class="ty">Vec3</span>,  <span class="cm">// AI similarity vector</span>
+    lineage:     <span class="ty">OID</span>,   <span class="cm">// Parent version pointer</span>
+}</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ AETHER ============ -->
+  <section id="aether" class="section section-dark">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-tag">Visual Layer</span>
+        <h2 class="section-title">Aether Compositor<br><span class="gradient-text">Pure GPU. Zero Lag. Infinite
+            Resolution.</span></h2>
+        <p class="section-desc">Aether discards pixel-based bitmaps for Signed Distance Fields. Every button, icon, and
+          font is a mathematical formula executed on the GPU. The result: sub-2ms visual latency and perfect scaling
+          from smartwatches to 16K spatial displays.</p>
+      </div>
+
+      <div class="aether-grid reveal">
+        <div class="aether-card aether-card-wide">
+          <div class="aether-card-icon">
+            <svg viewBox="0 0 48 48" fill="none">
+              <circle cx="24" cy="24" r="20" stroke="url(#g1)" stroke-width="2" />
+              <path d="M16 24h16M24 16v16" stroke="url(#g1)" stroke-width="2" stroke-linecap="round" />
+              <defs>
+                <linearGradient id="g1" x1="0" y1="0" x2="48" y2="48">
+                  <stop stop-color="#06d6a0" />
+                  <stop offset="1" stop-color="#118ab2" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <h3>Zero-Copy Scanout</h3>
+          <p>Application frames map directly to display controllers. The GPU reads from the app's memory — no CPU
+            copying, no DWM overhead. This is "Zero-Lag" rendering applied to every window.</p>
+        </div>
+        <div class="aether-card">
+          <div class="aether-card-icon">
+            <svg viewBox="0 0 48 48" fill="none">
+              <rect x="8" y="8" width="32" height="32" rx="8" stroke="url(#g2)" stroke-width="2" />
+              <path d="M18 24l4 4 8-8" stroke="url(#g2)" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <defs>
+                <linearGradient id="g2" x1="8" y1="8" x2="40" y2="40">
+                  <stop stop-color="#7b2ff7" />
+                  <stop offset="1" stop-color="#ef476f" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <h3>SDF Rendering</h3>
+          <p>Every UI element is a mathematical formula executed on the GPU. Perfect at any resolution — no blurred
+            icons, ever.</p>
+        </div>
+        <div class="aether-card">
+          <div class="aether-card-icon">
+            <svg viewBox="0 0 48 48" fill="none">
+              <path d="M12 36V20l12-8 12 8v16" stroke="url(#g3)" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M20 36v-8h8v8" stroke="url(#g3)" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <defs>
+                <linearGradient id="g3" x1="12" y1="12" x2="36" y2="36">
+                  <stop stop-color="#ffd166" />
+                  <stop offset="1" stop-color="#ef476f" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <h3>Q-Glass Material</h3>
+          <p>Real-time ray-traced transparency. Light refracts through window "glass" surfaces — not hacked on top.</p>
+        </div>
+        <div class="aether-card">
+          <div class="aether-card-icon">
+            <svg viewBox="0 0 48 48" fill="none">
+              <circle cx="24" cy="24" r="16" stroke="url(#g4)" stroke-width="2" stroke-dasharray="4 4" />
+              <circle cx="24" cy="24" r="6" fill="url(#g4)" />
+              <defs>
+                <linearGradient id="g4" x1="8" y1="8" x2="40" y2="40">
+                  <stop stop-color="#06d6a0" />
+                  <stop offset="1" stop-color="#7b2ff7" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <h3>Predictive Input</h3>
+          <p>ML-driven cursor prediction hides sensor latency. The cursor never trails — even at 540Hz.</p>
+        </div>
+        <div class="aether-card aether-card-wide">
+          <div class="aether-card-icon">
+            <svg viewBox="0 0 48 48" fill="none">
+              <path d="M8 24c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="url(#g5)" stroke-width="2"
+                stroke-linecap="round" />
+              <path d="M14 24c0-5.523 4.477-10 10-10s10 4.477 10 10" stroke="url(#g5)" stroke-width="2"
+                stroke-linecap="round" />
+              <circle cx="24" cy="24" r="3" fill="url(#g5)" />
+              <defs>
+                <linearGradient id="g5" x1="8" y1="8" x2="40" y2="40">
+                  <stop stop-color="#118ab2" />
+                  <stop offset="1" stop-color="#ffd166" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <h3>Q-Sync Dynamic Refresh</h3>
+          <p>Independent per-window refresh rates. A 144Hz video beside a static document — Aether only refreshes pixels
+            that change. Asynchronous Timewarp shifts the desktop image based on the latest micro-input, even before the
+            next frame renders.</p>
+        </div>
+      </div>
+
+      <!-- Aether shader -->
+      <div class="code-window code-window-centered reveal">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-filename">aether_core.frag — GPU Shader</span>
+        </div>
+        <pre class="code-body"><code><span class="kw">float</span> <span class="fn">draw_rounded_rect</span>(<span class="ty">vec2</span> p, <span class="ty">vec2</span> b, <span class="kw">float</span> r) {
+    <span class="ty">vec2</span> d = <span class="fn">abs</span>(p) - b + r;
+    <span class="kw">return</span> <span class="fn">min</span>(<span class="fn">max</span>(d.x, d.y), <span class="num">0.0</span>) + <span class="fn">length</span>(<span class="fn">max</span>(d, <span class="num">0.0</span>)) - r;
+}
+
+<span class="kw">void</span> <span class="fn">main</span>() {
+    <span class="kw">float</span> dist = <span class="fn">draw_rounded_rect</span>(pixel_coords, window_size, <span class="num">20.0</span>);
+    <span class="kw">if</span> (dist < <span class="num">0.0</span>) {
+        <span class="ty">vec4</span> bg = <span class="fn">texture</span>(screen_backdrop, pixel_coords);
+        FragColor = <span class="fn">mix</span>(bg, <span class="ty">vec4</span>(<span class="num">0.1</span>, <span class="num">0.1</span>, <span class="num">0.1</span>, <span class="num">0.8</span>), <span class="num">0.5</span>);
+    }  <span class="cm">// 80% Frosted Glass — zero CPU involvement</span>
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ADVANCED SUBSYSTEMS ============ -->
+  <section id="subsystems" class="section">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-tag">Advanced Subsystems</span>
+        <h2 class="section-title">Intelligence Layer<br><span class="gradient-text">Neural. Secure.
+            Legacy-Compatible.</span></h2>
+      </div>
+
+      <div class="subsystem-grid">
+        <!-- Sentinel -->
+        <div class="subsystem-card reveal" style="--accent: #ef476f;">
+          <div class="subsystem-icon">
+            <svg viewBox="0 0 40 40" fill="none">
+              <path d="M20 4L34 12v8c0 8.837-6 15-14 18C12 35 6 28.837 6 20v-8L20 4z" stroke="currentColor"
+                stroke-width="2" />
+              <path d="M15 20l3 3 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </div>
+          <h3>The Sentinel</h3>
+          <p class="subsystem-role">Kernel-Level AI Auditor</p>
+          <p>Monitors the "Health Score" of every Silo. Enforces the 10 Laws of the Q-Manifest. Vaporizes any process
+            exhibiting malicious patterns or unauthorized energy drain — in microseconds.</p>
+          <div class="subsystem-stats">
+            <div><strong>1ms</strong><span>Monitor cycle</span></div>
+            <div><strong>100%</strong><span>Law coverage</span></div>
+          </div>
+        </div>
+
+        <!-- Q-Synapse -->
+        <div class="subsystem-card reveal" style="--accent: #7b2ff7;">
+          <div class="subsystem-icon">
+            <svg viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="16" stroke="currentColor" stroke-width="2" />
+              <circle cx="20" cy="20" r="6" stroke="currentColor" stroke-width="2" />
+              <path d="M20 4v6M20 30v6M4 20h6M30 20h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </div>
+          <h3>Q-Synapse</h3>
+          <p class="subsystem-role">Neural Integration (BCI)</p>
+          <p>Maps brain-computer interfaces directly to the Q-Shell. Translates neural patterns into Semantic Intent
+            Vectors. Thought-to-Action execution with ~5ms latency — bypassing the motor cortex entirely.</p>
+          <div class="subsystem-stats">
+            <div><strong>~5ms</strong><span>Neural latency</span></div>
+            <div><strong>NPU</strong><span>Signal filtering</span></div>
+          </div>
+        </div>
+
+        <!-- Chimera Bridge -->
+        <div class="subsystem-card reveal" style="--accent: #118ab2;">
+          <div class="subsystem-icon">
+            <svg viewBox="0 0 40 40" fill="none">
+              <rect x="4" y="4" width="14" height="14" rx="3" stroke="currentColor" stroke-width="2" />
+              <rect x="22" y="22" width="14" height="14" rx="3" stroke="currentColor" stroke-width="2" />
+              <path d="M18 11h4v18h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </div>
+          <h3>Chimera Bridge</h3>
+          <p class="subsystem-role">Legacy Win32/64 Support</p>
+          <p>System Call Translation — not emulation. Legacy binaries run in specialized Silos. GDI/DirectX calls are
+            intercepted and mapped to Aether Vector Shaders in real-time. Your old software gets rounded corners and
+            144Hz scrolling for free.</p>
+          <div class="subsystem-stats">
+            <div><strong>0%</strong><span>Residue on uninstall</span></div>
+            <div><strong>Native</strong><span>GPU speed</span></div>
+          </div>
+        </div>
+
+        <!-- Q-Silo -->
+        <div class="subsystem-card reveal" style="--accent: #06d6a0;">
+          <div class="subsystem-icon">
+            <svg viewBox="0 0 40 40" fill="none">
+              <rect x="6" y="10" width="28" height="20" rx="4" stroke="currentColor" stroke-width="2" />
+              <path d="M6 16h28M14 16v14M26 16v14" stroke="currentColor" stroke-width="2" />
+            </svg>
+          </div>
+          <h3>Q-Silos</h3>
+          <p class="subsystem-role">Hardware-Enforced Sandboxes</p>
+          <p>Every process runs in a unique Address Space. Apps see nothing by default — no file system, no network, no
+            user identity. Capabilities are granted just-in-time via cryptographic tokens. Crash-proof by design.</p>
+          <div class="subsystem-stats">
+            <div><strong>Zero</strong><span>Ambient authority</span></div>
+            <div><strong>HW</strong><span>Memory isolation</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PERFORMANCE COMPARISON ============ -->
+  <section class="section section-dark">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-tag">Benchmarks</span>
+        <h2 class="section-title">The Numbers Don't Lie.<br><span class="gradient-text">Qindows vs. Legacy.</span></h2>
+      </div>
+
+      <div class="perf-table reveal">
+        <div class="perf-row perf-header">
+          <span>Metric</span>
+          <span>Legacy OS (2026)</span>
+          <span>Qindows</span>
+        </div>
+        <div class="perf-row">
+          <span class="perf-metric">Cold Boot Time</span>
+          <span class="perf-legacy">12 – 20 seconds</span>
+          <span class="perf-qindows">&lt; 1.5 seconds</span>
+          <div class="perf-bar">
+            <div class="perf-bar-fill" data-width="8"></div>
+          </div>
+        </div>
+        <div class="perf-row">
+          <span class="perf-metric">Input Latency</span>
+          <span class="perf-legacy">15 – 40ms</span>
+          <span class="perf-qindows">&lt; 2ms</span>
+          <div class="perf-bar">
+            <div class="perf-bar-fill" data-width="5"></div>
+          </div>
+        </div>
+        <div class="perf-row">
+          <span class="perf-metric">Idle RAM</span>
+          <span class="perf-legacy">~4GB</span>
+          <span class="perf-qindows">~450MB</span>
+          <div class="perf-bar">
+            <div class="perf-bar-fill" data-width="11"></div>
+          </div>
+        </div>
+        <div class="perf-row">
+          <span class="perf-metric">Update Method</span>
+          <span class="perf-legacy">Reboot Required</span>
+          <span class="perf-qindows">Atomic Hot-Swap</span>
+          <div class="perf-bar">
+            <div class="perf-bar-fill" data-width="100"></div>
+          </div>
+        </div>
+        <div class="perf-row">
+          <span class="perf-metric">Security Model</span>
+          <span class="perf-legacy">ACL (User-based)</span>
+          <span class="perf-qindows">Capability (Object-based)</span>
+          <div class="perf-bar">
+            <div class="perf-bar-fill" data-width="85"></div>
+          </div>
+        </div>
+        <div class="perf-row">
+          <span class="perf-metric">Rendering</span>
+          <span class="perf-legacy">CPU-Assisted Bitmaps</span>
+          <span class="perf-qindows">GPU-Shaded Vectors</span>
+          <div class="perf-bar">
+            <div class="perf-bar-fill" data-width="70"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GLOBAL MESH ============ -->
+  <section id="mesh" class="section">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-tag">The Nexus</span>
+        <h2 class="section-title">The Global Mesh<br><span class="gradient-text">7.4 Billion Nodes. One
+            Supercomputer.</span></h2>
+        <p class="section-desc">Every Qindows device on Earth contributes idle CPU, GPU, and NPU cycles to a shared
+          planetary pool. Local drives are a redundant concept. The network is the computer.</p>
+      </div>
+
+      <div class="mesh-features reveal">
+        <div class="mesh-feature">
+          <div class="mesh-feature-num">01</div>
+          <h3>Elastic Rendering</h3>
+          <p>When local GPU hits thermal limits, Aether performs a Compute Handover to a Q-Server. The local device
+            sends the Vector Scene Graph — not pixels. Cloud renders geometry; local handles scanout. Zero perceived
+            latency.</p>
+        </div>
+        <div class="mesh-feature">
+          <div class="mesh-feature-num">02</div>
+          <h3>Distributed Fibers</h3>
+          <p>Massive tasks shatter into millions of tiny Fibers auctioned across the mesh. While you sleep, your laptop
+            processes climate models — earning Q-Credits. Guest code runs in silos with zero access to your data.</p>
+        </div>
+        <div class="mesh-feature">
+          <div class="mesh-feature-num">03</div>
+          <h3>Universal Namespace</h3>
+          <p>Objects are "smeared" across the mesh for 100% availability. Two users downloading the same update? The
+            first user's node serves the bits. Global bandwidth waste drops 90%.</p>
+        </div>
+        <div class="mesh-feature">
+          <div class="mesh-feature-num">04</div>
+          <h3>Planetary Immunity</h3>
+          <p>When a node in Australia detects a new exploit, the Sentinel creates a Digital Antibody. Within 300ms,
+            every Qindows device on Earth is immunized. The mesh is a self-healing organism.</p>
+        </div>
+      </div>
+
+      <div class="code-window code-window-centered reveal">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-filename">Q-Shell — Genesis Protocol</span>
+        </div>
+        <pre class="code-body"><code><span class="cm"># Initiating the Global Mesh</span>
+<span class="fn">q_nexus</span> --initiate:genesis_protocol
+
+<span class="st">[OK]</span> Calibrating Global Clock (PTP-Sync)...
+<span class="st">[OK]</span> Establishing 1.2M initial Peer-Nodes...
+<span class="st">[OK]</span> Mapping Global Prism Object-Graph...
+<span class="st">[OK]</span> Sentinel Law Enforcement: <span class="kw">ACTIVE</span>.
+
+<span class="fn">[GENESIS]</span> <span class="gradient-text-inline">THE MESH IS ALIVE.</span></code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Q-MANIFEST ============ -->
+  <section id="manifest" class="section section-dark">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-tag">The Q-Manifest</span>
+        <h2 class="section-title">10 Laws.<br><span class="gradient-text">Hardware-Enforced.</span></h2>
+        <p class="section-desc">These aren't guidelines — they're compiled into the Qernel. Any violation triggers a
+          General Protection Fault, and the offending Silo is instantly vaporized.</p>
+      </div>
+
+      <div class="manifest-grid reveal">
+        <div class="manifest-law">
+          <span class="law-num">I</span>
+          <h4>Zero-Ambient Authority</h4>
+          <p>Apps launch with zero permissions. Access requires explicit user-granted Object Tokens.</p>
+        </div>
+        <div class="manifest-law">
+          <span class="law-num">II</span>
+          <h4>Immutable Binaries</h4>
+          <p>Read-only, content-addressable blobs. No self-modifying code. No DLL Hell.</p>
+        </div>
+        <div class="manifest-law">
+          <span class="law-num">III</span>
+          <h4>Asynchronous Everything</h4>
+          <p>Synchronous I/O is deprecated. All calls flow through the Q-Ring submission queues.</p>
+        </div>
+        <div class="manifest-law">
+          <span class="law-num">IV</span>
+          <h4>Vector Native UI</h4>
+          <p>Bitmaps are forbidden. All UI defined as SDF or mathematical paths.</p>
+        </div>
+        <div class="manifest-law">
+          <span class="law-num">V</span>
+          <h4>Global Deduplication</h4>
+          <p>Shared libraries stored once. The Prism handles pointer-level mapping.</p>
+        </div>
+        <div class="manifest-law">
+          <span class="law-num">VI</span>
+          <h4>Silo Sandbox</h4>
+          <p>Every app in a hardware-isolated domain. No shared registry. Zero residue.</p>
+        </div>
+        <div class="manifest-law">
+          <span class="law-num">VII</span>
+          <h4>Telemetry Transparency</h4>
+          <p>No silent network calls. Real-time Traffic Flow visualizer in the Aether status bar.</p>
+        </div>
+        <div class="manifest-law">
+          <span class="law-num">VIII</span>
+          <h4>Energy Proportionality</h4>
+          <p>Background processes without Active Task tokens are deep-slept by the Sentinel.</p>
+        </div>
+        <div class="manifest-law">
+          <span class="law-num">IX</span>
+          <h4>Universal Namespace</h4>
+          <p>Apps must not care where data lives. Request an OID; the Qernel handles transport.</p>
+        </div>
+        <div class="manifest-law">
+          <span class="law-num">X</span>
+          <h4>Graceful Degradation</h4>
+          <p>Offline-first. Apps must function using cached Shadow Objects from the Prism.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Q-SHELL ============ -->
+  <section class="section">
+    <div class="container">
+      <div class="split-layout">
+        <div class="split-text reveal">
+          <span class="section-tag">God Mode</span>
+          <h2 class="section-title">Q-Shell<br><span class="gradient-text">Pipe Objects, Not Text.</span></h2>
+          <p>The Q-Shell doesn't pipe strings — it pipes <strong>Live Objects</strong>. Semantic flows replace regex.
+            The terminal is integrated with the Aether compositor: hover a filename and get a live vector preview. Drag
+            from Prism into the shell and it auto-resolves to an O-ID.</p>
+          <div class="feature-pills">
+            <div class="pill">
+              <span class="pill-icon">🔀</span>
+              <div>
+                <strong>The ~> Flow Operator</strong>
+                <span>Asynchronous, object-aware reactive pipelines</span>
+              </div>
+            </div>
+            <div class="pill">
+              <span class="pill-icon">🔐</span>
+              <div>
+                <strong>Temporal Escalation</strong>
+                <span>Scoped admin — "Grant Disk-Write for 5 minutes?"</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="split-code reveal">
+          <div class="code-window">
+            <div class="code-header">
+              <div class="code-dots"><span></span><span></span><span></span></div>
+              <span class="code-filename">Q-Shell — Semantic Flow</span>
+            </div>
+            <pre class="code-body"><code><span class="cm"># Find all invoices and summarize to CSV</span>
+<span class="fn">prism find</span> <span class="st">"Invoices 2025"</span> \
+  <span class="kw">~></span> <span class="fn">q_analyze</span> summarize --format:csv \
+  <span class="kw">~></span> <span class="fn">vault</span> export:desktop
+
+<span class="cm"># Send a 3D model to a colleague's tablet</span>
+<span class="fn">prism get</span> <span class="st">"Engine_Model_v4"</span> \
+  <span class="kw">~></span> <span class="fn">net mesh</span>:sarah_tablet \
+  <span class="kw">~></span> <span class="fn">q_notify</span> <span class="st">"Here is the model"</span>
+
+<span class="cm"># View mesh contribution stats</span>
+<span class="fn">mesh status</span>
+<span class="st">Node #7,402,194,821 | Uptime: 14d 3h
+Credits earned: 4,291 | Fibers processed: 1.2M</span></code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GENESIS FOOTER ============ -->
+  <section class="section-genesis">
+    <div class="container">
+      <div class="genesis-content reveal">
+        <div class="genesis-badge">
+          <span class="badge-dot badge-dot-live"></span>
+          GENESIS PROTOCOL ACTIVE
+        </div>
+        <h2 class="genesis-title">
+          Windows has ended.<br>
+          <span class="gradient-text">Qindows has begun.</span>
+        </h2>
+        <p class="genesis-subtitle">The Global Mesh is now 100% operational.<br>Welcome to the Final Operating System.
+        </p>
+        <button id="genesis-start-btn" class="btn btn-primary btn-start btn-start-lg">
+          <span>Start Your Journey</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </button>
+        <div class="genesis-terminal">
+          <div class="terminal-line" data-delay="0">
+            <span class="terminal-prompt">qernel@genesis ~</span>
+            <span class="terminal-cmd" id="genesis-cmd">q_nexus --initiate:genesis_protocol</span>
+          </div>
+          <div class="terminal-line" data-delay="800">
+            <span class="terminal-ok">[OK]</span> Calibrating Global Clock (PTP-Sync)...
+          </div>
+          <div class="terminal-line" data-delay="1600">
+            <span class="terminal-ok">[OK]</span> Establishing 1.2M initial Peer-Nodes...
+          </div>
+          <div class="terminal-line" data-delay="2400">
+            <span class="terminal-ok">[OK]</span> Mapping Global Prism Object-Graph...
+          </div>
+          <div class="terminal-line" data-delay="3200">
+            <span class="terminal-ok">[OK]</span> Sentinel Law Enforcement: ACTIVE.
+          </div>
+          <div class="terminal-line terminal-genesis" data-delay="4000">
+            <span>[GENESIS]</span> THE MESH IS ALIVE.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="logo-q">Q</span><span class="logo-rest">indows</span>
+        <p>The Final Operating System · v1.0.0 Genesis Alpha</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Architecture</h4>
+          <a href="#qernel">Qernel</a>
+          <a href="#prism">Prism</a>
+          <a href="#aether">Aether</a>
+        </div>
+        <div class="footer-col">
+          <h4>Systems</h4>
+          <a href="#subsystems">Sentinel</a>
+          <a href="#subsystems">Q-Synapse</a>
+          <a href="#subsystems">Chimera</a>
+        </div>
+        <div class="footer-col">
+          <h4>Network</h4>
+          <a href="#mesh">Global Mesh</a>
+          <a href="#manifest">Q-Manifest</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>© 2026 Qindows Project · The Global Mesh is now active.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============ REGISTRATION MODAL ============ -->
+  <div id="reg-modal" class="reg-modal" aria-hidden="true">
+    <div class="reg-backdrop"></div>
+    <div class="reg-dialog">
+      <button id="reg-close" class="reg-close" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+      </button>
+
+      <!-- Progress Bar -->
+      <div class="reg-progress">
+        <div class="reg-progress-fill" id="reg-progress-fill"></div>
+      </div>
+
+      <!-- === STEP 1: Info === -->
+      <div class="reg-step" id="reg-step-1">
+        <div class="reg-step-header">
+          <span class="reg-step-tag">Step 1 of 3</span>
+          <h3 class="reg-step-title">Join the <span class="gradient-text">Genesis</span></h3>
+          <p class="reg-step-desc">Be among the first to experience the Final Operating System.</p>
+        </div>
+
+        <div class="reg-form">
+          <div class="reg-field">
+            <label for="reg-name">How shall we call you?</label>
+            <input type="text" id="reg-name" placeholder="Your name" autocomplete="name" required>
+          </div>
+
+          <div class="reg-field">
+            <label for="reg-contact">How shall we connect with you?</label>
+            <input type="text" id="reg-contact" placeholder="Email or phone number" required>
+          </div>
+
+          <div class="reg-field">
+            <label>What will you run Qindows on?</label>
+            <div class="reg-cards" id="reg-usage-cards">
+              <button class="reg-card" data-value="Desktop">
+                <svg viewBox="0 0 32 32" fill="none">
+                  <rect x="4" y="4" width="24" height="16" rx="2" stroke="currentColor" stroke-width="1.5" />
+                  <path d="M10 24h12M16 20v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+                <span>Desktop</span>
+              </button>
+              <button class="reg-card" data-value="Laptop">
+                <svg viewBox="0 0 32 32" fill="none">
+                  <rect x="6" y="6" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5" />
+                  <path d="M2 24h28" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+                <span>Laptop</span>
+              </button>
+              <button class="reg-card" data-value="Server">
+                <svg viewBox="0 0 32 32" fill="none">
+                  <rect x="6" y="4" width="20" height="8" rx="2" stroke="currentColor" stroke-width="1.5" />
+                  <rect x="6" y="16" width="20" height="8" rx="2" stroke="currentColor" stroke-width="1.5" />
+                  <circle cx="22" cy="8" r="1" fill="currentColor" />
+                  <circle cx="22" cy="20" r="1" fill="currentColor" />
+                </svg>
+                <span>Server</span>
+              </button>
+              <button class="reg-card" data-value="Tablet">
+                <svg viewBox="0 0 32 32" fill="none">
+                  <rect x="6" y="2" width="20" height="28" rx="3" stroke="currentColor" stroke-width="1.5" />
+                  <circle cx="16" cy="26" r="1.5" stroke="currentColor" stroke-width="1" />
+                </svg>
+                <span>Tablet</span>
+              </button>
+              <button class="reg-card" data-value="Mobile">
+                <svg viewBox="0 0 32 32" fill="none">
+                  <rect x="8" y="2" width="16" height="28" rx="3" stroke="currentColor" stroke-width="1.5" />
+                  <path d="M13 26h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+                <span>Mobile</span>
+              </button>
+              <button class="reg-card" data-value="IoT">
+                <svg viewBox="0 0 32 32" fill="none">
+                  <circle cx="16" cy="16" r="4" stroke="currentColor" stroke-width="1.5" />
+                  <path d="M16 4v4M16 24v4M4 16h4M24 16h4M7.5 7.5l3 3M21.5 21.5l3 3M7.5 24.5l3-3M21.5 10.5l3-3"
+                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+                <span>IoT</span>
+              </button>
+              <button class="reg-card" data-value="AR/VR">
+                <svg viewBox="0 0 32 32" fill="none">
+                  <path d="M4 12c0-2 2-4 4-4h16c2 0 4 2 4 4v8c0 2-2 4-4 4h-3l-2 2h-6l-2-2H8c-2 0-4-2-4-4v-8z"
+                    stroke="currentColor" stroke-width="1.5" />
+                  <circle cx="12" cy="16" r="3" stroke="currentColor" stroke-width="1" />
+                  <circle cx="20" cy="16" r="3" stroke="currentColor" stroke-width="1" />
+                </svg>
+                <span>AR / VR</span>
+              </button>
+              <button class="reg-card" data-value="Embedded">
+                <svg viewBox="0 0 32 32" fill="none">
+                  <rect x="6" y="6" width="20" height="20" rx="2" stroke="currentColor" stroke-width="1.5" />
+                  <rect x="12" y="12" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1" />
+                  <path d="M4 12h2M4 20h2M26 12h2M26 20h2M12 4v2M20 4v2M12 26v2M20 26v2" stroke="currentColor"
+                    stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+                <span>Embedded</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="reg-field">
+            <label for="reg-interest">What excites you most about Qindows?</label>
+            <textarea id="reg-interest" placeholder="Vector-native UI, zero-trust security, the Global Mesh..."
+              rows="3"></textarea>
+          </div>
+        </div>
+
+        <button id="reg-next-1" class="btn btn-primary reg-next" disabled>
+          <span>Continue to Verification</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- === STEP 2: OTP Verification === -->
+      <div class="reg-step reg-step-hidden" id="reg-step-2">
+        <div class="reg-step-header">
+          <span class="reg-step-tag">Step 2 of 3</span>
+          <h3 class="reg-step-title">Verify Your <span class="gradient-text">Identity</span></h3>
+          <p class="reg-step-desc" id="otp-desc">We've sent a 6-digit code to your contact.</p>
+        </div>
+
+        <div class="otp-container">
+          <div class="otp-icon" id="otp-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <rect x="6" y="10" width="36" height="28" rx="4" stroke="url(#otpg)" stroke-width="2" />
+              <path d="M6 18l18 10 18-10" stroke="url(#otpg)" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <defs>
+                <linearGradient id="otpg" x1="6" y1="10" x2="42" y2="38">
+                  <stop stop-color="#06d6a0" />
+                  <stop offset="1" stop-color="#118ab2" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="otp-inputs" id="otp-inputs">
+            <input type="text" maxlength="1" class="otp-digit" data-idx="0" inputmode="numeric"
+              autocomplete="one-time-code">
+            <input type="text" maxlength="1" class="otp-digit" data-idx="1" inputmode="numeric">
+            <input type="text" maxlength="1" class="otp-digit" data-idx="2" inputmode="numeric">
+            <span class="otp-sep">—</span>
+            <input type="text" maxlength="1" class="otp-digit" data-idx="3" inputmode="numeric">
+            <input type="text" maxlength="1" class="otp-digit" data-idx="4" inputmode="numeric">
+            <input type="text" maxlength="1" class="otp-digit" data-idx="5" inputmode="numeric">
+          </div>
+          <p class="otp-hint">Didn't receive it? <button class="otp-resend" id="otp-resend">Resend code</button></p>
+        </div>
+
+        <button id="reg-verify" class="btn btn-primary reg-next" disabled>
+          <span>Verify</span>
+        </button>
+        <div class="reg-verifying" id="reg-verifying" style="display:none;">
+          <div class="reg-spinner"></div>
+          <span>Verifying your identity...</span>
+        </div>
+      </div>
+
+      <!-- === STEP 3: Success === -->
+      <div class="reg-step reg-step-hidden" id="reg-step-3">
+        <div class="reg-success">
+          <div class="success-check">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="32" r="28" stroke="url(#sg)" stroke-width="2.5" class="success-circle" />
+              <path d="M20 32l8 8 16-16" stroke="url(#sg)" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round" class="success-tick" />
+              <defs>
+                <linearGradient id="sg" x1="4" y1="4" x2="60" y2="60">
+                  <stop stop-color="#06d6a0" />
+                  <stop offset="0.5" stop-color="#118ab2" />
+                  <stop offset="1" stop-color="#7b2ff7" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <h3 class="reg-step-title">You're <span class="gradient-text">In</span></h3>
+          <p class="reg-step-desc">Welcome, <strong id="success-name">Node</strong>. Your identity has been verified.
+          </p>
+          <div class="success-message">
+            <p>Instructions to start using Qindows will be sent to <strong id="success-contact"></strong> as soon as we
+              go public.</p>
+            <p class="success-node">Your Node ID: <code id="success-node-id"></code></p>
+          </div>
+          <button id="reg-done" class="btn btn-primary">
+            <span>Return to Overview</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/main.js"></script>
+</body>
+
+</html>
