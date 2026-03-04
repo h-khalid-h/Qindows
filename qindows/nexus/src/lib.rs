@@ -19,6 +19,7 @@ pub mod discovery;
 pub mod migration;
 pub mod nat;
 pub mod protocol;
+pub mod reputation;
 pub mod tls;
 pub mod transport;
 

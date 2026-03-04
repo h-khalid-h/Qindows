@@ -16,6 +16,7 @@ extern crate alloc;
 
 pub mod block;
 pub mod btree;
+pub mod btree_iter;
 pub mod changelog;
 pub mod compression;
 pub mod dedup;

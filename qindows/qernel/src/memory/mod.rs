@@ -4,6 +4,7 @@
 //! and the kernel heap. Every allocation produces a Capability Token.
 
 pub mod heap;
+pub mod page_alloc;
 pub mod paging;
 
 use spin::Mutex;
