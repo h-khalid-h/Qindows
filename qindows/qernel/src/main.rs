@@ -16,6 +16,7 @@
 extern crate alloc;
 
 pub mod capability;
+pub mod crypto;
 pub mod drivers;
 pub mod gdt;
 pub mod interrupts;
@@ -24,6 +25,7 @@ pub mod loader;
 pub mod logging;
 pub mod memory;
 pub mod power;
+pub mod profiler;
 pub mod scheduler;
 pub mod sentinel;
 pub mod settings;
