@@ -18,6 +18,7 @@ pub mod block;
 pub mod btree;
 pub mod dedup;
 pub mod journal;
+pub mod snapshot;
 pub mod vfs;
 
 use alloc::string::String;

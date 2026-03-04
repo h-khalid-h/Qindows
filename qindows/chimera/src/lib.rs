@@ -10,6 +10,7 @@
 
 extern crate alloc;
 
+pub mod dll_resolver;
 pub mod pe_loader;
 pub mod win32_api;
 
