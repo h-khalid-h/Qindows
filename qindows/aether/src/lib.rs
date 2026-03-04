@@ -26,6 +26,7 @@ pub mod input;
 pub mod layout;
 pub mod lockscreen;
 pub mod notifications;
+pub mod notif_center;
 pub mod renderer;
 pub mod taskbar;
 pub mod theme;
