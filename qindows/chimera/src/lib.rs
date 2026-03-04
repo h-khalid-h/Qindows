@@ -11,6 +11,7 @@
 extern crate alloc;
 
 pub mod pe_loader;
+pub mod win32_api;
 
 use alloc::string::String;
 use alloc::vec::Vec;

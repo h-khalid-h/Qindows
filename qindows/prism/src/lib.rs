@@ -17,6 +17,7 @@ extern crate alloc;
 pub mod block;
 pub mod btree;
 pub mod journal;
+pub mod vfs;
 
 use alloc::string::String;
 use alloc::vec::Vec;

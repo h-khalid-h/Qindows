@@ -11,4 +11,5 @@ pub mod keyboard;
 pub mod nvme;
 pub mod pci;
 pub mod serial;
+pub mod usb_xhci;
 pub mod virtio_net;
