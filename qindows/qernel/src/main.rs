@@ -21,6 +21,7 @@ pub mod crypto;
 pub mod dma;
 pub mod drivers;
 pub mod elf;
+pub mod framebuffer;
 pub mod gdt;
 pub mod interrupts;
 pub mod ioapic;

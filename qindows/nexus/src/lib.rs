@@ -26,6 +26,7 @@ pub mod protocol;
 pub mod reputation;
 pub mod shaper;
 pub mod tls;
+pub mod websocket;
 pub mod transport;
 
 use alloc::vec::Vec;
