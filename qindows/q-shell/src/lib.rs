@@ -10,6 +10,7 @@
 
 extern crate alloc;
 
+pub mod alias;
 pub mod executor;
 pub mod env;
 pub mod glob;

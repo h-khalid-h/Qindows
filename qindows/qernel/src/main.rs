@@ -38,6 +38,7 @@ pub mod profiler;
 pub mod scheduler;
 pub mod sentinel;
 pub mod settings;
+pub mod smbios;
 pub mod silo;
 pub mod smp;
 pub mod syscall;
