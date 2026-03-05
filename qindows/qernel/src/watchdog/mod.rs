@@ -185,7 +185,7 @@ pub fn check(now_ns: u64) -> bool {
     let last = LAST_PET_NS.load(Ordering::Relaxed);
     let timeout = WATCHDOG_TIMEOUT_NS.load(Ordering::Relaxed);
 
-    if now_ns - last > timeout {
+    if now_ns.saturating_sub(last) > timeout {
         EXPIRATION_COUNT.fetch_add(1, Ordering::Relaxed);
         true
     } else {
