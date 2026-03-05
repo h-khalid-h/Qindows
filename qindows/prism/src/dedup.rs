@@ -189,13 +189,17 @@ impl DedupEngine {
 
     /// Release a chunk reference (for garbage collection).
     pub fn release_chunk(&mut self, hash: &ChunkHash) {
-        if let Some(chunk) = self.index.get_mut(hash) {
-            chunk.ref_count -= 1;
-            if chunk.ref_count == 0 {
-                let size = chunk.size as u64;
-                self.index.remove(hash);
-                self.stats.unique_chunks -= 1;
-                self.stats.physical_bytes -= size;
+        let should_remove = if let Some(chunk) = self.index.get_mut(hash) {
+            chunk.ref_count = chunk.ref_count.saturating_sub(1);
+            chunk.ref_count == 0
+        } else {
+            false
+        };
+
+        if should_remove {
+            if let Some(removed) = self.index.remove(hash) {
+                self.stats.unique_chunks = self.stats.unique_chunks.saturating_sub(1);
+                self.stats.physical_bytes = self.stats.physical_bytes.saturating_sub(removed.size as u64);
             }
         }
     }

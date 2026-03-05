@@ -16,6 +16,33 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 // Local crypto helpers — in the final link these resolve to qernel::crypto
+fn chacha20_block(key: &[u8; 32], nonce: &[u8; 12]) -> [u8; 64] {
+    let mut state = [0u32; 16];
+    state[0] = 0x61707865; state[1] = 0x3320646e;
+    state[2] = 0x79622d32; state[3] = 0x6b206574;
+    for i in 0..8 {
+        state[4 + i] = u32::from_le_bytes([key[i*4], key[i*4+1], key[i*4+2], key[i*4+3]]);
+    }
+    state[12] = 0; // counter=0 for OTK derivation
+    for i in 0..3 {
+        state[13 + i] = u32::from_le_bytes([nonce[i*4], nonce[i*4+1], nonce[i*4+2], nonce[i*4+3]]);
+    }
+    let initial = state;
+    for _ in 0..10 {
+        for (a,b,c,d) in [(0,4,8,12),(1,5,9,13),(2,6,10,14),(3,7,11,15),
+                           (0,5,10,15),(1,6,11,12),(2,7,8,13),(3,4,9,14)] {
+            state[a] = state[a].wrapping_add(state[b]); state[d] ^= state[a]; state[d] = state[d].rotate_left(16);
+            state[c] = state[c].wrapping_add(state[d]); state[b] ^= state[c]; state[b] = state[b].rotate_left(12);
+            state[a] = state[a].wrapping_add(state[b]); state[d] ^= state[a]; state[d] = state[d].rotate_left(8);
+            state[c] = state[c].wrapping_add(state[d]); state[b] ^= state[c]; state[b] = state[b].rotate_left(7);
+        }
+    }
+    for i in 0..16 { state[i] = state[i].wrapping_add(initial[i]); }
+    let mut out = [0u8; 64];
+    for i in 0..16 { out[i*4..i*4+4].copy_from_slice(&state[i].to_le_bytes()); }
+    out
+}
+
 fn chacha20_crypt(key: &[u8; 32], nonce: &[u8; 12], data: &mut [u8]) {
     // ChaCha20 XOR cipher — simplified version matching qernel::crypto interface
     let mut state = [0u32; 16];
@@ -267,12 +294,17 @@ impl EncryptionEngine {
         nonce[..8].copy_from_slice(&oid_bytes);
         nonce[8..12].copy_from_slice(&object_key.generation.to_le_bytes());
 
-        // Encrypt (ChaCha20)
+        // Derive one-time Poly1305 key from ChaCha20 block 0 (RFC 8439 §2.6)
+        let mut otk = [0u8; 32];
+        let block0 = chacha20_block(object_key.as_bytes(), &nonce);
+        otk.copy_from_slice(&block0[..32]);
+
+        // Encrypt (ChaCha20, starting from counter=1)
         let mut ciphertext = data.to_vec();
         chacha20_crypt(object_key.as_bytes(), &nonce, &mut ciphertext);
 
-        // Compute MAC (Poly1305)
-        let tag = poly1305_mac(object_key.as_bytes(), &ciphertext);
+        // Compute MAC using one-time key (Poly1305)
+        let tag = poly1305_mac(&otk, &ciphertext);
 
         self.stats.objects_encrypted += 1;
         self.stats.bytes_encrypted += data.len() as u64;
@@ -304,8 +336,13 @@ impl EncryptionEngine {
 
         let object_key = key.derive_object_key(oid);
 
+        // Derive one-time Poly1305 key from ChaCha20 block 0 (RFC 8439 §2.6)
+        let mut otk = [0u8; 32];
+        let block0 = chacha20_block(object_key.as_bytes(), &blob.nonce);
+        otk.copy_from_slice(&block0[..32]);
+
         // Verify MAC first (authenticate-then-decrypt)
-        let expected_tag = poly1305_mac(object_key.as_bytes(), &blob.ciphertext);
+        let expected_tag = poly1305_mac(&otk, &blob.ciphertext);
         if !constant_time_eq(&expected_tag, &blob.tag) {
             self.stats.auth_failures += 1;
             return Err(CryptoError::AuthenticationFailed);
