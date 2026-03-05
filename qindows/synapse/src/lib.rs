@@ -25,6 +25,7 @@ pub mod rag;
 pub mod voice;
 pub mod neural_enc;
 pub mod qcollab;
+pub mod thought_gate;
 
 use alloc::vec::Vec;
 

@@ -44,6 +44,7 @@ pub mod qsync;
 pub mod intent_ui;
 pub mod widgets;
 pub mod window;
+pub mod elastic;
 
 use alloc::vec::Vec;
 

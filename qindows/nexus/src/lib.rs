@@ -40,6 +40,7 @@ pub mod edge_kernel;
 pub mod sentinel;
 pub mod qfabric;
 pub mod vswitch;
+pub mod qproxy;
 
 use alloc::vec::Vec;
 use alloc::string::String;
