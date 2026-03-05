@@ -25,6 +25,7 @@ pub mod ntdll;
 pub mod acl_bridge;
 pub mod registry_shim;
 pub mod qbridge;
+pub mod usb_host;
 
 use alloc::string::String;
 use alloc::vec::Vec;
