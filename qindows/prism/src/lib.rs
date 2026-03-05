@@ -41,6 +41,7 @@ pub mod qstream;
 pub mod qegistry;
 pub mod shadow_sync;
 pub mod infinite_drive;
+pub mod qaudit;
 
 use alloc::string::String;
 use alloc::vec::Vec;
