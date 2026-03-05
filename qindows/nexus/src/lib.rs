@@ -18,6 +18,7 @@ pub mod dht;
 pub mod discovery;
 pub mod dns;
 pub mod firewall;
+pub mod http;
 pub mod migration;
 pub mod nat;
 pub mod pool;

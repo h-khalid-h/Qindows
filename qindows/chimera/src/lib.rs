@@ -17,6 +17,7 @@ pub mod pe_loader;
 pub mod registry;
 pub mod threading;
 pub mod win32_api;
+pub mod winsock;
 
 use alloc::string::String;
 use alloc::vec::Vec;
