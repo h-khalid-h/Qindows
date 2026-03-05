@@ -22,6 +22,7 @@ pub mod slots;
 pub mod summarizer;
 pub mod tokenizer;
 pub mod rag;
+pub mod voice;
 
 use alloc::vec::Vec;
 

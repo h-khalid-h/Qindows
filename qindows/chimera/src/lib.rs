@@ -21,6 +21,7 @@ pub mod winsock;
 pub mod clipboard_bridge;
 pub mod com_interop;
 pub mod d3d_shim;
+pub mod ntdll;
 
 use alloc::string::String;
 use alloc::vec::Vec;

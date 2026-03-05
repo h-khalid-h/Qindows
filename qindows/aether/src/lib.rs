@@ -39,6 +39,7 @@ pub mod widget_kit;
 pub mod gestures;
 pub mod screenshot;
 pub mod power_overlay;
+pub mod drag_drop;
 pub mod widgets;
 pub mod window;
 
