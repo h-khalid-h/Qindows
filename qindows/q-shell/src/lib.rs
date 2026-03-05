@@ -19,6 +19,7 @@ pub mod pipe;
 pub mod job_control;
 pub mod scripting;
 pub mod completion;
+pub mod prompt;
 
 use alloc::string::String;
 use alloc::vec::Vec;

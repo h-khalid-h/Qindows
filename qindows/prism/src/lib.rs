@@ -36,6 +36,7 @@ pub mod tiering;
 pub mod search_index;
 pub mod crash_recovery;
 pub mod gc;
+pub mod migration;
 
 use alloc::string::String;
 use alloc::vec::Vec;
