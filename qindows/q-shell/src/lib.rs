@@ -21,6 +21,7 @@ pub mod scripting;
 pub mod completion;
 pub mod prompt;
 pub mod pipeline;
+pub mod qclip;
 
 use alloc::string::String;
 use alloc::vec::Vec;

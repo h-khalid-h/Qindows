@@ -47,6 +47,7 @@ pub mod window;
 pub mod elastic;
 pub mod qkit;
 pub mod qnotify;
+pub mod theme_engine;
 
 use alloc::vec::Vec;
 

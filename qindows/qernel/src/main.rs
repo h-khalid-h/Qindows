@@ -56,6 +56,7 @@ pub mod entropy_pool;
 pub mod pmc;
 pub mod silo_snapshot;
 pub mod power_gov;
+pub mod npu_sched;
 pub mod silo;
 pub mod smp;
 pub mod syscall;
