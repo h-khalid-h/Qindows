@@ -210,10 +210,11 @@ impl WinSockEmulator {
 
     /// bind()
     pub fn bind(&mut self, handle: u32, addr: SockAddr) -> Result<(), i32> {
-        let sock = self.sockets.get_mut(&handle).ok_or(wsa_error::WSAENOTSOCK)?;
+        // Validate state with immutable borrow first
+        let sock = self.sockets.get(&handle).ok_or(wsa_error::WSAENOTSOCK)?;
         if sock.state != SocketState::Created { return Err(wsa_error::WSAEINVAL); }
 
-        // Check for address conflicts
+        // Check for address conflicts (immutable borrow of sockets)
         for other in self.sockets.values() {
             if other.handle != handle {
                 if let Some(ref la) = other.local_addr {
@@ -222,6 +223,8 @@ impl WinSockEmulator {
             }
         }
 
+        // Now take mutable borrow for mutation
+        let sock = self.sockets.get_mut(&handle).unwrap();
         sock.local_addr = Some(addr);
         sock.state = SocketState::Bound;
         Ok(())

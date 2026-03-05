@@ -183,8 +183,13 @@ impl TextInput {
 
         match event {
             WidgetEvent::TextInput(ch) => {
-                if self.value.len() < self.max_length {
-                    self.value.insert(self.cursor_pos, *ch);
+                if self.value.chars().count() < self.max_length {
+                    // Convert char position to byte offset
+                    let byte_pos = self.value.char_indices()
+                        .nth(self.cursor_pos)
+                        .map(|(i, _)| i)
+                        .unwrap_or(self.value.len());
+                    self.value.insert(byte_pos, *ch);
                     self.cursor_pos += 1;
                     return Some(WidgetEvent::ValueChanged(self.value.clone()));
                 }
@@ -193,7 +198,11 @@ impl TextInput {
             WidgetEvent::KeyPress(8) => { // Backspace
                 if self.cursor_pos > 0 {
                     self.cursor_pos -= 1;
-                    self.value.remove(self.cursor_pos);
+                    let byte_pos = self.value.char_indices()
+                        .nth(self.cursor_pos)
+                        .map(|(i, _)| i)
+                        .unwrap_or(self.value.len());
+                    self.value.remove(byte_pos);
                     return Some(WidgetEvent::ValueChanged(self.value.clone()));
                 }
                 None

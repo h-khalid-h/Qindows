@@ -77,7 +77,6 @@ impl Framebuffer {
     /// # Safety
     /// `virt_addr` must map to the framebuffer's physical memory.
     pub unsafe fn new(virt_addr: u64, config: FbConfig) -> Self {
-        let bpp = config.format.bytes_per_pixel();
         let size = config.stride as usize * config.height as usize;
 
         Framebuffer {
@@ -161,7 +160,6 @@ impl Framebuffer {
     pub unsafe fn scroll_up(&mut self, lines: u32) {
         if lines >= self.config.height { return self.clear(Pixel::BLACK); }
 
-        let bpp = self.config.format.bytes_per_pixel();
         let stride = self.config.stride as usize;
         let src_offset = lines as usize * stride;
         let copy_size = (self.config.height as usize - lines as usize) * stride;

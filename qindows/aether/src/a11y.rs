@@ -249,25 +249,29 @@ impl AccessManager {
 
     /// Move focus to the next element in tab order.
     pub fn focus_next(&mut self) -> Option<u64> {
-        if self.tab_order.is_empty() { return None; }
+        let len = self.tab_order.len();
+        if len == 0 { return None; }
 
         let current_idx = self.focus_id
             .and_then(|fid| self.tab_order.iter().position(|&id| id == fid))
-            .unwrap_or(self.tab_order.len() - 1);
+            .unwrap_or(len - 1);
 
-        let next_idx = (current_idx + 1) % self.tab_order.len();
-        let next_id = self.tab_order[next_idx];
+        // Try each element at most once to avoid infinite loop
+        for offset in 1..=len {
+            let idx = (current_idx + offset) % len;
+            let candidate = self.tab_order[idx];
 
-        // Skip disabled elements
-        if let Some(elem) = self.elements.get(&next_id) {
-            if elem.state.disabled {
-                self.focus_id = Some(next_id);
-                return self.focus_next(); // Recurse (risky if all disabled)
+            let is_disabled = self.elements.get(&candidate)
+                .map(|e| e.state.disabled)
+                .unwrap_or(false);
+
+            if !is_disabled {
+                self.set_focus(candidate);
+                return Some(candidate);
             }
         }
 
-        self.set_focus(next_id);
-        Some(next_id)
+        None // All elements disabled
     }
 
     /// Move focus to the previous element.

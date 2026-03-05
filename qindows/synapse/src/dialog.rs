@@ -262,16 +262,19 @@ impl DialogManager {
     /// Process user input in a session.
     pub fn process_input(&mut self, session_id: u64, text: &str, now: u64) -> Option<String> {
         let session = self.sessions.get_mut(&session_id)?;
+        // Capture state BEFORE user_says (which resets to Active)
+        let pre_state = session.state;
         session.user_says(text, now);
         self.total_turns += 1;
 
-        // Check if we're disambiguating
-        if session.state == DialogState::Disambiguating {
+        // Check if we were disambiguating before this input
+        if pre_state == DialogState::Disambiguating {
             if let Ok(idx) = text.parse::<usize>() {
                 if let Some(choice) = session.resolve_disambiguation(idx.saturating_sub(1)) {
                     return Some(alloc::format!("Selected: {}", choice));
                 }
             }
+            session.state = DialogState::Disambiguating; // Restore state
             return Some(String::from("Please choose a number from the options."));
         }
 

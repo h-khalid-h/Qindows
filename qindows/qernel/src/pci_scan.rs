@@ -256,7 +256,14 @@ impl PciScanner {
                     let prefetchable = is_memory && (raw & 0x08) != 0;
 
                     let address = if is_memory {
-                        (raw & 0xFFFFFFF0) as u64
+                        let lo = (raw & 0xFFFFFFF0) as u64;
+                        if is_64bit && bar_idx + 1 < 6 {
+                            let hi_offset = 0x10 + (bar_idx + 1) as u8 * 4;
+                            let hi = unsafe { pci_config_read(bus, device, func, hi_offset) };
+                            lo | ((hi as u64) << 32)
+                        } else {
+                            lo
+                        }
                     } else {
                         (raw & 0xFFFFFFFC) as u64
                     };
