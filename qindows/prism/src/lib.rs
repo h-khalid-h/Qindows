@@ -33,6 +33,7 @@ pub mod snapshot;
 pub mod vfs;
 pub mod wal;
 pub mod tiering;
+pub mod search_index;
 
 use alloc::string::String;
 use alloc::vec::Vec;

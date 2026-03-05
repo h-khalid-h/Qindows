@@ -31,6 +31,7 @@ pub mod tls;
 pub mod websocket;
 pub mod transport;
 pub mod proxy;
+pub mod bandwidth_monitor;
 
 use alloc::vec::Vec;
 use alloc::string::String;
