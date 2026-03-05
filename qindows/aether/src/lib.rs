@@ -50,6 +50,7 @@ pub mod qnotify;
 pub mod theme_engine;
 pub mod accessibility;
 pub mod notification_bus;
+pub mod gesture_nav;
 
 use alloc::vec::Vec;
 

@@ -46,6 +46,7 @@ pub mod qsearch;
 pub mod qlock;
 pub mod qversions;
 pub mod qshare;
+pub mod qtrash;
 
 use alloc::string::String;
 use alloc::vec::Vec;

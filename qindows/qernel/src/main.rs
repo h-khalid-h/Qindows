@@ -61,6 +61,7 @@ pub mod fault_inject;
 pub mod disk_sched;
 pub mod cgroup;
 pub mod iommu;
+pub mod watchdog;
 pub mod silo;
 pub mod smp;
 pub mod syscall;
