@@ -41,6 +41,8 @@ pub mod sentinel;
 pub mod qfabric;
 pub mod vswitch;
 pub mod qproxy;
+pub mod qcredits;
+pub mod qview;
 
 use alloc::vec::Vec;
 use alloc::string::String;
