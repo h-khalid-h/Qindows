@@ -92,7 +92,10 @@ impl QuicStream {
             return Err("Stream send side closed");
         }
 
-        let available = (self.max_stream_data - self.bytes_sent) as usize;
+        let available = self.max_stream_data.saturating_sub(self.bytes_sent) as usize;
+        if available == 0 {
+            return Err("Stream flow control limit reached");
+        }
         let to_write = data.len().min(available);
 
         self.send_buffer.extend_from_slice(&data[..to_write]);
