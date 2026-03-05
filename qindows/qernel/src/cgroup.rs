@@ -124,32 +124,50 @@ impl CGroupManager {
 
     /// Charge resource usage.
     pub fn charge(&mut self, group_id: u64, resource: Resource, amount: u64) -> Result<(), Enforcement> {
-        let group = match self.groups.get_mut(&group_id) {
-            Some(g) => g,
-            None => return Ok(()),
-        };
+        // Extract needed data without holding &mut self across recursive call
+        let (parent_id, enforcement_result) = {
+            let group = match self.groups.get_mut(&group_id) {
+                Some(g) => g,
+                None => return Ok(()),
+            };
 
-        if let Some(limit) = group.limits.iter_mut().find(|l| l.resource == resource) {
-            limit.current += amount;
+            let mut result: Result<(), Enforcement> = Ok(());
 
-            if limit.current > limit.hard_limit {
-                self.stats.hard_limit_events += 1;
-                match limit.enforcement {
-                    Enforcement::Throttle => self.stats.throttle_events += 1,
-                    Enforcement::Kill => self.stats.kill_events += 1,
-                    Enforcement::Notify => self.stats.soft_limit_events += 1,
+            if let Some(limit) = group.limits.iter_mut().find(|l| l.resource == resource) {
+                limit.current += amount;
+
+                if limit.current > limit.hard_limit {
+                    result = Err(limit.enforcement);
                 }
-                return Err(limit.enforcement);
             }
 
-            if limit.current > limit.soft_limit {
+            (group.parent, result)
+        };
+
+        // Update stats outside the mutable borrow
+        if let Err(enforcement) = enforcement_result {
+            self.stats.hard_limit_events += 1;
+            match enforcement {
+                Enforcement::Throttle => self.stats.throttle_events += 1,
+                Enforcement::Kill => self.stats.kill_events += 1,
+                Enforcement::Notify => self.stats.soft_limit_events += 1,
+            }
+            return Err(enforcement);
+        }
+
+        // Check soft limit
+        if let Some(group) = self.groups.get(&group_id) {
+            let soft_exceeded = group.limits.iter()
+                .find(|l| l.resource == resource)
+                .map(|l| l.current > l.soft_limit)
+                .unwrap_or(false);
+            if soft_exceeded {
                 self.stats.soft_limit_events += 1;
             }
         }
 
         // Propagate to parent
-        let parent = group.parent;
-        if let Some(pid) = parent {
+        if let Some(pid) = parent_id {
             return self.charge(pid, resource, amount);
         }
 

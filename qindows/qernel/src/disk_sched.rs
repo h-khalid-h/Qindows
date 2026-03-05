@@ -146,14 +146,12 @@ impl DiskScheduler {
             // Adjacent: new request follows existing
             if sector == req_end && (req.count as u64 + count as u64) <= self.merge_window {
                 req.count += count;
-                req.state = IoState::Merged;
                 return true;
             }
             // Adjacent: new request precedes existing
             if new_end == req.sector && (req.count as u64 + count as u64) <= self.merge_window {
                 req.sector = sector;
                 req.count += count;
-                req.state = IoState::Merged;
                 return true;
             }
         }

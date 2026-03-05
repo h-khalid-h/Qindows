@@ -188,6 +188,11 @@ impl NpuScheduler {
 
     /// Cache a model in NPU memory.
     pub fn cache_model(&mut self, model_id: u64, name: &str, size: u64, now: u64) {
+        // Guard: model must fit in budget even if cache is empty
+        if size > self.cache_budget {
+            return;
+        }
+
         // Evict if needed
         while self.cache_used + size > self.cache_budget {
             let lru = self.model_cache.values()
