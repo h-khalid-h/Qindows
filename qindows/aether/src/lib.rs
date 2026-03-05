@@ -45,6 +45,7 @@ pub mod intent_ui;
 pub mod widgets;
 pub mod window;
 pub mod elastic;
+pub mod qkit;
 
 use alloc::vec::Vec;
 

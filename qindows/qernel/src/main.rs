@@ -53,6 +53,7 @@ pub mod genesis;
 pub mod sandbox;
 pub mod q_admin;
 pub mod entropy_pool;
+pub mod pmc;
 pub mod silo;
 pub mod smp;
 pub mod syscall;

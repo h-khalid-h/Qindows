@@ -40,6 +40,7 @@ pub mod migration;
 pub mod qstream;
 pub mod qegistry;
 pub mod shadow_sync;
+pub mod infinite_drive;
 
 use alloc::string::String;
 use alloc::vec::Vec;
