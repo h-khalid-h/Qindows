@@ -20,6 +20,7 @@ pub mod job_control;
 pub mod scripting;
 pub mod completion;
 pub mod prompt;
+pub mod pipeline;
 
 use alloc::string::String;
 use alloc::vec::Vec;

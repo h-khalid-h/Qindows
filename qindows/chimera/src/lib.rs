@@ -23,6 +23,7 @@ pub mod com_interop;
 pub mod d3d_shim;
 pub mod ntdll;
 pub mod acl_bridge;
+pub mod registry_shim;
 
 use alloc::string::String;
 use alloc::vec::Vec;

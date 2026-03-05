@@ -50,6 +50,7 @@ pub mod rng;
 pub mod hotswap;
 pub mod qledger;
 pub mod genesis;
+pub mod sandbox;
 pub mod silo;
 pub mod smp;
 pub mod syscall;
