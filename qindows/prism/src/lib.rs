@@ -38,6 +38,7 @@ pub mod crash_recovery;
 pub mod gc;
 pub mod migration;
 pub mod qstream;
+pub mod qegistry;
 
 use alloc::string::String;
 use alloc::vec::Vec;

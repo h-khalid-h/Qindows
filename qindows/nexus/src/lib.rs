@@ -36,6 +36,7 @@ pub mod mesh_routing;
 pub mod dns_resolver;
 pub mod vpn;
 pub mod crdt;
+pub mod edge_kernel;
 
 use alloc::vec::Vec;
 use alloc::string::String;
