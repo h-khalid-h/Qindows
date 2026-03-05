@@ -21,6 +21,7 @@ pub mod sentiment;
 pub mod slots;
 pub mod summarizer;
 pub mod tokenizer;
+pub mod rag;
 
 use alloc::vec::Vec;
 
