@@ -227,23 +227,29 @@ impl QLedger {
             .ok_or("App not found")?;
 
         let mut freed = 0u64;
-        if let Some(entry) = self.entries.get_mut(&hash) {
-            entry.ref_count = entry.ref_count.saturating_sub(1);
-            entry.state = InstallState::Removed;
 
-            if entry.ref_count == 0 {
-                // Last reference — actually free the storage
-                freed = entry.native_size + entry.wasm_size;
-                self.entries.remove(&hash);
+        // Collect dependencies and sizes before potentially removing entry
+        let (ref_count, deps, wasm_size, native_size) = match self.entries.get_mut(&hash) {
+            Some(entry) => {
+                entry.ref_count = entry.ref_count.saturating_sub(1);
+                entry.state = InstallState::Removed;
+                (entry.ref_count, entry.dependencies.clone(), entry.wasm_size, entry.native_size)
             }
+            None => return Ok(0),
+        };
 
-            // Decrement shared lib references
-            for dep in &entry.dependencies {
-                if let Some(lib) = self.shared_libs.get_mut(dep) {
-                    lib.ref_count = lib.ref_count.saturating_sub(1);
-                    if lib.ref_count == 0 {
-                        freed += lib.size;
-                    }
+        if ref_count == 0 {
+            // Last reference — actually free the storage
+            freed = native_size + wasm_size;
+            self.entries.remove(&hash);
+        }
+
+        // Decrement shared lib references (using pre-collected deps)
+        for dep in &deps {
+            if let Some(lib) = self.shared_libs.get_mut(dep) {
+                lib.ref_count = lib.ref_count.saturating_sub(1);
+                if lib.ref_count == 0 {
+                    freed += lib.size;
                 }
             }
         }

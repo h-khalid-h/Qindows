@@ -93,8 +93,15 @@ impl CollabDocument {
 
     /// Apply an insert operation.
     pub fn apply_insert(&mut self, pos: u64, text: &str) {
-        let pos = (pos as usize).min(self.content.len());
-        self.content.insert_str(pos, text);
+        let byte_pos = (pos as usize).min(self.content.len());
+        // Ensure we're on a char boundary to avoid panics
+        let safe_pos = if self.content.is_char_boundary(byte_pos) {
+            byte_pos
+        } else {
+            // Walk backward to find the nearest char boundary
+            (0..=byte_pos).rev().find(|&i| self.content.is_char_boundary(i)).unwrap_or(0)
+        };
+        self.content.insert_str(safe_pos, text);
         self.version += 1;
     }
 

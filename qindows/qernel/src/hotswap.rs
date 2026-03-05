@@ -108,6 +108,8 @@ pub struct HotSwapEngine {
     pub patches: BTreeMap<u64, Patch>,
     /// Module → current entry point mapping
     pub module_entries: BTreeMap<String, u64>,
+    /// Module → current hash mapping
+    pub module_hashes: BTreeMap<String, [u8; 32]>,
     /// Rollback history (last N swaps)
     pub rollback_log: Vec<RollbackEntry>,
     /// Maximum rollback entries to keep
@@ -121,6 +123,7 @@ impl HotSwapEngine {
         HotSwapEngine {
             patches: BTreeMap::new(),
             module_entries: BTreeMap::new(),
+            module_hashes: BTreeMap::new(),
             rollback_log: Vec::new(),
             max_rollback_entries: 64,
             stats: HotSwapStats::default(),
@@ -130,6 +133,7 @@ impl HotSwapEngine {
     /// Register a kernel module with its current entry point.
     pub fn register_module(&mut self, name: &str, entry_point: u64, hash: [u8; 32]) {
         self.module_entries.insert(String::from(name), entry_point);
+        self.module_hashes.insert(String::from(name), hash);
     }
 
     /// Stage a new patch.
@@ -150,7 +154,7 @@ impl HotSwapEngine {
             module_name: String::from(module_name),
             target: PatchTarget::KernelModule,
             state: PatchState::Staged,
-            old_hash: [0; 32], // Would come from module registry
+            old_hash: self.module_hashes.get(module_name).copied().unwrap_or([0; 32]),
             new_hash,
             new_size,
             staging_addr,

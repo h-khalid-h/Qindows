@@ -202,8 +202,10 @@ impl RegistryShim {
             let parent = parts[..parts.len() - 1].join("\\");
             let parent_qpath = self.to_qpath(root, &parent, silo_id);
             let child = String::from(parts[parts.len() - 1]);
-            self.subkeys.entry(parent_qpath).or_insert_with(Vec::new)
-                .push(child);
+            let children = self.subkeys.entry(parent_qpath).or_insert_with(Vec::new);
+            if !children.contains(&child) {
+                children.push(child);
+            }
         }
 
         self.stats.keys_created += 1;
