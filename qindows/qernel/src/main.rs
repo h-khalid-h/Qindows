@@ -60,6 +60,7 @@ pub mod npu_sched;
 pub mod fault_inject;
 pub mod disk_sched;
 pub mod cgroup;
+pub mod iommu;
 pub mod silo;
 pub mod smp;
 pub mod syscall;

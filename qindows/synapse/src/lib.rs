@@ -28,6 +28,7 @@ pub mod qcollab;
 pub mod thought_gate;
 pub mod spatial_input;
 pub mod voice_cmd;
+pub mod input_method;
 
 use alloc::vec::Vec;
 
