@@ -33,6 +33,7 @@ pub mod theme;
 pub mod theme_engine;
 pub mod themes;
 pub mod tiling;
+pub mod widget_kit;
 pub mod widgets;
 pub mod window;
 

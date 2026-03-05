@@ -23,6 +23,7 @@ pub mod drivers;
 pub mod elf;
 pub mod gdt;
 pub mod interrupts;
+pub mod ioapic;
 pub mod ipc;
 pub mod loader;
 pub mod logging;

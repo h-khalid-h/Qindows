@@ -11,6 +11,7 @@
 extern crate alloc;
 
 pub mod executor;
+pub mod glob;
 pub mod history;
 pub mod pipe;
 pub mod scripting;
