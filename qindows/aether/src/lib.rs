@@ -48,6 +48,7 @@ pub mod elastic;
 pub mod qkit;
 pub mod qnotify;
 pub mod theme_engine;
+pub mod accessibility;
 
 use alloc::vec::Vec;
 

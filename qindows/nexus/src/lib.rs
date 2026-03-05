@@ -44,6 +44,7 @@ pub mod qproxy;
 pub mod qcredits;
 pub mod qview;
 pub mod mesh_identity;
+pub mod qpkg;
 
 use alloc::vec::Vec;
 use alloc::string::String;
