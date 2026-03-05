@@ -19,6 +19,7 @@ pub mod threading;
 pub mod win32_api;
 pub mod winsock;
 pub mod clipboard_bridge;
+pub mod com_interop;
 pub mod d3d_shim;
 
 use alloc::string::String;

@@ -33,6 +33,7 @@ pub mod transport;
 pub mod proxy;
 pub mod bandwidth_monitor;
 pub mod mesh_routing;
+pub mod dns_resolver;
 
 use alloc::vec::Vec;
 use alloc::string::String;
