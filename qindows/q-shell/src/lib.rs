@@ -16,6 +16,7 @@ pub mod env;
 pub mod glob;
 pub mod history;
 pub mod pipe;
+pub mod job_control;
 pub mod scripting;
 pub mod completion;
 

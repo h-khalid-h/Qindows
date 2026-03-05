@@ -43,6 +43,7 @@ pub mod iommu;
 pub mod usb;
 pub mod hotplug;
 pub mod telemetry;
+pub mod coredump;
 pub mod silo;
 pub mod smp;
 pub mod syscall;
