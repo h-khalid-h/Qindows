@@ -235,6 +235,7 @@ impl NvmeController {
         num_blocks: u16,
         buffer_phys: u64,
     ) -> Option<u16> {
+        if num_blocks == 0 { return None; }
         let io_queue = self.io_queue.as_mut()?;
 
         let mut cmd = SubmissionEntry::default();
@@ -255,6 +256,7 @@ impl NvmeController {
         num_blocks: u16,
         buffer_phys: u64,
     ) -> Option<u16> {
+        if num_blocks == 0 { return None; }
         let io_queue = self.io_queue.as_mut()?;
 
         let mut cmd = SubmissionEntry::default();

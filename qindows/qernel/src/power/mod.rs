@@ -122,10 +122,15 @@ impl PowerManager {
     /// Check if a Silo is using too much energy.
     pub fn check_energy_budget(&mut self, silo_id: u64) -> bool {
         if let Some(budget) = self.budgets.iter_mut().find(|b| b.silo_id == silo_id) {
-            // Calculate energy score based on usage
-            budget.energy_score = ((budget.cpu_time_us / 1000)
-                + budget.memory_pages
-                + budget.io_ops * 10) as u32;
+            // Calculate energy score based on usage (clamp to u32::MAX)
+            let raw_score = (budget.cpu_time_us / 1000)
+                .saturating_add(budget.memory_pages)
+                .saturating_add(budget.io_ops.saturating_mul(10));
+            budget.energy_score = if raw_score > u32::MAX as u64 {
+                u32::MAX
+            } else {
+                raw_score as u32
+            };
 
             // Threshold depends on policy
             let threshold = match self.policy {

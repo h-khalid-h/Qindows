@@ -93,7 +93,7 @@ impl Slab {
         (*obj).next = self.free_head;
         self.free_head = obj;
         self.free_count += 1;
-        self.alloc_count -= 1;
+        self.alloc_count = self.alloc_count.saturating_sub(1);
         self.full = false;
     }
 
