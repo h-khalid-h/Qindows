@@ -136,7 +136,7 @@ impl PowerGovernor {
         let critical = self.thermals.iter().any(|z| z.temp_c10 >= z.trip_critical);
         let passive = self.thermals.iter().any(|z| z.temp_c10 >= z.trip_passive);
 
-        if critical {
+        if critical && self.policy != PowerPolicy::Emergency {
             self.policy = PowerPolicy::Emergency;
             self.stats.emergency_events += 1;
             self.stats.policy_switches += 1;
@@ -170,9 +170,11 @@ impl PowerGovernor {
                         }
                     }
                     PowerPolicy::Emergency => {
-                        // Throttle everything
-                        core.state = CoreState::Throttled;
-                        self.stats.throttle_events += 1;
+                        // Throttle everything (only count transition)
+                        if core.state != CoreState::Throttled {
+                            core.state = CoreState::Throttled;
+                            self.stats.throttle_events += 1;
+                        }
                     }
                     _ => {
                         if core.state == CoreState::Parked {

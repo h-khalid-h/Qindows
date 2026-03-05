@@ -75,8 +75,8 @@ pub struct QAudit {
     pub logs: BTreeMap<u64, Vec<AuditEntry>>,
     /// Global sequence counter
     next_seq: u64,
-    /// Last hash (for global chain)
-    last_hash: [u8; 32],
+    /// Per-Silo last hash (for per-Silo chains)
+    silo_hashes: BTreeMap<u64, [u8; 32]>,
     /// Statistics
     pub stats: AuditStats,
 }
@@ -86,7 +86,7 @@ impl QAudit {
         QAudit {
             logs: BTreeMap::new(),
             next_seq: 1,
-            last_hash: [0; 32],
+            silo_hashes: BTreeMap::new(),
             stats: AuditStats::default(),
         }
     }
@@ -96,7 +96,7 @@ impl QAudit {
         let seq = self.next_seq;
         self.next_seq += 1;
 
-        let prev_hash = self.last_hash;
+        let prev_hash = *self.silo_hashes.get(&silo_id).unwrap_or(&[0u8; 32]);
 
         // Compute entry hash (simplified: mix fields)
         let mut hash = [0u8; 32];
@@ -110,7 +110,7 @@ impl QAudit {
             hash[24 + i] = (op as u8).wrapping_add(prev_hash[24 + i]);
         }
 
-        self.last_hash = hash;
+        self.silo_hashes.insert(silo_id, hash);
 
         let entry = AuditEntry {
             seq, silo_id, op, oid,
