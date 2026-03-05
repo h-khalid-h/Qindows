@@ -40,6 +40,7 @@ pub mod sentinel;
 pub mod settings;
 pub mod smbios;
 pub mod iommu;
+pub mod usb;
 pub mod silo;
 pub mod smp;
 pub mod syscall;

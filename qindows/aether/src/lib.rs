@@ -23,6 +23,7 @@ pub mod clipboard_mgr;
 pub mod context_menu;
 pub mod dnd;
 pub mod font;
+pub mod file_picker;
 pub mod input;
 pub mod layout;
 pub mod lockscreen;

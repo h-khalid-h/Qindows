@@ -17,6 +17,7 @@ pub mod glob;
 pub mod history;
 pub mod pipe;
 pub mod scripting;
+pub mod completion;
 
 use alloc::string::String;
 use alloc::vec::Vec;
