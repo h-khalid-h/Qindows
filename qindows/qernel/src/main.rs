@@ -27,6 +27,7 @@ pub mod loader;
 pub mod logging;
 pub mod manifest;
 pub mod memory;
+pub mod pci_scan;
 pub mod power;
 pub mod process;
 pub mod profiler;

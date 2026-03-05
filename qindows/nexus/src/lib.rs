@@ -17,6 +17,7 @@ extern crate alloc;
 pub mod dht;
 pub mod discovery;
 pub mod dns;
+pub mod firewall;
 pub mod migration;
 pub mod nat;
 pub mod pool;
