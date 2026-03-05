@@ -46,6 +46,7 @@ pub mod widgets;
 pub mod window;
 pub mod elastic;
 pub mod qkit;
+pub mod qnotify;
 
 use alloc::vec::Vec;
 

@@ -43,6 +43,7 @@ pub mod vswitch;
 pub mod qproxy;
 pub mod qcredits;
 pub mod qview;
+pub mod mesh_identity;
 
 use alloc::vec::Vec;
 use alloc::string::String;
