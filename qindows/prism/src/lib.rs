@@ -44,6 +44,7 @@ pub mod infinite_drive;
 pub mod qaudit;
 pub mod qsearch;
 pub mod qlock;
+pub mod qversions;
 
 use alloc::string::String;
 use alloc::vec::Vec;

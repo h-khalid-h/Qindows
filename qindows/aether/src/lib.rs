@@ -49,6 +49,7 @@ pub mod qkit;
 pub mod qnotify;
 pub mod theme_engine;
 pub mod accessibility;
+pub mod notification_bus;
 
 use alloc::vec::Vec;
 
