@@ -25,6 +25,7 @@ pub mod gdt;
 pub mod interrupts;
 pub mod ioapic;
 pub mod ipc;
+pub mod lapic;
 pub mod loader;
 pub mod logging;
 pub mod manifest;
