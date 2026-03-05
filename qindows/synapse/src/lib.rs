@@ -23,6 +23,7 @@ pub mod summarizer;
 pub mod tokenizer;
 pub mod rag;
 pub mod voice;
+pub mod neural_enc;
 
 use alloc::vec::Vec;
 
