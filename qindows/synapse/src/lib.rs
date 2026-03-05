@@ -24,6 +24,7 @@ pub mod tokenizer;
 pub mod rag;
 pub mod voice;
 pub mod neural_enc;
+pub mod qcollab;
 
 use alloc::vec::Vec;
 

@@ -37,6 +37,7 @@ pub mod dns_resolver;
 pub mod vpn;
 pub mod crdt;
 pub mod edge_kernel;
+pub mod sentinel;
 
 use alloc::vec::Vec;
 use alloc::string::String;
