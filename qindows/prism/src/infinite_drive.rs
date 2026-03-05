@@ -146,14 +146,17 @@ impl InfiniteDrive {
 
     /// Access a chunk of an object (fetches from cloud if needed).
     pub fn access_chunk(&mut self, oid: u64, chunk_idx: u32, now: u64) -> Result<bool, &'static str> {
-        let obj = self.objects.get_mut(&oid).ok_or("Object not found")?;
-        let chunk = obj.chunks.get_mut(chunk_idx as usize).ok_or("Chunk out of range")?;
+        // First pass: update timestamps and check if local
+        let (is_local, chunk_size) = {
+            let obj = self.objects.get_mut(&oid).ok_or("Object not found")?;
+            let chunk = obj.chunks.get_mut(chunk_idx as usize).ok_or("Chunk out of range")?;
+            chunk.last_access = now;
+            chunk.access_count += 1;
+            obj.last_access = now;
+            (chunk.local, chunk.size)
+        };
 
-        chunk.last_access = now;
-        chunk.access_count += 1;
-        obj.last_access = now;
-
-        if chunk.local {
+        if is_local {
             self.stats.cache_hits += 1;
             return Ok(true); // Cache hit
         }
@@ -161,18 +164,21 @@ impl InfiniteDrive {
         // Cache miss — need to fetch from cloud
         self.stats.cache_misses += 1;
 
-        // Evict if needed
-        while self.cache_used + chunk.size > self.cache_budget {
+        // Evict if needed (no borrows held on self.objects)
+        while self.cache_used + chunk_size > self.cache_budget {
             if !self.evict_lru(now) {
                 return Err("Cache full, cannot evict");
             }
         }
 
-        // Fetch chunk
-        chunk.local = true;
-        self.cache_used += chunk.size;
+        // Mark chunk as local
+        let obj = self.objects.get_mut(&oid).ok_or("Object not found")?;
+        if let Some(chunk) = obj.chunks.get_mut(chunk_idx as usize) {
+            chunk.local = true;
+        }
+        self.cache_used += chunk_size;
         self.stats.chunks_fetched += 1;
-        self.stats.bytes_fetched += chunk.size;
+        self.stats.bytes_fetched += chunk_size;
 
         // Update residency
         let all_local = obj.chunks.iter().all(|c| c.local);

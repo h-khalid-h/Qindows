@@ -167,7 +167,7 @@ impl QCredits {
             ResourceType::StorageGb => self.rates.storage_per_gb_hour,
             ResourceType::BandwidthMb => self.rates.bandwidth_per_mb,
         };
-        let amount = rate * units;
+        let amount = rate.saturating_mul(units);
 
         if let Some(account) = self.accounts.get_mut(&device_id) {
             account.balance += amount as i64;
@@ -196,7 +196,7 @@ impl QCredits {
             ResourceType::StorageGb => self.rates.storage_per_gb_hour,
             ResourceType::BandwidthMb => self.rates.bandwidth_per_mb,
         };
-        let amount = rate * units;
+        let amount = rate.saturating_mul(units);
 
         let account = self.accounts.get_mut(&device_id)
             .ok_or("Account not found")?;
