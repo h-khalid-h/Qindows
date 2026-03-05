@@ -21,6 +21,7 @@ pub mod changelog;
 pub mod compression;
 pub mod dedup;
 pub mod encryption;
+pub mod extents;
 pub mod fsck;
 pub mod journal;
 pub mod key_rotation;
