@@ -39,6 +39,7 @@ pub mod crdt;
 pub mod edge_kernel;
 pub mod sentinel;
 pub mod qfabric;
+pub mod vswitch;
 
 use alloc::vec::Vec;
 use alloc::string::String;
