@@ -86,23 +86,23 @@ pub struct ClassificationResult {
 
 /// Intent keywords for rule-based classification.
 struct IntentKeywords {
-    open: Vec<&'static str>,
-    search: Vec<&'static str>,
-    create: Vec<&'static str>,
-    delete: Vec<&'static str>,
-    setting: Vec<&'static str>,
-    navigate: Vec<&'static str>,
-    undo: Vec<&'static str>,
+    open: &'static [&'static str],
+    search: &'static [&'static str],
+    create: &'static [&'static str],
+    delete: &'static [&'static str],
+    setting: &'static [&'static str],
+    navigate: &'static [&'static str],
+    undo: &'static [&'static str],
 }
 
 static KEYWORDS: IntentKeywords = IntentKeywords {
-    open: alloc::vec!["open", "launch", "start", "run", "execute"],
-    search: alloc::vec!["find", "search", "look", "where", "locate", "show"],
-    create: alloc::vec!["create", "new", "make", "add", "write"],
-    delete: alloc::vec!["delete", "remove", "trash", "erase", "clear"],
-    setting: alloc::vec!["set", "change", "toggle", "enable", "disable", "turn"],
-    navigate: alloc::vec!["go", "navigate", "switch", "move"],
-    undo: alloc::vec!["undo", "revert", "rollback"],
+    open: &["open", "launch", "start", "run", "execute"],
+    search: &["find", "search", "look", "where", "locate", "show"],
+    create: &["create", "new", "make", "add", "write"],
+    delete: &["delete", "remove", "trash", "erase", "clear"],
+    setting: &["set", "change", "toggle", "enable", "disable", "turn"],
+    navigate: &["go", "navigate", "switch", "move"],
+    undo: &["undo", "revert", "rollback"],
 };
 
 /// The Intent Pipeline.

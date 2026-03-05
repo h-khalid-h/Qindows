@@ -125,15 +125,17 @@ impl HandleTable {
 
     /// Close a handle (decrement refcount, free if zero).
     pub fn close(&mut self, handle: Handle) -> QResult {
-        if let Some(entry) = self.entries.iter_mut().find(|e| e.handle == handle) {
-            entry.ref_count -= 1;
-            if entry.ref_count == 0 {
-                self.entries.retain(|e| e.handle != handle);
-            }
-            S_OK
+        let should_remove = if let Some(entry) = self.entries.iter_mut().find(|e| e.handle == handle) {
+            entry.ref_count = entry.ref_count.saturating_sub(1);
+            entry.ref_count == 0
         } else {
-            E_HANDLE
+            return E_HANDLE;
+        };
+
+        if should_remove {
+            self.entries.retain(|e| e.handle != handle);
         }
+        S_OK
     }
 
     /// Duplicate a handle (increment refcount).

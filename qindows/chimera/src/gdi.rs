@@ -215,16 +215,25 @@ impl GdiEmulator {
 
     /// SelectObject — select a GDI object into a DC.
     pub fn select_object(&mut self, hdc: HGdi, obj: HGdi) -> Option<HGdi> {
+        // Determine which kind of object we're selecting (read-only borrow)
+        let obj_kind = match self.objects.get(&obj) {
+            Some(GdiObject::Pen(_)) => 0u8,
+            Some(GdiObject::Brush(_)) => 1,
+            Some(GdiObject::Font(_)) => 2,
+            _ => return None,
+        };
+
+        // Now mutably borrow the DC and swap the handle
         if let Some(GdiObject::Dc(dc)) = self.objects.get_mut(&hdc) {
-            let old = match self.objects.get(&obj) {
-                Some(GdiObject::Pen(_)) => { let old = dc.pen; dc.pen = obj; Some(old) }
-                Some(GdiObject::Brush(_)) => { let old = dc.brush; dc.brush = obj; Some(old) }
-                Some(GdiObject::Font(_)) => { let old = dc.font; dc.font = obj; Some(old) }
-                _ => None,
+            let old = match obj_kind {
+                0 => { let old = dc.pen; dc.pen = obj; old }
+                1 => { let old = dc.brush; dc.brush = obj; old }
+                _ => { let old = dc.font; dc.font = obj; old }
             };
-            return old;
+            Some(old)
+        } else {
+            None
         }
-        None
     }
 
     /// DeleteObject

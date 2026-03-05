@@ -264,7 +264,7 @@ impl ReputationManager {
     /// Decay scores for inactive peers (call periodically).
     pub fn decay(&mut self, now: u64, inactive_threshold_ns: u64) {
         for peer in self.peers.values_mut() {
-            if now - peer.last_seen > inactive_threshold_ns {
+            if now.saturating_sub(peer.last_seen) > inactive_threshold_ns {
                 peer.score = (peer.score * 0.99).max(0.0); // Slow decay
             }
         }
