@@ -34,6 +34,7 @@ pub mod proxy;
 pub mod bandwidth_monitor;
 pub mod mesh_routing;
 pub mod dns_resolver;
+pub mod vpn;
 
 use alloc::vec::Vec;
 use alloc::string::String;

@@ -45,6 +45,7 @@ pub mod hotplug;
 pub mod telemetry;
 pub mod coredump;
 pub mod secure_boot;
+pub mod numa;
 pub mod silo;
 pub mod smp;
 pub mod syscall;
