@@ -32,6 +32,7 @@ pub mod quota;
 pub mod snapshot;
 pub mod vfs;
 pub mod wal;
+pub mod tiering;
 
 use alloc::string::String;
 use alloc::vec::Vec;

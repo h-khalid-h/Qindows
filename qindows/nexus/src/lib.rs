@@ -30,6 +30,7 @@ pub mod shaper;
 pub mod tls;
 pub mod websocket;
 pub mod transport;
+pub mod proxy;
 
 use alloc::vec::Vec;
 use alloc::string::String;

@@ -41,6 +41,7 @@ pub mod settings;
 pub mod smbios;
 pub mod iommu;
 pub mod usb;
+pub mod hotplug;
 pub mod silo;
 pub mod smp;
 pub mod syscall;
