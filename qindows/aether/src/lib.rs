@@ -38,6 +38,7 @@ pub mod tiling;
 pub mod widget_kit;
 pub mod gestures;
 pub mod screenshot;
+pub mod power_overlay;
 pub mod widgets;
 pub mod window;
 

@@ -32,6 +32,7 @@ pub mod websocket;
 pub mod transport;
 pub mod proxy;
 pub mod bandwidth_monitor;
+pub mod mesh_routing;
 
 use alloc::vec::Vec;
 use alloc::string::String;

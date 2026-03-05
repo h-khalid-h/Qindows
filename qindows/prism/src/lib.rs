@@ -34,6 +34,7 @@ pub mod vfs;
 pub mod wal;
 pub mod tiering;
 pub mod search_index;
+pub mod crash_recovery;
 
 use alloc::string::String;
 use alloc::vec::Vec;
