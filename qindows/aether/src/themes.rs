@@ -44,6 +44,7 @@ impl Color {
 
     /// Lighten by a factor (0.0 = no change, 1.0 = white).
     pub fn lighten(self, factor: f32) -> Color {
+        let factor = factor.max(0.0).min(1.0);
         let f = (factor * 255.0) as u16;
         Color {
             r: (self.r as u16 + (255 - self.r as u16) * f / 255).min(255) as u8,
@@ -55,6 +56,7 @@ impl Color {
 
     /// Darken by a factor (0.0 = no change, 1.0 = black).
     pub fn darken(self, factor: f32) -> Color {
+        let factor = factor.max(0.0).min(1.0);
         let inv = ((1.0 - factor) * 255.0) as u16;
         Color {
             r: (self.r as u16 * inv / 255) as u8,

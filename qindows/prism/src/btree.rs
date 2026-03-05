@@ -256,6 +256,9 @@ impl BTree {
             let child = self.get_node_mut(child_id).unwrap();
             new_node.keys = child.keys.split_off(mid);
             new_node.key_count = new_node.keys.len();
+
+            // Remove the median key from the child — it's being promoted to the parent
+            child.keys.pop(); // Remove the median at index mid-1
             child.key_count = child.keys.len();
 
             if child.is_leaf {

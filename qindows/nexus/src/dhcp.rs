@@ -304,7 +304,7 @@ impl DhcpClient {
         let mut dns_servers = Vec::new();
         if let Some(dns_opt) = ack.get_option(options::DNS_SERVER) {
             let mut i = 0;
-            while i + 3 < dns_opt.data.len() {
+            while i + 4 <= dns_opt.data.len() {
                 dns_servers.push(Ipv4Addr([
                     dns_opt.data[i], dns_opt.data[i+1],
                     dns_opt.data[i+2], dns_opt.data[i+3],
