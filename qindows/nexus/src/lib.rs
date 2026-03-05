@@ -18,6 +18,7 @@ pub mod dht;
 pub mod discovery;
 pub mod dhcp;
 pub mod dns;
+pub mod mdns;
 pub mod firewall;
 pub mod http;
 pub mod migration;

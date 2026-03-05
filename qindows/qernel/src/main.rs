@@ -39,6 +39,7 @@ pub mod scheduler;
 pub mod sentinel;
 pub mod settings;
 pub mod smbios;
+pub mod iommu;
 pub mod silo;
 pub mod smp;
 pub mod syscall;

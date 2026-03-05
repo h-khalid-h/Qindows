@@ -18,6 +18,7 @@ pub mod registry;
 pub mod threading;
 pub mod win32_api;
 pub mod winsock;
+pub mod d3d_shim;
 
 use alloc::string::String;
 use alloc::vec::Vec;
