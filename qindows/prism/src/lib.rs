@@ -39,6 +39,7 @@ pub mod gc;
 pub mod migration;
 pub mod qstream;
 pub mod qegistry;
+pub mod shadow_sync;
 
 use alloc::string::String;
 use alloc::vec::Vec;
