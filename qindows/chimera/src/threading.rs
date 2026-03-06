@@ -237,8 +237,12 @@ impl ThreadingManager {
     }
 
     /// LeaveCriticalSection
-    pub fn leave_critical_section(&mut self, handle: Handle) {
+    pub fn leave_critical_section(&mut self, handle: Handle, thread_id: u32) {
         if let Some(cs) = self.critical_sections.get_mut(&handle) {
+            // Only the owner can leave
+            if cs.owner != thread_id {
+                return;
+            }
             if cs.recursion_count > 0 {
                 cs.recursion_count -= 1;
                 if cs.recursion_count == 0 {
