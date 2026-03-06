@@ -53,6 +53,7 @@ pub mod audio_mix;
 pub mod font_render;
 pub mod widget_toolkit;
 pub mod qperm;
+pub mod qthumbnail;
 
 use alloc::vec::Vec;
 
