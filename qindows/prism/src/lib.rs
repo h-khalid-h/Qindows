@@ -53,6 +53,7 @@ pub mod qsymlink;
 pub mod qquota;
 pub mod qdedup;
 pub mod qtiering;
+pub mod qjournal;
 
 use alloc::string::String;
 use alloc::vec::Vec;
