@@ -216,8 +216,25 @@ impl BTreeCursor {
 
             // Range check
             if !self.in_range(&entry.key) {
-                if self.direction == Direction::Forward {
-                    self.exhausted = true;
+                // On forward scan, if key is past the upper bound, we're done.
+                // But if key is below the lower bound, just skip it.
+                match self.direction {
+                    Direction::Forward => {
+                        let past_upper = match &self.upper {
+                            Bound::Unbounded => false,
+                            Bound::Included(b) => entry.key.as_slice() > b.as_slice(),
+                            Bound::Excluded(b) => entry.key.as_slice() >= b.as_slice(),
+                        };
+                        if past_upper { self.exhausted = true; break; }
+                    }
+                    Direction::Reverse => {
+                        let past_lower = match &self.lower {
+                            Bound::Unbounded => false,
+                            Bound::Included(b) => entry.key.as_slice() < b.as_slice(),
+                            Bound::Excluded(b) => entry.key.as_slice() <= b.as_slice(),
+                        };
+                        if past_lower { self.exhausted = true; break; }
+                    }
                 }
                 continue;
             }
