@@ -31,6 +31,7 @@ pub mod voice_cmd;
 pub mod input_method;
 pub mod haptic;
 pub mod qtranslate;
+pub mod intent_classifier;
 
 use alloc::vec::Vec;
 
