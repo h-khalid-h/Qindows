@@ -54,6 +54,7 @@ pub mod font_render;
 pub mod widget_toolkit;
 pub mod qperm;
 pub mod qthumbnail;
+pub mod display_profiles;
 
 use alloc::vec::Vec;
 
