@@ -68,6 +68,7 @@ pub mod qstat;
 pub mod qcache;
 pub mod qdefrag;
 pub mod qscrub;
+pub mod qextent;
 
 use alloc::string::String;
 use alloc::vec::Vec;
