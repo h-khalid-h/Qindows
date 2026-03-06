@@ -29,6 +29,7 @@ pub mod thought_gate;
 pub mod spatial_input;
 pub mod voice_cmd;
 pub mod input_method;
+pub mod haptic;
 
 use alloc::vec::Vec;
 

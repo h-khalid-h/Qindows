@@ -63,6 +63,7 @@ pub mod cgroup;
 pub mod iommu;
 pub mod watchdog;
 pub mod numa;
+pub mod gpu_sched;
 pub mod silo;
 pub mod smp;
 pub mod syscall;
