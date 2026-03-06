@@ -65,6 +65,7 @@ pub mod mesh_loadbalancer;
 pub mod mesh_nat;
 pub mod mesh_bandwidth;
 pub mod mesh_rate_limiter;
+pub mod mesh_session;
 
 use alloc::vec::Vec;
 use alloc::string::String;
