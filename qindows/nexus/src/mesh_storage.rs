@@ -97,7 +97,7 @@ impl MeshStorage {
             return Err("No nodes with capacity");
         }
 
-        let rep_factor = targets.len() as u8;
+        let rep_factor = self.default_replication;
 
         // Update node usage
         for node_id in &targets {
