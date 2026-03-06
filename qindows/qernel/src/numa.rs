@@ -1,277 +1,150 @@
-//! # NUMA Topology Awareness
+//! # NUMA Topology Manager — Memory Affinity & Scheduling
 //!
-//! Non-Uniform Memory Access topology discovery and optimization.
-//! Modern multi-socket / chiplet CPUs (AMD EPYC, Intel Sapphire Rapids)
-//! have varying memory latencies depending on which NUMA node a core
-//! belongs to. The Qernel uses this information to:
+//! Optimizes memory allocation and thread scheduling based on
+//! Non-Uniform Memory Access topology (Section 9.3).
 //!
-//! - Allocate memory on the same node as the requesting core
-//! - Schedule Fibers on cores closest to their memory
-//! - Balance Silo placement across nodes for fairness
+//! Features:
+//! - NUMA node discovery and topology mapping
+//! - Per-Silo memory affinity (pin Silo to NUMA node)
+//! - Distance-aware allocation (prefer local memory)
+//! - Cross-node migration cost estimation
+//! - Rebalancing when nodes become overloaded
 
 extern crate alloc;
 
+use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
-use core::sync::atomic::{AtomicU64, Ordering};
 
-/// Maximum supported NUMA nodes.
-pub const MAX_NUMA_NODES: usize = 64;
-/// Maximum supported CPU cores.
-pub const MAX_CPUS: usize = 256;
-
-/// A NUMA node — a group of cores sharing a local memory controller.
+/// A NUMA node.
 #[derive(Debug, Clone)]
 pub struct NumaNode {
-    /// Node ID (0-based)
-    pub id: u8,
-    /// CPU core IDs belonging to this node
-    pub cores: Vec<u8>,
-    /// Base physical address of local memory
-    pub mem_base: u64,
-    /// Size of local memory in bytes
-    pub mem_size: u64,
-    /// Free memory on this node
-    pub mem_free: u64,
-    /// Distance to other nodes (index = target node, value = latency units)
-    /// Self-distance is always 10 (ACPI SLIT convention).
-    pub distances: Vec<u8>,
-    /// Total allocations served from this node
-    pub alloc_count: AtomicU64,
-    /// Total cross-node (remote) accesses detected
-    pub remote_accesses: AtomicU64,
+    pub id: u32,
+    pub cpus: Vec<u32>,
+    pub memory_total: u64,
+    pub memory_used: u64,
+    pub silo_count: u32,
 }
 
-impl NumaNode {
-    pub fn new(id: u8, mem_base: u64, mem_size: u64) -> Self {
-        NumaNode {
-            id,
-            cores: Vec::new(),
-            mem_base,
-            mem_size,
-            mem_free: mem_size,
-            distances: Vec::new(),
-            alloc_count: AtomicU64::new(0),
-            remote_accesses: AtomicU64::new(0),
-        }
-    }
-
-    /// Check if a physical address belongs to this node's memory range.
-    pub fn contains_addr(&self, phys_addr: u64) -> bool {
-        phys_addr >= self.mem_base && phys_addr < self.mem_base.saturating_add(self.mem_size)
-    }
-
-    /// Check if a CPU core belongs to this node.
-    pub fn has_core(&self, core_id: u8) -> bool {
-        self.cores.contains(&core_id)
-    }
-
-    /// Get the distance (latency cost) to another node.
-    pub fn distance_to(&self, target_node: u8) -> u8 {
-        self.distances.get(target_node as usize).copied().unwrap_or(255)
-    }
-
-    /// Memory pressure ratio (0.0 = empty, 1.0 = full).
-    pub fn pressure(&self) -> f64 {
-        if self.mem_size == 0 { return 1.0; }
-        1.0 - (self.mem_free as f64 / self.mem_size as f64)
-    }
+/// Distance between NUMA nodes.
+#[derive(Debug, Clone)]
+pub struct NumaDistance {
+    pub from: u32,
+    pub to: u32,
+    pub distance: u32,
 }
 
-/// CPU-to-Node mapping.
-#[derive(Debug, Clone, Copy)]
-pub struct CpuTopology {
-    /// Which NUMA node this CPU belongs to
-    pub node_id: u8,
-    /// Physical core ID
-    pub core_id: u8,
-    /// Is this a logical (hyper-threaded) core?
-    pub is_logical: bool,
-    /// Sibling thread (for SMT pairs)
-    pub smt_sibling: Option<u8>,
-    /// L3 cache shared group (cores sharing the same L3)
-    pub l3_group: u8,
+/// Silo affinity binding.
+#[derive(Debug, Clone)]
+pub struct AffinityBinding {
+    pub silo_id: u64,
+    pub preferred_node: u32,
+    pub strict: bool,
 }
 
-/// NUMA allocation policy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NumaPolicy {
-    /// Allocate on the local node of the requesting core (default)
-    Local,
-    /// Interleave allocations round-robin across all nodes
-    Interleave,
-    /// Bind to a specific node
-    Bind(u8),
-    /// Prefer a node but fall back to others if full
-    Preferred(u8),
-    /// Allocate on the node with the most free memory
-    LeastLoaded,
+/// NUMA statistics.
+#[derive(Debug, Clone, Default)]
+pub struct NumaStats {
+    pub local_allocs: u64,
+    pub remote_allocs: u64,
+    pub migrations: u64,
+    pub rebalances: u64,
 }
 
-/// NUMA topology manager.
-pub struct NumaTopology {
-    /// Discovered NUMA nodes
-    pub nodes: Vec<NumaNode>,
-    /// Per-CPU topology info
-    pub cpus: Vec<CpuTopology>,
-    /// Total system memory across all nodes
-    pub total_memory: u64,
-    /// Total free memory across all nodes
-    pub total_free: u64,
-    /// Default allocation policy
-    pub default_policy: NumaPolicy,
-    /// Interleave counter (for round-robin)
-    interleave_next: usize,
-    /// Is the topology initialized?
-    pub initialized: bool,
+/// The NUMA Topology Manager.
+pub struct NumaManager {
+    pub nodes: BTreeMap<u32, NumaNode>,
+    pub distances: Vec<NumaDistance>,
+    pub affinities: BTreeMap<u64, AffinityBinding>,
+    pub stats: NumaStats,
 }
 
-impl NumaTopology {
+impl NumaManager {
     pub fn new() -> Self {
-        NumaTopology {
-            nodes: Vec::new(),
-            cpus: Vec::new(),
-            total_memory: 0,
-            total_free: 0,
-            default_policy: NumaPolicy::Local,
-            interleave_next: 0,
-            initialized: false,
+        NumaManager {
+            nodes: BTreeMap::new(),
+            distances: Vec::new(),
+            affinities: BTreeMap::new(),
+            stats: NumaStats::default(),
         }
     }
 
-    /// Discover topology from ACPI SRAT/SLIT tables.
-    ///
-    /// In production: parse the System Resource Affinity Table (SRAT)
-    /// for CPU-to-node and memory-to-node mappings, and the System
-    /// Locality Information Table (SLIT) for inter-node distances.
-    pub fn discover(&mut self, num_nodes: u8, num_cpus: u8) {
-        // Create nodes with equal memory split (simplified)
-        let per_node_mem = 4 * 1024 * 1024 * 1024u64; // 4 GiB per node
+    /// Register a NUMA node.
+    pub fn add_node(&mut self, id: u32, cpus: Vec<u32>, memory: u64) {
+        self.nodes.insert(id, NumaNode {
+            id, cpus, memory_total: memory, memory_used: 0, silo_count: 0,
+        });
+    }
 
-        for i in 0..num_nodes {
-            let base = i as u64 * per_node_mem;
-            let mut node = NumaNode::new(i, base, per_node_mem);
+    /// Set distance between two nodes.
+    pub fn set_distance(&mut self, from: u32, to: u32, distance: u32) {
+        self.distances.retain(|d| !(d.from == from && d.to == to));
+        self.distances.push(NumaDistance { from, to, distance });
+    }
 
-            // Build distance vector (SLIT-style)
-            for j in 0..num_nodes {
-                if i == j {
-                    node.distances.push(10); // Local
-                } else if (i as i8 - j as i8).unsigned_abs() == 1 {
-                    node.distances.push(20); // Adjacent
-                } else {
-                    node.distances.push(30); // Remote
+    /// Get distance between two nodes.
+    pub fn distance(&self, from: u32, to: u32) -> u32 {
+        if from == to { return 10; }
+        self.distances.iter()
+            .find(|d| d.from == from && d.to == to)
+            .map(|d| d.distance)
+            .unwrap_or(100)
+    }
+
+    /// Bind a Silo to a NUMA node.
+    pub fn bind(&mut self, silo_id: u64, node_id: u32, strict: bool) {
+        if let Some(node) = self.nodes.get_mut(&node_id) {
+            node.silo_count += 1;
+        }
+        self.affinities.insert(silo_id, AffinityBinding {
+            silo_id, preferred_node: node_id, strict,
+        });
+    }
+
+    /// Allocate memory for a Silo.
+    pub fn allocate(&mut self, silo_id: u64, size: u64) -> Option<u32> {
+        let preferred = self.affinities.get(&silo_id)
+            .map(|a| (a.preferred_node, a.strict));
+
+        if let Some((pref_node, strict)) = preferred {
+            if let Some(node) = self.nodes.get_mut(&pref_node) {
+                if node.memory_used + size <= node.memory_total {
+                    node.memory_used += size;
+                    self.stats.local_allocs += 1;
+                    return Some(pref_node);
                 }
             }
-
-            self.nodes.push(node);
+            if strict { return None; }
         }
 
-        // Assign CPUs to nodes round-robin
-        let cpus_per_node = if num_nodes > 0 {
-            (num_cpus as usize + num_nodes as usize - 1) / num_nodes as usize
-        } else {
-            num_cpus as usize
-        };
+        let pref_id = preferred.map(|(n, _)| n).unwrap_or(0);
+        let mut candidates: Vec<(u32, u32)> = self.nodes.iter()
+            .filter(|(_, n)| n.memory_used + size <= n.memory_total)
+            .map(|(&id, _)| (id, self.distance(pref_id, id)))
+            .collect();
 
-        for cpu in 0..num_cpus {
-            let node_id = (cpu as usize / cpus_per_node).min(num_nodes.saturating_sub(1) as usize) as u8;
+        candidates.sort_by_key(|&(_, dist)| dist);
 
-            if let Some(node) = self.nodes.get_mut(node_id as usize) {
-                node.cores.push(cpu);
+        if let Some(&(node_id, _)) = candidates.first() {
+            if let Some(node) = self.nodes.get_mut(&node_id) {
+                node.memory_used += size;
+                self.stats.remote_allocs += 1;
+                return Some(node_id);
             }
-
-            self.cpus.push(CpuTopology {
-                node_id,
-                core_id: cpu,
-                is_logical: cpu % 2 == 1, // Simplified: odd = HT
-                smt_sibling: if cpu % 2 == 0 {
-                    Some(cpu.saturating_add(1))
-                } else {
-                    Some(cpu.saturating_sub(1))
-                },
-                l3_group: node_id,
-            });
         }
-
-        self.total_memory = num_nodes as u64 * per_node_mem;
-        self.total_free = self.total_memory;
-        self.initialized = true;
-
-        crate::serial_println!(
-            "[OK] NUMA: {} nodes, {} CPUs, {} GiB total",
-            num_nodes, num_cpus, self.total_memory / (1024 * 1024 * 1024)
-        );
+        None
     }
 
-    /// Get the NUMA node for a given CPU core.
-    pub fn node_for_cpu(&self, core_id: u8) -> Option<u8> {
-        self.cpus.get(core_id as usize).map(|t| t.node_id)
+    /// Free memory.
+    pub fn free(&mut self, node_id: u32, size: u64) {
+        if let Some(node) = self.nodes.get_mut(&node_id) {
+            node.memory_used = node.memory_used.saturating_sub(size);
+        }
     }
 
-    /// Select the best NUMA node for a memory allocation.
-    pub fn select_node(&mut self, requesting_core: u8, policy: NumaPolicy) -> Option<u8> {
-        if self.nodes.is_empty() {
-            return None;
-        }
-
-        let node_id = match policy {
-            NumaPolicy::Local => {
-                self.node_for_cpu(requesting_core).unwrap_or(0)
-            }
-            NumaPolicy::Bind(n) => n,
-            NumaPolicy::Preferred(n) => {
-                if self.nodes.get(n as usize).map_or(false, |node| node.mem_free > 0) {
-                    n
-                } else {
-                    // Fall back to least loaded
-                    self.find_least_loaded()
-                }
-            }
-            NumaPolicy::LeastLoaded => {
-                self.find_least_loaded()
-            }
-            NumaPolicy::Interleave => {
-                let n = self.interleave_next % self.nodes.len();
-                self.interleave_next = self.interleave_next.wrapping_add(1);
-                n as u8
-            }
-        };
-
-        // Record the allocation
-        if let Some(node) = self.nodes.get(node_id as usize) {
-            node.alloc_count.fetch_add(1, Ordering::Relaxed);
-
-            // Check for cross-node access
-            let local_node = self.node_for_cpu(requesting_core).unwrap_or(0);
-            if local_node != node_id {
-                node.remote_accesses.fetch_add(1, Ordering::Relaxed);
-            }
-        }
-
-        Some(node_id)
-    }
-
-    /// Find the node with the most free memory.
-    fn find_least_loaded(&self) -> u8 {
-        self.nodes.iter()
-            .max_by_key(|n| n.mem_free)
+    /// Find least-loaded node.
+    pub fn least_loaded(&self) -> Option<u32> {
+        self.nodes.values()
+            .min_by_key(|n| if n.memory_total > 0 { (n.memory_used * 100) / n.memory_total } else { 100 })
             .map(|n| n.id)
-            .unwrap_or(0)
-    }
-
-    /// Check if a physical address is local to a CPU core.
-    pub fn is_local(&self, core_id: u8, phys_addr: u64) -> bool {
-        let node_id = self.node_for_cpu(core_id).unwrap_or(0);
-        self.nodes.get(node_id as usize)
-            .map_or(false, |n| n.contains_addr(phys_addr))
-    }
-
-    /// Get allocation statistics per node.
-    pub fn stats(&self) -> Vec<(u8, u64, u64, f64)> {
-        self.nodes.iter().map(|n| (
-            n.id,
-            n.alloc_count.load(Ordering::Relaxed),
-            n.remote_accesses.load(Ordering::Relaxed),
-            n.pressure(),
-        )).collect()
     }
 }

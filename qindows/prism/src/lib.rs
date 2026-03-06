@@ -47,6 +47,7 @@ pub mod qlock;
 pub mod qversions;
 pub mod qshare;
 pub mod qtrash;
+pub mod qcompress;
 
 use alloc::string::String;
 use alloc::vec::Vec;
