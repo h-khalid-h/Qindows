@@ -89,6 +89,7 @@ pub mod syscall;
 pub mod syscall_table;
 pub mod timer;
 pub mod timer_wheel;
+pub mod qaudit;
 
 use core::panic::PanicInfo;
 

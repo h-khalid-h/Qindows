@@ -3,6 +3,8 @@
 //! Parses ACPI tables (RSDP, RSDT/XSDT, MADT, FADT, HPET)
 //! for hardware discovery and power management configuration.
 
+extern crate alloc;
+
 /// RSDP (Root System Description Pointer) — the entry point for ACPI.
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy)]
@@ -346,5 +348,3 @@ impl AcpiParser {
         });
     }
 }
-
-extern crate alloc;
