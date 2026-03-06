@@ -26,6 +26,7 @@ pub mod acl_bridge;
 pub mod registry_shim;
 pub mod qbridge;
 pub mod usb_host;
+pub mod bluetooth;
 
 use alloc::string::String;
 use alloc::vec::Vec;

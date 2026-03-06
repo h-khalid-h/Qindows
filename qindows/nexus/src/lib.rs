@@ -46,6 +46,7 @@ pub mod qview;
 pub mod mesh_identity;
 pub mod qpkg;
 pub mod mesh_relay;
+pub mod qmigrate;
 
 use alloc::vec::Vec;
 use alloc::string::String;
