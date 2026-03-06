@@ -57,6 +57,7 @@ pub mod tls_offload;
 pub mod mesh_backup;
 pub mod mesh_proxy;
 pub mod mesh_metrics;
+pub mod mesh_auth;
 
 use alloc::vec::Vec;
 use alloc::string::String;

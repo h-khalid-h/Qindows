@@ -78,6 +78,7 @@ pub mod pci_enum;
 pub mod spinlock;
 pub mod ioport;
 pub mod msi;
+pub mod tsc;
 pub mod silo;
 pub mod smp;
 pub mod syscall;

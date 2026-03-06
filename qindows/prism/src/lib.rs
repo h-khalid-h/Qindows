@@ -64,6 +64,7 @@ pub mod qpipe;
 pub mod qwatch;
 pub mod qcrypt;
 pub mod qsnapshot;
+pub mod qstat;
 
 use alloc::string::String;
 use alloc::vec::Vec;
