@@ -54,6 +54,7 @@ pub mod gesture_nav;
 pub mod audio_mix;
 pub mod drag_drop;
 pub mod font_render;
+pub mod widget_toolkit;
 
 use alloc::vec::Vec;
 
