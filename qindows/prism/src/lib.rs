@@ -52,6 +52,7 @@ pub mod qencrypt;
 pub mod qsymlink;
 pub mod qquota;
 pub mod qdedup;
+pub mod qtiering;
 
 use alloc::string::String;
 use alloc::vec::Vec;

@@ -48,6 +48,7 @@ pub mod qpkg;
 pub mod mesh_relay;
 pub mod qmigrate;
 pub mod mesh_dns;
+pub mod clipboard_sync;
 
 use alloc::vec::Vec;
 use alloc::string::String;

@@ -67,6 +67,7 @@ pub mod gpu_sched;
 pub mod thermal;
 pub mod rcu;
 pub mod kprobe;
+pub mod kdump;
 pub mod silo;
 pub mod smp;
 pub mod syscall;
