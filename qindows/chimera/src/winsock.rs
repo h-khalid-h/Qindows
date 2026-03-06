@@ -213,12 +213,18 @@ impl WinSockEmulator {
         // Validate state with immutable borrow first
         let sock = self.sockets.get(&handle).ok_or(wsa_error::WSAENOTSOCK)?;
         if sock.state != SocketState::Created { return Err(wsa_error::WSAEINVAL); }
+        let our_reuse = sock.options.reuse_addr;
 
         // Check for address conflicts (immutable borrow of sockets)
         for other in self.sockets.values() {
             if other.handle != handle {
                 if let Some(ref la) = other.local_addr {
-                    if la.port == addr.port { return Err(wsa_error::WSAEADDRINUSE); }
+                    if la.port == addr.port {
+                        // Allow if both sockets have SO_REUSEADDR
+                        if !(our_reuse && other.options.reuse_addr) {
+                            return Err(wsa_error::WSAEADDRINUSE);
+                        }
+                    }
                 }
             }
         }
