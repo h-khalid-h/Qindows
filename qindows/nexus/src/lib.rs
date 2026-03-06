@@ -62,6 +62,7 @@ pub mod mesh_gossip;
 pub mod mesh_transfer;
 pub mod mesh_discovery;
 pub mod mesh_loadbalancer;
+pub mod mesh_nat;
 
 use alloc::vec::Vec;
 use alloc::string::String;
