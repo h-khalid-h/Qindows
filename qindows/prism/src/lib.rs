@@ -61,6 +61,7 @@ pub mod qattr;
 pub mod qlink;
 pub mod qnotify_store;
 pub mod qpipe;
+pub mod qwatch;
 
 use alloc::string::String;
 use alloc::vec::Vec;
