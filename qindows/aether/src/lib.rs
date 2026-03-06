@@ -55,6 +55,7 @@ pub mod audio_mix;
 pub mod drag_drop;
 pub mod font_render;
 pub mod widget_toolkit;
+pub mod qperm;
 
 use alloc::vec::Vec;
 
