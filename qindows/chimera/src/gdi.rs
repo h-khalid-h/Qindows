@@ -266,24 +266,38 @@ impl GdiEmulator {
 
     /// LineTo
     pub fn line_to(&mut self, hdc: HGdi, x: i32, y: i32) {
+        // Read pen handle from DC (immutable borrow)
+        let pen_handle = match self.objects.get(&hdc) {
+            Some(GdiObject::Dc(dc)) => dc.pen,
+            _ => return,
+        };
+        // Resolve pen color/width (immutable borrow on different key)
+        let pen_color = self.get_pen_color(pen_handle);
+        let pen_width = self.get_pen_width(pen_handle);
+        // Now mutably borrow the DC
         if let Some(GdiObject::Dc(dc)) = self.objects.get_mut(&hdc) {
-            let pen_color = self.get_pen_color(dc.pen);
-            let pen_width = self.get_pen_width(dc.pen);
             dc.ops.push(DrawOp::LineTo(x, y, pen_color, pen_width));
             dc.pos_x = x;
             dc.pos_y = y;
-            self.stats.draw_calls += 1;
         }
+        self.stats.draw_calls += 1;
     }
 
     /// Rectangle
     pub fn rectangle(&mut self, hdc: HGdi, left: i32, top: i32, right: i32, bottom: i32) {
+        // Read pen/brush handles from DC (immutable borrow)
+        let (pen_handle, brush_handle) = match self.objects.get(&hdc) {
+            Some(GdiObject::Dc(dc)) => (dc.pen, dc.brush),
+            _ => return,
+        };
+        // Resolve colors
+        let pen_color = self.get_pen_color(pen_handle);
+        let brush_color = self.get_brush_color(brush_handle);
+        // Now mutably borrow the DC
         if let Some(GdiObject::Dc(dc)) = self.objects.get_mut(&hdc) {
-            let pen_color = self.get_pen_color(dc.pen);
-            let brush_color = self.get_brush_color(dc.brush);
             dc.ops.push(DrawOp::Rectangle(left, top, right, bottom, pen_color, brush_color));
-            self.stats.draw_calls += 1;
         }
+        self.stats.draw_calls += 1;
     }
 
     /// TextOut
