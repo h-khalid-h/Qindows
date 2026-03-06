@@ -77,6 +77,7 @@ pub mod cpu_freq;
 pub mod pci_enum;
 pub mod spinlock;
 pub mod ioport;
+pub mod msi;
 pub mod silo;
 pub mod smp;
 pub mod syscall;

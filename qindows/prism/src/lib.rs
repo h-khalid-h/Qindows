@@ -63,6 +63,7 @@ pub mod qnotify_store;
 pub mod qpipe;
 pub mod qwatch;
 pub mod qcrypt;
+pub mod qsnapshot;
 
 use alloc::string::String;
 use alloc::vec::Vec;
