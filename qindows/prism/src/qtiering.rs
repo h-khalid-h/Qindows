@@ -125,7 +125,7 @@ impl QTiering {
 
             if entry.access_score >= self.hot_threshold && entry.tier != Tier::Hot {
                 moves.push((oid, TierMove::Promote));
-            } else if entry.access_score < self.cold_threshold && entry.tier == Tier::Hot {
+            } else if entry.access_score < self.cold_threshold && entry.tier < Tier::Cold {
                 moves.push((oid, TierMove::Demote));
             }
         }

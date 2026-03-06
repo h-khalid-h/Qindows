@@ -108,11 +108,11 @@ impl QQuota {
 
         if new_total > quota.soft_limit {
             if quota.state == QuotaState::Ok {
-                quota.state = QuotaState::SoftExceeded;
+                quota.state = QuotaState::GracePeriod;
                 quota.grace_expires = now + self.grace_duration;
                 self.stats.soft_violations += 1;
-            } else if quota.state == QuotaState::SoftExceeded && now >= quota.grace_expires {
-                quota.state = QuotaState::HardExceeded;
+            } else if quota.state == QuotaState::GracePeriod && now >= quota.grace_expires {
+                quota.state = QuotaState::SoftExceeded;
                 self.stats.writes_blocked += 1;
                 return Err("Grace period expired");
             }
