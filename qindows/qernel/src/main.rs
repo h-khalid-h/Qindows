@@ -85,6 +85,7 @@ pub mod power_mgmt;
 pub mod pcm_audio;
 pub mod efi_stub;
 pub mod usb_hci;
+pub mod rtc;
 pub mod silo;
 pub mod smp;
 pub mod syscall;
