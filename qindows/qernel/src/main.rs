@@ -81,6 +81,7 @@ pub mod msi;
 pub mod tsc;
 pub mod apic_timer;
 pub mod hpet;
+pub mod power_mgmt;
 pub mod silo;
 pub mod smp;
 pub mod syscall;

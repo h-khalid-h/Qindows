@@ -61,6 +61,7 @@ pub mod mesh_auth;
 pub mod mesh_gossip;
 pub mod mesh_transfer;
 pub mod mesh_discovery;
+pub mod mesh_loadbalancer;
 
 use alloc::vec::Vec;
 use alloc::string::String;
