@@ -138,8 +138,9 @@ impl SiloManager {
 
     /// Kill a Silo by ID.
     pub fn kill(&mut self, id: SiloId) {
-        if let Some(silo) = self.get_mut(id) {
-            silo.vaporize();
+        if let Some(idx) = self.silos.iter().position(|s| s.id == id) {
+            self.silos[idx].vaporize();
+            self.silos.swap_remove(idx);
         }
     }
 }
