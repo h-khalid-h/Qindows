@@ -76,6 +76,7 @@ pub mod numa_alloc;
 pub mod cpu_freq;
 pub mod pci_enum;
 pub mod spinlock;
+pub mod ioport;
 pub mod silo;
 pub mod smp;
 pub mod syscall;
