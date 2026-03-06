@@ -57,6 +57,7 @@ pub mod qjournal;
 pub mod qsnap;
 pub mod qacl;
 pub mod qindex;
+pub mod qattr;
 
 use alloc::string::String;
 use alloc::vec::Vec;

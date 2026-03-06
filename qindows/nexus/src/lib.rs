@@ -51,6 +51,7 @@ pub mod mesh_dns;
 pub mod clipboard_sync;
 pub mod silo_firewall;
 pub mod mesh_storage;
+pub mod mesh_monitor;
 
 use alloc::vec::Vec;
 use alloc::string::String;
