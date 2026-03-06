@@ -59,6 +59,7 @@ pub mod qacl;
 pub mod qindex;
 pub mod qattr;
 pub mod qlink;
+pub mod qnotify_store;
 
 use alloc::string::String;
 use alloc::vec::Vec;
