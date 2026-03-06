@@ -139,8 +139,15 @@ impl QJournal {
         Ok(())
     }
 
-    /// Abort a transaction.
+    /// Abort a transaction (only if not committed).
     pub fn abort(&mut self, txn_id: u64) {
+        let is_committed = self.transactions.get(&txn_id)
+            .map(|t| t.committed)
+            .unwrap_or(true);
+        if is_committed {
+            return; // Cannot abort a committed transaction
+        }
+
         if let Some(txn) = self.transactions.remove(&txn_id) {
             for lsn in &txn.entries {
                 self.entries.remove(lsn);

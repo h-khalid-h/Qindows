@@ -103,6 +103,14 @@ impl MemCompress {
             }
         }
 
+        // Evict existing entry for this PFN if present (re-compression)
+        if let Some(old) = self.zpool.remove(&pfn) {
+            self.zpool_used = self.zpool_used.saturating_sub(old.compressed_size as u64);
+            if let Some(budget) = self.budgets.get_mut(&old.silo_id) {
+                budget.pages_used = budget.pages_used.saturating_sub(1);
+            }
+        }
+
         self.zpool.insert(pfn, CompPage {
             pfn, silo_id, original_size, compressed_size,
             state: CompState::Compressed, stored_at: now,
