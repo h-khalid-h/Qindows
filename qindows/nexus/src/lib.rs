@@ -59,6 +59,7 @@ pub mod mesh_proxy;
 pub mod mesh_metrics;
 pub mod mesh_auth;
 pub mod mesh_gossip;
+pub mod mesh_transfer;
 
 use alloc::vec::Vec;
 use alloc::string::String;
