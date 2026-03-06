@@ -23,6 +23,7 @@ pub mod prompt;
 pub mod pipeline;
 pub mod qclip;
 pub mod task_switcher;
+pub mod readline;
 
 use alloc::string::String;
 use alloc::vec::Vec;
