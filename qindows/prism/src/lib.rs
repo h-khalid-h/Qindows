@@ -51,6 +51,7 @@ pub mod qcompress;
 pub mod qencrypt;
 pub mod qsymlink;
 pub mod qquota;
+pub mod qdedup;
 
 use alloc::string::String;
 use alloc::vec::Vec;

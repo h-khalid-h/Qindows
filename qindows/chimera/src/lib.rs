@@ -27,6 +27,7 @@ pub mod registry_shim;
 pub mod qbridge;
 pub mod usb_host;
 pub mod bluetooth;
+pub mod screen_capture;
 
 use alloc::string::String;
 use alloc::vec::Vec;
