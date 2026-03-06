@@ -70,6 +70,7 @@ pub mod qdefrag;
 pub mod qscrub;
 pub mod qextent;
 pub mod qrecycle;
+pub mod qmigrate;
 
 use alloc::string::String;
 use alloc::vec::Vec;
