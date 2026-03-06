@@ -30,6 +30,7 @@ pub mod spatial_input;
 pub mod voice_cmd;
 pub mod input_method;
 pub mod haptic;
+pub mod qtranslate;
 
 use alloc::vec::Vec;
 
