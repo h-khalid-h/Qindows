@@ -60,9 +60,6 @@ pub mod npu_sched;
 pub mod fault_inject;
 pub mod disk_sched;
 pub mod cgroup;
-pub mod iommu;
-pub mod watchdog;
-pub mod numa;
 pub mod gpu_sched;
 pub mod thermal;
 pub mod rcu;
@@ -92,7 +89,6 @@ pub mod syscall;
 pub mod syscall_table;
 pub mod timer;
 pub mod timer_wheel;
-pub mod watchdog;
 
 use core::panic::PanicInfo;
 
