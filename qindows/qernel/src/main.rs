@@ -90,6 +90,7 @@ pub mod syscall_table;
 pub mod timer;
 pub mod timer_wheel;
 pub mod qaudit;
+pub mod qquota;
 
 use core::panic::PanicInfo;
 
