@@ -52,6 +52,7 @@ pub mod accessibility;
 pub mod notification_bus;
 pub mod gesture_nav;
 pub mod audio_mix;
+pub mod drag_drop;
 
 use alloc::vec::Vec;
 

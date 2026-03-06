@@ -65,6 +65,7 @@ pub mod watchdog;
 pub mod numa;
 pub mod gpu_sched;
 pub mod thermal;
+pub mod rcu;
 pub mod silo;
 pub mod smp;
 pub mod syscall;

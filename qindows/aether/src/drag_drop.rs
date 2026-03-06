@@ -1,310 +1,177 @@
-//! # Aether Drag-and-Drop Engine
+//! # Drag & Drop — Cross-Window + Cross-Silo DnD
 //!
-//! Handles drag-and-drop interactions across windows, the Prism
-//! explorer, and Q-Shell. Supports:
-//! - Intra-window dragging (list reorder, widget move)
-//! - Inter-window dragging (file transfer between Silos)
-//! - Shell drops (drag a file into Q-Shell to get its OID)
-//! - Live preview during drag (Aether renders a ghost thumbnail)
+//! Handles drag-and-drop operations between windows and
+//! across Silo boundaries with capability enforcement (Section 4.10).
+//!
+//! Features:
+//! - Intra-window DnD (always allowed)
+//! - Cross-window DnD within same Silo (allowed)
+//! - Cross-Silo DnD (requires DragDrop capability)
+//! - MIME type negotiation
+//! - Visual feedback (drag cursor, drop targets)
 
 extern crate alloc;
 
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-/// What is being dragged.
-#[derive(Debug, Clone)]
-pub enum DragPayload {
-    /// One or more Prism objects (files, images, etc.)
-    Objects(Vec<u64>), // OIDs
-    /// Plain text selection
-    Text(String),
-    /// A UI widget being repositioned
-    Widget { window_id: u64, widget_id: u64 },
-    /// A window being tiled / rearranged
-    Window(u64),
-    /// Raw binary data (clipboard-style)
-    Binary { mime: String, data: Vec<u8> },
-}
-
-/// Drag source information.
-#[derive(Debug, Clone)]
-pub struct DragSource {
-    /// Source Silo ID
-    pub silo_id: u64,
-    /// Source window ID
-    pub window_id: u64,
-    /// Start position (logical pixels)
-    pub start_x: f32,
-    pub start_y: f32,
-    /// Allowed operations from source
-    pub allowed_ops: DragOps,
-}
-
-/// Drag target information.
-#[derive(Debug, Clone)]
-pub struct DropTarget {
-    /// Target Silo ID
-    pub silo_id: u64,
-    /// Target window ID
-    pub window_id: u64,
-    /// Target zone (where in the window)
-    pub zone: DropZone,
-    /// Accepted payload types
-    pub accepted: Vec<PayloadKind>,
-}
-
-/// What operations a drag source allows.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct DragOps {
-    pub copy: bool,
-    pub r#move: bool,
-    pub link: bool,
-}
-
-impl DragOps {
-    pub fn copy_only() -> Self { DragOps { copy: true, r#move: false, link: false } }
-    pub fn move_only() -> Self { DragOps { copy: false, r#move: true, link: false } }
-    pub fn all() -> Self { DragOps { copy: true, r#move: true, link: true } }
-}
-
-/// Kind of payload for filtering.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PayloadKind {
-    Objects,
-    Text,
-    Widget,
-    Window,
-    Binary,
-}
-
-impl DragPayload {
-    pub fn kind(&self) -> PayloadKind {
-        match self {
-            DragPayload::Objects(_) => PayloadKind::Objects,
-            DragPayload::Text(_) => PayloadKind::Text,
-            DragPayload::Widget { .. } => PayloadKind::Widget,
-            DragPayload::Window(_) => PayloadKind::Window,
-            DragPayload::Binary { .. } => PayloadKind::Binary,
-        }
-    }
-}
-
-/// Drop zone within a window.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DropZone {
-    /// Entire window accepts drops
-    Whole,
-    /// Specific rectangle (x, y, w, h)
-    Rect(i32, i32, i32, i32),
-    /// Top/bottom/left/right edge (for tiling)
-    Edge(Edge),
-}
-
-/// Window edge for tiling drops.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Edge {
-    Top,
-    Bottom,
-    Left,
-    Right,
-}
-
-/// Current drag state.
+/// Drag state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DragState {
-    /// No drag active
     Idle,
-    /// Drag started (threshold met)
     Dragging,
-    /// Over a valid drop target
     OverTarget,
-    /// Over an invalid zone
-    OverInvalid,
-    /// Drop accepted
     Dropped,
-    /// Drag cancelled (Escape pressed or left valid area)
     Cancelled,
 }
 
-/// Result of a drag operation.
+/// Drop action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DropEffect {
-    None,
+pub enum DropAction {
     Copy,
     Move,
     Link,
+    None,
 }
 
-/// A live drag-and-drop session.
-#[derive(Debug)]
+/// Drag data payload.
+#[derive(Debug, Clone)]
+pub struct DragPayload {
+    pub mime_type: String,
+    pub data: Vec<u8>,
+    pub label: String,
+}
+
+/// A drag session.
+#[derive(Debug, Clone)]
 pub struct DragSession {
-    /// Current state
+    pub id: u64,
+    pub source_silo: u64,
+    pub source_window: u64,
     pub state: DragState,
-    /// What's being dragged
-    pub payload: DragPayload,
-    /// Source info
-    pub source: DragSource,
-    /// Current cursor position
-    pub cursor_x: f32,
-    pub cursor_y: f32,
-    /// Current hover target (if any)
-    pub hover_target: Option<DropTarget>,
-    /// Visual feedback opacity (0.0–1.0)
-    pub ghost_opacity: f32,
-    /// Drag distance threshold was met
-    pub threshold_met: bool,
+    pub payloads: Vec<DragPayload>,
+    pub allowed_actions: Vec<DropAction>,
+    pub chosen_action: DropAction,
+    pub target_silo: Option<u64>,
+    pub target_window: Option<u64>,
+    pub started_at: u64,
 }
 
-/// Minimum pixels to move before a drag begins.
-const DRAG_THRESHOLD: f32 = 5.0;
-
-/// The Drag-and-Drop Engine.
-pub struct DragDropEngine {
-    /// Active drag session (at most one at a time)
-    pub session: Option<DragSession>,
-    /// Registered drop targets
-    pub targets: Vec<DropTarget>,
-    /// Stats
-    pub total_drags: u64,
-    pub total_drops: u64,
-    pub total_cancelled: u64,
+/// A drop target.
+#[derive(Debug, Clone)]
+pub struct DropTarget {
+    pub window_id: u64,
+    pub silo_id: u64,
+    pub accepted_types: Vec<String>,
+    pub active: bool,
 }
 
-impl DragDropEngine {
+/// DnD statistics.
+#[derive(Debug, Clone, Default)]
+pub struct DndStats {
+    pub drags_started: u64,
+    pub drops_completed: u64,
+    pub drops_cancelled: u64,
+    pub cross_silo_drops: u64,
+    pub denied_drops: u64,
+}
+
+/// The Drag & Drop Manager.
+pub struct DragDrop {
+    pub sessions: BTreeMap<u64, DragSession>,
+    pub targets: BTreeMap<u64, DropTarget>,
+    next_id: u64,
+    pub stats: DndStats,
+}
+
+impl DragDrop {
     pub fn new() -> Self {
-        DragDropEngine {
-            session: None,
-            targets: Vec::new(),
-            total_drags: 0,
-            total_drops: 0,
-            total_cancelled: 0,
+        DragDrop {
+            sessions: BTreeMap::new(),
+            targets: BTreeMap::new(),
+            next_id: 1,
+            stats: DndStats::default(),
         }
     }
 
     /// Register a drop target.
-    pub fn register_target(&mut self, target: DropTarget) {
-        self.targets.push(target);
-    }
-
-    /// Unregister all targets for a window.
-    pub fn unregister_window(&mut self, window_id: u64) {
-        self.targets.retain(|t| t.window_id != window_id);
-    }
-
-    /// Begin a drag operation (called on mouse-down + move).
-    pub fn begin_drag(
-        &mut self,
-        payload: DragPayload,
-        source: DragSource,
-    ) {
-        self.session = Some(DragSession {
-            state: DragState::Idle,
-            payload,
-            cursor_x: source.start_x,
-            cursor_y: source.start_y,
-            source,
-            hover_target: None,
-            ghost_opacity: 0.7,
-            threshold_met: false,
+    pub fn register_target(&mut self, window_id: u64, silo_id: u64, types: Vec<&str>) {
+        self.targets.insert(window_id, DropTarget {
+            window_id, silo_id,
+            accepted_types: types.into_iter().map(String::from).collect(),
+            active: true,
         });
-        self.total_drags += 1;
     }
 
-    /// Update drag position (called on mouse-move).
-    pub fn update(&mut self, x: f32, y: f32) {
-        let session = match self.session.as_mut() {
-            Some(s) => s,
-            None => return,
+    /// Start a drag.
+    pub fn start_drag(&mut self, source_silo: u64, source_window: u64, payloads: Vec<DragPayload>, actions: Vec<DropAction>, now: u64) -> u64 {
+        let id = self.next_id;
+        self.next_id += 1;
+
+        self.sessions.insert(id, DragSession {
+            id, source_silo, source_window,
+            state: DragState::Dragging, payloads,
+            allowed_actions: actions, chosen_action: DropAction::None,
+            target_silo: None, target_window: None,
+            started_at: now,
+        });
+
+        self.stats.drags_started += 1;
+        id
+    }
+
+    /// Drag enters a target window.
+    pub fn enter_target(&mut self, session_id: u64, window_id: u64) -> bool {
+        let target = match self.targets.get(&window_id) {
+            Some(t) if t.active => t,
+            _ => return false,
         };
+        let target_silo = target.silo_id;
+        let accepted = target.accepted_types.clone();
 
-        session.cursor_x = x;
-        session.cursor_y = y;
+        if let Some(session) = self.sessions.get_mut(&session_id) {
+            let compatible = session.payloads.iter()
+                .any(|p| accepted.iter().any(|a| a == &p.mime_type || a == "*/*"));
 
-        // Check drag threshold
-        if !session.threshold_met {
-            let dx = x - session.source.start_x;
-            let dy = y - session.source.start_y;
-            let dist = (dx * dx + dy * dy).sqrt();
-            if dist >= DRAG_THRESHOLD {
-                session.threshold_met = true;
-                session.state = DragState::Dragging;
-            } else {
-                return;
+            if compatible {
+                session.state = DragState::OverTarget;
+                session.target_silo = Some(target_silo);
+                session.target_window = Some(window_id);
+                return true;
             }
         }
-
-        // Hit-test against registered drop targets
-        session.hover_target = None;
-        session.state = DragState::Dragging;
-
-        // Find the best matching target
-        // (targets are checked in reverse order — last registered wins)
-        for target in self.targets.iter().rev() {
-            if self.hit_test(target, x, y) {
-                let payload_kind = session.payload.kind();
-                if target.accepted.contains(&payload_kind) {
-                    session.hover_target = Some(target.clone());
-                    session.state = DragState::OverTarget;
-                } else {
-                    session.state = DragState::OverInvalid;
-                }
-                break;
-            }
-        }
+        false
     }
 
-    /// Complete the drop (called on mouse-up).
-    pub fn drop_it(&mut self) -> Option<(DragPayload, DropTarget, DropEffect)> {
-        let session = self.session.take()?;
-
+    /// Execute drop.
+    pub fn drop(&mut self, session_id: u64, has_cap: bool) -> Result<DropAction, &'static str> {
+        let session = self.sessions.get_mut(&session_id).ok_or("Session not found")?;
         if session.state != DragState::OverTarget {
-            self.total_cancelled += 1;
-            return None;
+            return Err("Not over a valid target");
         }
 
-        let target = session.hover_target?;
-
-        // Determine the effect based on source allowed ops
-        let effect = if session.source.allowed_ops.r#move {
-            DropEffect::Move
-        } else if session.source.allowed_ops.copy {
-            DropEffect::Copy
-        } else if session.source.allowed_ops.link {
-            DropEffect::Link
-        } else {
-            DropEffect::None
-        };
-
-        self.total_drops += 1;
-        Some((session.payload, target, effect))
-    }
-
-    /// Cancel the current drag.
-    pub fn cancel(&mut self) {
-        if self.session.take().is_some() {
-            self.total_cancelled += 1;
+        let cross_silo = session.target_silo.map(|t| t != session.source_silo).unwrap_or(false);
+        if cross_silo && !has_cap {
+            session.state = DragState::Cancelled;
+            self.stats.denied_drops += 1;
+            return Err("No DragDrop capability for cross-Silo");
         }
+
+        let action = session.allowed_actions.first().copied().unwrap_or(DropAction::Copy);
+        session.state = DragState::Dropped;
+        session.chosen_action = action;
+
+        self.stats.drops_completed += 1;
+        if cross_silo { self.stats.cross_silo_drops += 1; }
+        Ok(action)
     }
 
-    /// Is a drag currently active?
-    pub fn is_dragging(&self) -> bool {
-        self.session.as_ref().map_or(false, |s| s.threshold_met)
-    }
-
-    /// Hit-test a drop target.
-    fn hit_test(&self, target: &DropTarget, x: f32, y: f32) -> bool {
-        match target.zone {
-            DropZone::Whole => true, // Simplified — would check window bounds
-            DropZone::Rect(rx, ry, rw, rh) => {
-                x >= rx as f32 && x < (rx + rw) as f32
-                    && y >= ry as f32 && y < (ry + rh) as f32
-            }
-            DropZone::Edge(_) => {
-                // Edge zones are thin strips along window borders
-                // Simplified: always match
-                true
-            }
+    /// Cancel a drag.
+    pub fn cancel(&mut self, session_id: u64) {
+        if let Some(session) = self.sessions.get_mut(&session_id) {
+            session.state = DragState::Cancelled;
+            self.stats.drops_cancelled += 1;
         }
     }
 }

@@ -50,6 +50,7 @@ pub mod qtrash;
 pub mod qcompress;
 pub mod qencrypt;
 pub mod qsymlink;
+pub mod qquota;
 
 use alloc::string::String;
 use alloc::vec::Vec;
