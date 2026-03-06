@@ -219,19 +219,22 @@ impl JobTable {
     }
 
     /// Update current/previous markers when a new job becomes current.
-    fn update_markers(&mut self, new_current: u32) {
+    fn update_markers(&mut self, _new_current: u32) {
+        // Two-pass to avoid nested mutable borrow:
+        // Pass 1: find the old current job ID (if active)
+        let old_current_id = self.jobs.iter()
+            .find(|j| j.is_current)
+            .filter(|j| j.state.is_active())
+            .map(|j| j.id);
+
+        // Pass 2: clear all markers, then set the old current as previous
         for job in &mut self.jobs {
-            if job.is_current {
-                job.is_current = false;
-                // Demote to previous only if still active
-                if job.state.is_active() {
-                    // First clear any existing previous
-                    for j in self.jobs.iter_mut() {
-                        j.is_previous = false;
-                    }
-                    job.is_previous = true;
-                }
-                break;
+            job.is_current = false;
+            job.is_previous = false;
+        }
+        if let Some(prev_id) = old_current_id {
+            if let Some(job) = self.jobs.iter_mut().find(|j| j.id == prev_id) {
+                job.is_previous = true;
             }
         }
     }
