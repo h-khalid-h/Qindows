@@ -51,6 +51,7 @@ pub mod theme_engine;
 pub mod accessibility;
 pub mod notification_bus;
 pub mod gesture_nav;
+pub mod audio_mix;
 
 use alloc::vec::Vec;
 
