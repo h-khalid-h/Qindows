@@ -31,6 +31,7 @@ pub mod screen_capture;
 pub mod d3d_compute;
 pub mod virtual_display;
 pub mod font_mapper;
+pub mod registry_emu;
 
 use alloc::string::String;
 use alloc::vec::Vec;
