@@ -55,6 +55,7 @@ pub mod qdedup;
 pub mod qtiering;
 pub mod qjournal;
 pub mod qsnap;
+pub mod qacl;
 
 use alloc::string::String;
 use alloc::vec::Vec;

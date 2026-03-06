@@ -70,6 +70,7 @@ pub mod kprobe;
 pub mod kdump;
 pub mod mem_compress;
 pub mod page_cache;
+pub mod irq_balance;
 pub mod silo;
 pub mod smp;
 pub mod syscall;

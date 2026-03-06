@@ -53,6 +53,7 @@ pub mod notification_bus;
 pub mod gesture_nav;
 pub mod audio_mix;
 pub mod drag_drop;
+pub mod font_render;
 
 use alloc::vec::Vec;
 
