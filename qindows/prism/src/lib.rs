@@ -71,6 +71,7 @@ pub mod qscrub;
 pub mod qextent;
 pub mod qrecycle;
 pub mod qmigrate;
+pub mod object_versioning;
 
 use alloc::string::String;
 use alloc::vec::Vec;
