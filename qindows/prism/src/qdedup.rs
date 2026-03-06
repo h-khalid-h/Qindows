@@ -93,18 +93,22 @@ impl QDedup {
     /// Release blocks when an object is deleted.
     pub fn release_object(&mut self, oid: u64) {
         if let Some(hashes) = self.object_blocks.remove(&oid) {
-            for hash in hashes {
-                if let Some(block) = self.blocks.get_mut(&hash) {
+            // First pass: decrement refcounts and collect blocks to free
+            let mut to_free = alloc::vec::Vec::new();
+            for hash in &hashes {
+                if let Some(block) = self.blocks.get_mut(hash) {
                     block.refcount = block.refcount.saturating_sub(1);
                     self.stats.ref_decrements += 1;
-
                     if block.refcount == 0 {
-                        let size = block.size;
-                        self.blocks.remove(&hash);
-                        self.stats.blocks_freed += 1;
-                        self.stats.bytes_physical = self.stats.bytes_physical.saturating_sub(size);
+                        to_free.push((*hash, block.size));
                     }
                 }
+            }
+            // Second pass: remove freed blocks
+            for (hash, size) in to_free {
+                self.blocks.remove(&hash);
+                self.stats.blocks_freed += 1;
+                self.stats.bytes_physical = self.stats.bytes_physical.saturating_sub(size);
             }
         }
     }

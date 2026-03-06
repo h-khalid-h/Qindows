@@ -147,8 +147,8 @@ impl AudioMixer {
     pub fn stop(&mut self, stream_id: u64) {
         if let Some(stream) = self.streams.get_mut(&stream_id) {
             stream.state = StreamState::Stopped;
+            self.stats.streams_destroyed += 1;
         }
-        self.stats.streams_destroyed += 1;
     }
 
     /// Set stream volume.
