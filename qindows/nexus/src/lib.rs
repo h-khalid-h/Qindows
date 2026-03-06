@@ -68,6 +68,7 @@ pub mod mesh_rate_limiter;
 pub mod mesh_session;
 pub mod mesh_heartbeat;
 pub mod mesh_topology;
+pub mod mesh_quorum;
 
 use alloc::vec::Vec;
 use alloc::string::String;
