@@ -73,6 +73,7 @@ pub mod page_cache;
 pub mod irq_balance;
 pub mod dma_engine;
 pub mod numa_alloc;
+pub mod cpu_freq;
 pub mod silo;
 pub mod smp;
 pub mod syscall;

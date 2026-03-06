@@ -28,6 +28,7 @@ pub mod qbridge;
 pub mod usb_host;
 pub mod bluetooth;
 pub mod screen_capture;
+pub mod d3d_compute;
 
 use alloc::string::String;
 use alloc::vec::Vec;
