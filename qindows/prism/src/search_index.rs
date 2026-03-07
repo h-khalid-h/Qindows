@@ -326,7 +326,7 @@ impl SearchIndex {
 
         // If match_all, filter to docs matching all terms
         if query.match_all && query.terms.len() > 1 {
-            let min_fields = query.terms.len();
+            let _min_fields = query.terms.len();
             // Simple heuristic: require at least as many field matches as terms
             // (A proper AND would track per-term matches)
             scores.retain(|_, (_, fields)| fields.len() >= 1);

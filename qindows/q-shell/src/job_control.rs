@@ -373,7 +373,7 @@ impl JobTable {
 
     /// Clean up old completed jobs.
     pub fn cleanup(&mut self) {
-        let active_count = self.jobs.iter().filter(|j| j.state.is_active()).count();
+        let _active_count = self.jobs.iter().filter(|j| j.state.is_active()).count();
         let completed: Vec<usize> = self.jobs.iter().enumerate()
             .filter(|(_, j)| !j.state.is_active() && j.notified)
             .map(|(i, _)| i)

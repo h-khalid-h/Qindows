@@ -15,7 +15,6 @@ extern crate alloc;
 
 use alloc::collections::BTreeMap;
 use alloc::collections::BTreeSet;
-use alloc::vec::Vec;
 
 /// Vote decision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

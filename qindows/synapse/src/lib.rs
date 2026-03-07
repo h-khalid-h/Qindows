@@ -36,7 +36,6 @@ pub mod entity_extractor;
 pub mod semantic_router;
 
 use alloc::vec::Vec;
-use alloc::string::String;
 
 /// A neural pattern signature — the "fingerprint" of a thought.
 pub type PatternHash = [u8; 32];

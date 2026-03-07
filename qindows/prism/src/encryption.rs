@@ -12,7 +12,6 @@
 
 extern crate alloc;
 
-use alloc::string::String;
 use alloc::vec::Vec;
 
 // Local crypto helpers — in the final link these resolve to qernel::crypto

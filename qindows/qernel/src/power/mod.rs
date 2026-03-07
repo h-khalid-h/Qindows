@@ -5,7 +5,6 @@
 //! energy budgets per Silo.
 
 use alloc::vec::Vec;
-use spin::Mutex;
 
 /// CPU power states (P-states via ACPI)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

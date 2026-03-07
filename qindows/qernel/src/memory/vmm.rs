@@ -4,7 +4,6 @@
 //! Maps virtual addresses to physical frames with fine-grained
 //! permissions. Supports demand paging, guard pages, and ASLR.
 
-use core::sync::atomic::{AtomicU64, Ordering};
 
 /// Page table entry flags.
 pub mod flags {

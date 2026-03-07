@@ -7,7 +7,6 @@
 //! this console is replaced by GPU-accelerated SDF text.
 
 use super::gpu::AetherFrameBuffer;
-use spin::Mutex;
 
 /// Console state
 pub struct FramebufferConsole {

@@ -7,7 +7,6 @@
 extern crate alloc;
 
 use alloc::collections::BTreeMap;
-use alloc::string::String;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -186,7 +185,7 @@ impl SyscallTable {
         SyscallResult::ok(0)
     }
 
-    fn sys_read(&self, silo_id: u64, fd: u64, buf_ptr: u64, len: u64) -> SyscallResult {
+    fn sys_read(&self, _silo_id: u64, _fd: u64, buf_ptr: u64, len: u64) -> SyscallResult {
         // Validate buffer pointer belongs to the Silo's address space
         if buf_ptr == 0 || len == 0 {
             return SyscallResult::err(errno::EFAULT);
@@ -195,7 +194,7 @@ impl SyscallTable {
         SyscallResult::ok(0) // 0 bytes read (EOF)
     }
 
-    fn sys_write(&self, silo_id: u64, fd: u64, buf_ptr: u64, len: u64) -> SyscallResult {
+    fn sys_write(&self, _silo_id: u64, fd: u64, buf_ptr: u64, len: u64) -> SyscallResult {
         if buf_ptr == 0 {
             return SyscallResult::err(errno::EFAULT);
         }
@@ -207,7 +206,7 @@ impl SyscallTable {
         SyscallResult::ok(len as i64)
     }
 
-    fn sys_open(&self, silo_id: u64, path_ptr: u64, flags: u64) -> SyscallResult {
+    fn sys_open(&self, _silo_id: u64, path_ptr: u64, _flags: u64) -> SyscallResult {
         if path_ptr == 0 {
             return SyscallResult::err(errno::EFAULT);
         }
@@ -215,14 +214,14 @@ impl SyscallTable {
         SyscallResult::ok(3) // return fd 3
     }
 
-    fn sys_close(&self, silo_id: u64, fd: u64) -> SyscallResult {
+    fn sys_close(&self, _silo_id: u64, fd: u64) -> SyscallResult {
         if fd < 3 {
             return SyscallResult::err(errno::EBUSY); // Can't close stdin/stdout/stderr
         }
         SyscallResult::ok(0)
     }
 
-    fn sys_mmap(&self, silo_id: u64, addr: u64, len: u64, prot: u64) -> SyscallResult {
+    fn sys_mmap(&self, _silo_id: u64, addr: u64, len: u64, _prot: u64) -> SyscallResult {
         if len == 0 {
             return SyscallResult::err(errno::EINVAL);
         }

@@ -124,7 +124,7 @@ impl QClipboard {
     }
 
     /// Cross-Silo paste (requires capability check).
-    pub fn cross_paste(&mut self, from_silo: u64, to_silo: u64, has_cap: bool, now: u64) -> Result<ClipEntry, &'static str> {
+    pub fn cross_paste(&mut self, from_silo: u64, _to_silo: u64, has_cap: bool, now: u64) -> Result<ClipEntry, &'static str> {
         if !has_cap {
             self.stats.blocked_pastes += 1;
             return Err("No ClipboardShare capability");

@@ -11,8 +11,7 @@
 
 extern crate alloc;
 
-use alloc::string::String;
-use crate::math_ext::{F32Ext, F64Ext};
+use crate::math_ext::F64Ext;
 use alloc::vec::Vec;
 
 /// A tensor — the fundamental data type for neural computation.

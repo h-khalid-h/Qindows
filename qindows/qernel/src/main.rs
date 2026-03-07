@@ -10,7 +10,6 @@
 #![no_std]
 #![no_main]
 #![feature(abi_x86_interrupt)]
-#![feature(naked_functions)]
 #![feature(alloc_error_handler)]
 
 extern crate alloc;
@@ -201,7 +200,7 @@ pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
     let wall_clock = rtc.read_time();
     let boot_timestamp = wall_clock.to_timestamp();
 
-    let hpet = hpet::Hpet::new(0xFED0_0000, 100_000_000, 3); // ACPI HPET base
+    let _hpet = hpet::Hpet::new(0xFED0_0000, 100_000_000, 3); // ACPI HPET base
     // hpet.enable(); — would start the counter in production
 
     let mut tsc = tsc::TscManager::new();

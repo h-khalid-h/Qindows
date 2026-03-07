@@ -161,7 +161,7 @@ pub mod kernel32 {
     /// CreateFileW → Prism object lookup + handle allocation
     pub fn create_file(
         table: &mut HandleTable,
-        path: &str,
+        _path: &str,
         _access: u32,
         _share_mode: u32,
         _creation: u32,

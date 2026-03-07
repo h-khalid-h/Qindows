@@ -77,18 +77,18 @@ static mut IDT: Idt = Idt::new();
 pub fn init() {
     unsafe {
         // ── CPU Exceptions ──
-        IDT.entries[0].set_handler(division_error as u64, 0x08);
-        IDT.entries[6].set_handler(invalid_opcode as u64, 0x08);
-        IDT.entries[8].set_handler(double_fault as u64, 0x08);
-        IDT.entries[13].set_handler(general_protection as u64, 0x08);
-        IDT.entries[14].set_handler(page_fault as u64, 0x08);
+        IDT.entries[0].set_handler(division_error as *const () as u64, 0x08);
+        IDT.entries[6].set_handler(invalid_opcode as *const () as u64, 0x08);
+        IDT.entries[8].set_handler(double_fault as *const () as u64, 0x08);
+        IDT.entries[13].set_handler(general_protection as *const () as u64, 0x08);
+        IDT.entries[14].set_handler(page_fault as *const () as u64, 0x08);
 
         // ── Hardware IRQs (APIC mapped to vectors 32+) ──
-        IDT.entries[32].set_handler(timer_handler as u64, 0x08);
-        IDT.entries[33].set_handler(keyboard_handler as u64, 0x08);
+        IDT.entries[32].set_handler(timer_handler as *const () as u64, 0x08);
+        IDT.entries[33].set_handler(keyboard_handler as *const () as u64, 0x08);
 
         // ── Q-Ring System Call (vector 0x80) ──
-        IDT.entries[0x80].set_handler(syscall_handler as u64, 0x08);
+        IDT.entries[0x80].set_handler(syscall_handler as *const () as u64, 0x08);
         // Make the syscall gate accessible from Ring 3 (user space)
         IDT.entries[0x80].type_attr = 0xEE; // Present, Ring 3, Interrupt Gate
 

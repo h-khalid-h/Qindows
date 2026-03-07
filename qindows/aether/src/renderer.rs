@@ -8,7 +8,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use crate::math_ext::{F32Ext, F64Ext};
+use crate::math_ext::F32Ext;
 
 /// A color (premultiplied alpha RGBA).
 #[derive(Debug, Clone, Copy, Default)]

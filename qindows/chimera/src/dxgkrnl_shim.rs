@@ -159,7 +159,7 @@ impl DxgkShim {
     }
 
     /// D3DKMTRender (Submit Command Buffer)
-    pub fn render(&mut self, context: D3dHandle, cmd_buffer: &[u8]) -> Result<u64, &'static str> {
+    pub fn render(&mut self, context: D3dHandle, _cmd_buffer: &[u8]) -> Result<u64, &'static str> {
         if let Some(ctx) = self.contexts.get_mut(&context) {
             // In production: Translator parses DirectX Command Buffer and converts to 
             // Virgl/VirtIO 3D commands, then submits to Qernel VirtQueue.

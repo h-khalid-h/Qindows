@@ -6,7 +6,6 @@
 
 extern crate alloc;
 
-use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -166,7 +165,7 @@ impl SlotExtractor {
     pub fn extract(&mut self, query: &str) -> IntentResult {
         self.queries_processed += 1;
         let lower = query.to_lowercase();
-        let words: Vec<&str> = lower.split_whitespace().collect();
+        let _words: Vec<&str> = lower.split_whitespace().collect();
 
         let mut best_match: Option<(&SlotPattern, usize, f32)> = None;
 

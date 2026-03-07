@@ -14,8 +14,7 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
-use crate::virtio::{VirtQueue, VirtioDevice, VqDesc, VqUsedElem};
+use crate::virtio::VirtioDevice;
 
 /// VirtIO GPU command types.
 pub mod cmd {
@@ -175,7 +174,7 @@ impl VirtioGpu {
         let res_id = self.fb_resource_id;
 
         // 1. RESOURCE_CREATE_2D (Format 1 = B8G8R8A8_UNORM)
-        let mut create_cmd = ResourceCreate2d {
+        let _create_cmd = ResourceCreate2d {
             hdr: self.make_hdr(cmd::RESOURCE_CREATE_2D),
             resource_id: res_id,
             format: 1,
@@ -185,16 +184,16 @@ impl VirtioGpu {
         // In production: enqueue `create_cmd`, notify, wait for response
 
         // 2. RESOURCE_ATTACH_BACKING
-        let mut attach_cmd = ResourceAttachBacking {
+        let _attach_cmd = ResourceAttachBacking {
             hdr: self.make_hdr(cmd::RESOURCE_ATTACH_BACKING),
             resource_id: res_id,
             num_entries: 1,
         };
-        let sg_entry = MemEntry { addr: phys_addr, length: size, padding: 0 };
+        let _sg_entry = MemEntry { addr: phys_addr, length: size, padding: 0 };
         // In production: enqueue `attach_cmd` + `sg_entry`, notify, wait for response
 
         // 3. SET_SCANOUT
-        let mut scanout_cmd = SetScanout {
+        let _scanout_cmd = SetScanout {
             hdr: self.make_hdr(cmd::SET_SCANOUT),
             r: Rect { x: 0, y: 0, width, height },
             scanout_id: 0,
@@ -212,7 +211,7 @@ impl VirtioGpu {
         let r = Rect { x, y, width, height };
 
         // 1. TRANSFER_TO_HOST_2D
-        let mut tx_cmd = TransferToHost2d {
+        let _tx_cmd = TransferToHost2d {
             hdr: self.make_hdr(cmd::TRANSFER_TO_HOST_2D),
             r,
             offset: 0,
@@ -222,7 +221,7 @@ impl VirtioGpu {
         // In production: enqueue, notify
 
         // 2. RESOURCE_FLUSH
-        let mut flush_cmd = ResourceFlush {
+        let _flush_cmd = ResourceFlush {
             hdr: self.make_hdr(cmd::RESOURCE_FLUSH),
             r,
             resource_id: self.fb_resource_id,

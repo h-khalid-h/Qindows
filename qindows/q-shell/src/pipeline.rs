@@ -255,7 +255,7 @@ impl PipelineExecutor {
     }
 
     /// Execute a single command (simplified — production dispatches to Q-Shell executor).
-    fn execute_command(&mut self, cmd: &PipeCommand, stdin: &[u8]) -> PipeResult {
+    fn execute_command(&mut self, cmd: &PipeCommand, _stdin: &[u8]) -> PipeResult {
         // Count redirects
         self.stats.redirects_applied += cmd.redirects.len() as u64;
 

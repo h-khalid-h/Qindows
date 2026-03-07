@@ -15,7 +15,6 @@ extern crate alloc;
 
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::cmp::Ordering;
 use crate::embeddings::{Embedding, EmbeddingIndex, ContentType};
 
 /// Action route destinations within Qindows.

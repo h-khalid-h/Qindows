@@ -6,7 +6,6 @@
 
 extern crate alloc;
 
-use alloc::string::String;
 use alloc::vec::Vec;
 
 /// A key-value pair from the B-tree.

@@ -6,7 +6,6 @@
 
 use alloc::collections::VecDeque;
 use alloc::string::String;
-use alloc::format;
 use spin::Mutex;
 
 /// Log severity levels.

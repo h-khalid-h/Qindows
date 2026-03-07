@@ -194,7 +194,7 @@ impl RegistryShim {
 
     /// RegCreateKeyEx — create or open a registry key.
     pub fn create_key(&mut self, root: HKey, subkey: &str, silo_id: u64) -> u64 {
-        let qpath = self.to_qpath(root, subkey, silo_id);
+        let _qpath = self.to_qpath(root, subkey, silo_id);
 
         // Ensure parent subkey entries exist
         let parts: Vec<&str> = subkey.split('\\').collect();

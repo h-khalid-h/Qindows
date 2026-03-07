@@ -7,7 +7,7 @@
 extern crate alloc;
 
 use alloc::string::String;
-use crate::math_ext::{F32Ext, F64Ext};
+use crate::math_ext::F32Ext;
 use alloc::vec::Vec;
 
 /// Drag data format.
@@ -261,7 +261,7 @@ impl DndManager {
     }
 
     /// Complete the drop (on mouse release).
-    pub fn drop_at(&mut self, x: f32, y: f32) {
+    pub fn drop_at(&mut self, _x: f32, _y: f32) {
         if self.state == DragState::OverTarget {
             if let (Some(source), Some(target_id)) = (&self.source, self.hover_target) {
                 let is_cross_silo = self.targets.iter()

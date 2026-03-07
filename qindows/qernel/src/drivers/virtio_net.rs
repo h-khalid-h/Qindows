@@ -4,7 +4,6 @@
 //! Uses the VirtIO transport for high-performance virtual networking.
 
 use alloc::vec::Vec;
-use core::sync::atomic::{AtomicU16, Ordering};
 
 /// VirtIO device status flags
 pub mod status {

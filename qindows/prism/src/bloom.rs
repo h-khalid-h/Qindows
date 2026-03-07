@@ -87,7 +87,7 @@ impl BloomFilter {
     pub fn estimated_fpr(&self) -> f64 {
         let ones = self.popcount() as f64;
         let m = self.num_bits as f64;
-        let k = self.num_hashes as f64;
+        let _k = self.num_hashes as f64;
         let fill = ones / m;
         // (1 - e^(-kn/m))^k ≈ fill^k
         let mut result = 1.0;

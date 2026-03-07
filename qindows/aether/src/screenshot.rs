@@ -220,7 +220,7 @@ impl ScreenshotEngine {
             CaptureMode::FullScreen => {
                 Region::new(0, 0, self.screen_width, self.screen_height)
             }
-            CaptureMode::Monitor(id) => {
+            CaptureMode::Monitor(_id) => {
                 // In production: query compositor for monitor geometry
                 Region::new(0, 0, self.screen_width, self.screen_height)
             }

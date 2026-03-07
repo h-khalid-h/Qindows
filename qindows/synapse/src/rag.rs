@@ -16,7 +16,7 @@
 extern crate alloc;
 
 use alloc::string::String;
-use crate::math_ext::{F32Ext, F64Ext};
+use crate::math_ext::F64Ext;
 use alloc::vec::Vec;
 
 // ─── Retrieval ──────────────────────────────────────────────────────────────
@@ -207,7 +207,7 @@ impl RagPipeline {
     /// Split text into overlapping chunks.
     fn split_chunks(&self, text: &str) -> Vec<(usize, String)> {
         let mut chunks = Vec::new();
-        let bytes = text.as_bytes();
+        let _bytes = text.as_bytes();
         let size = self.config.chunk_size;
         let overlap = self.config.chunk_overlap;
         let step = if size > overlap { size - overlap } else { 1 };

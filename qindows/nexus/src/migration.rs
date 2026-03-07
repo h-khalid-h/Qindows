@@ -9,7 +9,6 @@
 
 extern crate alloc;
 
-use alloc::string::String;
 use alloc::vec::Vec;
 
 /// Fiber migration state — the serializable snapshot of a running fiber.

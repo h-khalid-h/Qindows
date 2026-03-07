@@ -47,8 +47,8 @@ impl FrameAllocator {
     /// the allocation bitmap.
     pub fn init(
         memory_map_addr: u64,
-        memory_map_entries: u64,
-        desc_size: u64,
+        _memory_map_entries: u64,
+        _desc_size: u64,
     ) -> Self {
         // In a full implementation, we would:
         // 1. Parse the UEFI MemoryDescriptor array

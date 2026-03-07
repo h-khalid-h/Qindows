@@ -4,7 +4,6 @@
 //! Routes hardware interrupts (IRQs) from devices to CPU cores.
 //! Supports MSI/MSI-X redirection and per-IRQ affinity.
 
-use core::sync::atomic::{AtomicU64, Ordering};
 
 /// IOAPIC MMIO register offsets.
 const IOREGSEL: u64 = 0x00;

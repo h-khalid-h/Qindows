@@ -13,7 +13,6 @@
 
 extern crate alloc;
 
-use alloc::string::String;
 use alloc::vec::Vec;
 
 /// Supported DirectX feature levels.

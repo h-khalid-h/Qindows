@@ -9,7 +9,6 @@
 //! - RDI, RSI, RDX, R10, R8, R9 = arguments
 //! - RAX = return value (negative = error)
 
-use crate::capability::{self, CapToken, Permissions};
 
 /// System call numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -125,7 +124,7 @@ pub fn init() {
         write_msr(0xC0000081, star);
 
         // LSTAR MSR (0xC0000082): kernel entry point for SYSCALL
-        write_msr(0xC0000082, syscall_entry as u64);
+        write_msr(0xC0000082, syscall_entry as *const () as u64);
 
         // SFMASK MSR (0xC0000084): RFLAGS mask on SYSCALL entry
         // Clear IF (disable interrupts) and DF (clear direction flag)
@@ -201,7 +200,7 @@ pub fn dispatch_syscall(
     arg3: u64,
     arg4: u64,
 ) -> i64 {
-    let args = SyscallArgs {
+    let _args = SyscallArgs {
         id,
         arg0,
         arg1,
