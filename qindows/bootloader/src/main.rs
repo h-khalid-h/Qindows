@@ -17,27 +17,8 @@ use uefi::proto::console::gop::GraphicsOutput;
 use uefi::table::boot::{MemoryDescriptor, MemoryType};
 use log::info;
 
-/// Boot information passed from the bootloader to the Qernel.
-/// Contains everything the kernel needs to initialize.
-#[repr(C)]
-pub struct BootInfo {
-    /// Framebuffer base address for direct pixel access
-    pub framebuffer_addr: u64,
-    /// Framebuffer size in bytes
-    pub framebuffer_size: u64,
-    /// Horizontal resolution in pixels
-    pub horizontal_resolution: u32,
-    /// Vertical resolution in pixels
-    pub vertical_resolution: u32,
-    /// Pixels per scanline (may differ from horizontal_resolution)
-    pub pixels_per_scanline: u32,
-    /// Pointer to UEFI memory map descriptors
-    pub memory_map_addr: u64,
-    /// Number of memory map entries
-    pub memory_map_entries: u64,
-    /// Size of each memory map descriptor
-    pub memory_map_desc_size: u64,
-}
+/// Re-export shared BootInfo from qindows-types.
+use qindows_types::boot::BootInfo;
 
 /// UEFI entry point — the very first code that runs on Qindows hardware.
 #[entry]

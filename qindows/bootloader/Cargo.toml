@@ -8,3 +8,4 @@ authors.workspace = true
 uefi = { version = "0.28", features = ["alloc"] }
 uefi-services = "0.25"
 log = { workspace = true }
+qindows-types = { workspace = true }

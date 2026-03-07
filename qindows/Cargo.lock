@@ -124,6 +124,7 @@ name = "qindows-bootloader"
 version = "1.0.0-genesis"
 dependencies = [
  "log",
+ "qindows-types",
  "uefi",
  "uefi-services",
 ]

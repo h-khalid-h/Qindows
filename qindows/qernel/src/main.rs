@@ -98,18 +98,8 @@ pub mod qquota;
 
 use core::panic::PanicInfo;
 
-/// Boot information received from the UEFI bootloader.
-#[repr(C)]
-pub struct BootInfo {
-    pub framebuffer_addr: u64,
-    pub framebuffer_size: u64,
-    pub horizontal_resolution: u32,
-    pub vertical_resolution: u32,
-    pub pixels_per_scanline: u32,
-    pub memory_map_addr: u64,
-    pub memory_map_entries: u64,
-    pub memory_map_desc_size: u64,
-}
+/// Re-export shared BootInfo from qindows-types.
+pub use qindows_types::boot::BootInfo;
 
 /// The Qernel Entry Point — 8-Phase Boot Sequence.
 ///
