@@ -32,8 +32,10 @@ pub mod input_method;
 pub mod haptic;
 pub mod qtranslate;
 pub mod intent_classifier;
+pub mod entity_extractor;
 
 use alloc::vec::Vec;
+use alloc::string::String;
 
 /// A neural pattern signature — the "fingerprint" of a thought.
 pub type PatternHash = [u8; 32];
