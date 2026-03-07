@@ -5,3 +5,4 @@ edition.workspace = true
 description = "Q-Nexus — Global Mesh Networking"
 
 [dependencies]
+qindows-types = { workspace = true }

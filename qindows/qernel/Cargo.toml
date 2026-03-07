@@ -10,3 +10,4 @@ spin = { workspace = true }
 bitflags = { workspace = true }
 log = { workspace = true }
 libm = { workspace = true }
+qindows-types = { workspace = true }

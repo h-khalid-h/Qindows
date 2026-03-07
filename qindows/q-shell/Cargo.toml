@@ -5,3 +5,4 @@ edition.workspace = true
 description = "Q-Shell — The Semantic Command Palette"
 
 [dependencies]
+qindows-types = { workspace = true }

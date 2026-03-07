@@ -1,0 +1,8 @@
+[package]
+name = "qindows-types"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+libm = { workspace = true }

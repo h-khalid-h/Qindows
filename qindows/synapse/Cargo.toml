@@ -6,3 +6,4 @@ description = "Q-Synapse — Neural Integration (BCI)"
 
 [dependencies]
 libm = { workspace = true }
+qindows-types = { workspace = true }

@@ -7,3 +7,4 @@ description = "Aether — Vector Compositor Engine for Qindows"
 [dependencies]
 libm = { workspace = true }
 # No kernel dependencies — Aether runs in user space
+qindows-types = { workspace = true }

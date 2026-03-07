@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "qindows-types",
     "bootloader",
     "qernel",
     "prism",
@@ -23,3 +24,4 @@ spin = "0.9"
 bitflags = "2.4"
 log = "0.4"
 libm = "0.2"
+qindows-types = { path = "qindows-types" }
