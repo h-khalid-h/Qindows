@@ -321,4 +321,91 @@ impl ElfLoader {
             interp,
         })
     }
+
+    /// Load ELF segments into physical memory.
+    ///
+    /// For each PT_LOAD segment:
+    /// 1. Copy file data to the correct virtual address
+    /// 2. Zero-fill .bss (mem_size > file_size)
+    ///
+    /// Returns the entry point address.
+    ///
+    /// # Safety
+    /// The caller must ensure the destination physical memory is mapped
+    /// and free. In the bootloader context, this is guaranteed by
+    /// ExitBootServices + identity mapping.
+    pub unsafe fn load_into_memory(
+        &mut self,
+        data: &[u8],
+        info: &ElfInfo,
+    ) -> Result<LoadedElf, ElfError> {
+        let mut lowest_addr: u64 = u64::MAX;
+        let mut highest_addr: u64 = 0;
+
+        for seg in &info.segments {
+            if seg.seg_type != PhType::Load {
+                continue;
+            }
+
+            let dest = seg.vaddr as *mut u8;
+            let src_offset = seg.offset as usize;
+            let file_sz = seg.file_size as usize;
+            let mem_sz = seg.mem_size as usize;
+
+            // Copy file data to destination
+            if src_offset + file_sz <= data.len() {
+                core::ptr::copy_nonoverlapping(
+                    data.as_ptr().add(src_offset),
+                    dest,
+                    file_sz,
+                );
+            }
+
+            // Zero-fill BSS (mem_size > file_size)
+            if mem_sz > file_sz {
+                core::ptr::write_bytes(dest.add(file_sz), 0, mem_sz - file_sz);
+            }
+
+            // Track memory range
+            if seg.vaddr < lowest_addr {
+                lowest_addr = seg.vaddr;
+            }
+            let seg_end = seg.vaddr + seg.mem_size;
+            if seg_end > highest_addr {
+                highest_addr = seg_end;
+            }
+        }
+
+        Ok(LoadedElf {
+            entry_point: info.entry_point,
+            base_addr: lowest_addr,
+            end_addr: highest_addr,
+            total_size: highest_addr - lowest_addr,
+            segments_loaded: info.segments.len() as u32,
+        })
+    }
+
+    /// Full load flow: parse + load into memory.
+    ///
+    /// # Safety
+    /// Same as `load_into_memory`.
+    pub unsafe fn load_and_exec(&mut self, data: &[u8]) -> Result<LoadedElf, ElfError> {
+        let info = self.parse(data)?;
+        self.load_into_memory(data, &info)
+    }
+}
+
+/// Result of loading an ELF binary into memory.
+#[derive(Debug, Clone, Copy)]
+pub struct LoadedElf {
+    /// Entry point address (where to jump)
+    pub entry_point: u64,
+    /// Lowest virtual address used
+    pub base_addr: u64,
+    /// Highest virtual address used (exclusive)
+    pub end_addr: u64,
+    /// Total memory footprint
+    pub total_size: u64,
+    /// Number of segments mapped
+    pub segments_loaded: u32,
 }
