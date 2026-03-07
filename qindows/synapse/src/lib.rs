@@ -27,11 +27,9 @@ pub mod neural_enc;
 pub mod qcollab;
 pub mod thought_gate;
 pub mod spatial_input;
-pub mod voice_cmd;
 pub mod input_method;
 pub mod haptic;
 pub mod qtranslate;
-pub mod intent_classifier;
 pub mod entity_extractor;
 pub mod semantic_router;
 
