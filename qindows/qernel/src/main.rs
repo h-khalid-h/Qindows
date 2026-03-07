@@ -58,6 +58,7 @@ pub mod silo_snapshot;
 pub mod power_gov;
 pub mod npu_sched;
 pub mod fault_inject;
+pub mod msr;
 pub mod disk_sched;
 pub mod cgroup;
 pub mod gpu_sched;
