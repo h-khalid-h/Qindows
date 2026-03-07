@@ -55,6 +55,7 @@ pub mod widget_toolkit;
 pub mod qperm;
 pub mod qthumbnail;
 pub mod display_profiles;
+pub mod focus_manager;
 
 use alloc::vec::Vec;
 
