@@ -24,6 +24,7 @@ pub mod pipeline;
 pub mod qclip;
 pub mod task_switcher;
 pub mod readline;
+pub mod repl;
 pub mod variables;
 
 use alloc::string::String;
