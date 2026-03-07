@@ -104,7 +104,7 @@ use core::panic::PanicInfo;
 /// Re-export shared BootInfo from qindows-types.
 pub use qindows_types::boot::BootInfo;
 
-/// The Qernel Entry Point — 8-Phase Boot Sequence.
+/// The Qernel Entry Point — 15-Phase Boot Sequence.
 ///
 /// Called by the bootloader after UEFI boot services have exited.
 /// This is the absolute beginning of Qindows — no standard library,

@@ -98,33 +98,45 @@ fn efi_main(image: Handle, mut system_table: SystemTable<Boot>) -> Status {
     );
 
     // ── Step 3: Prepare Boot Info for Qernel ───────────────────────
-    let boot_info = BootInfo {
-        framebuffer_addr: fb_addr,
-        framebuffer_size: fb_size,
-        horizontal_resolution: h_res as u32,
-        vertical_resolution: v_res as u32,
-        pixels_per_scanline: stride as u32,
-        memory_map_addr: mmap_buffer as u64,
-        memory_map_entries: entry_count,
-        memory_map_desc_size: core::mem::size_of::<MemoryDescriptor>() as u64,
-    };
+    // Allocate BootInfo in LOADER_DATA memory — persists after ExitBootServices.
+    // This address is passed to the Qernel and must remain valid.
+    let boot_info_ptr = system_table
+        .boot_services()
+        .allocate_pool(MemoryType::LOADER_DATA, core::mem::size_of::<BootInfo>())
+        .expect("Failed to allocate BootInfo") as *mut BootInfo;
 
-    info!("Boot info assembled. Preparing Qernel handoff...");
+    unsafe {
+        boot_info_ptr.write(BootInfo {
+            framebuffer_addr: fb_addr,
+            framebuffer_size: fb_size,
+            horizontal_resolution: h_res as u32,
+            vertical_resolution: v_res as u32,
+            pixels_per_scanline: stride as u32,
+            memory_map_addr: mmap_buffer as u64,
+            memory_map_entries: entry_count,
+            memory_map_desc_size: core::mem::size_of::<MemoryDescriptor>() as u64,
+        });
+    }
+
+    info!("Boot info allocated at {:#x}", boot_info_ptr as u64);
     info!("Genesis Protocol: BOOTLOADER COMPLETE.");
 
     // ── Step 4: Exit Boot Services & Jump to Qernel ────────────────
-    // In a full build, we would:
-    // 1. Load the Qernel ELF binary from the EFI System Partition
-    // 2. Exit UEFI boot services (no more firmware calls after this)
-    // 3. Jump to the Qernel entry point with &boot_info as argument
+    // Production flow:
+    // 1. Load Qernel ELF from EFI System Partition
+    // 2. Parse ELF, map segments into physical memory
+    // 3. Exit UEFI boot services (no firmware calls after this)
+    // 4. Jump to Qernel: _start(boot_info_ptr as &'static BootInfo)
     //
-    // For now, we demonstrate the boot sequence structure:
-    let _ = boot_info; // Will be passed to qernel::_start(&boot_info)
+    // The kernel entry point expects:
+    //   extern "C" fn _start(boot_info: &'static BootInfo) -> !
+    //
+    // For now, we halt — the jump is implemented when we add the ELF loader.
+    let _ = boot_info_ptr;
 
     info!("Qindows Qernel handoff would execute here.");
     info!("THE MESH AWAITS.");
 
-    // Halt — in production this is replaced by the jump to Qernel
     loop {
         unsafe { core::arch::asm!("hlt") };
     }

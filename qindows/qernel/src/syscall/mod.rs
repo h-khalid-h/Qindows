@@ -210,6 +210,24 @@ pub fn dispatch_syscall(
         arg5: 0,
     };
 
+    // ── Capability Gate ─────────────────────────────────────────
+    // Check that the calling silo has the required permission
+    // for this syscall category. Yield/Exit/GetTime/GetSiloId are
+    // always allowed (no capability needed).
+    let silo_id = 0u64; // TODO: read from per-CPU current-silo field
+    let required = required_capability(id);
+
+    if let Some(perm) = required {
+        let has_cap = {
+            let silos = crate::kstate::silos();
+            silos.silos.iter().any(|s| s.id == silo_id && s.has_capability(perm))
+        };
+        if !has_cap {
+            return SyscallError::PermissionDenied as i64;
+        }
+    }
+
+    // ── Dispatch ────────────────────────────────────────────────
     match id {
         0 => handle_yield(),
         1 => handle_exit(arg0 as i32),
@@ -223,6 +241,35 @@ pub fn dispatch_syscall(
         50 => handle_get_time(),
         52 => handle_get_silo_id(),
         _ => SyscallError::InvalidSyscall as i64,
+    }
+}
+
+/// Map syscall ID to required capability permission.
+/// Returns None for syscalls that require no capability (universal).
+fn required_capability(id: u64) -> Option<crate::capability::Permissions> {
+    use crate::capability::Permissions;
+    match id {
+        // Universal — no capability needed
+        0 | 1 | 50 | 52 => None,
+        // Fiber spawn requires SPAWN
+        2 => Some(Permissions::SPAWN),
+        // Prism operations require PRISM + READ or WRITE
+        10 | 11 | 13 => Some(Permissions::PRISM | Permissions::READ),
+        12 => Some(Permissions::PRISM | Permissions::WRITE),
+        // IPC requires SPAWN (to create/use channels)
+        20 | 21 | 22 => Some(Permissions::SPAWN),
+        // Memory mapping requires DEVICE
+        30 | 31 | 32 | 33 => Some(Permissions::DEVICE),
+        // Capability management requires SPAWN
+        40 | 41 => Some(Permissions::SPAWN),
+        // Aether requires GRAPHICS
+        60 | 61 => Some(Permissions::GRAPHICS),
+        // Net requires NET_SEND or NET_RECV
+        70 | 71 => Some(Permissions::NET_SEND),
+        72 => Some(Permissions::NET_RECV),
+        // Sentinel heartbeat — universal
+        80 => None,
+        _ => None,
     }
 }
 
