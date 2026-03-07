@@ -11,6 +11,7 @@
 //! - **Scene Graph**: UI independent of app state
 
 #![no_std]
+#![allow(dead_code)]
 
 extern crate alloc;
 

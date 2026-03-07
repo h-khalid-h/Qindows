@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! # Qindows UEFI Bootloader
 //!
 //! The bridge between hardware firmware and the Qernel.

@@ -72,12 +72,11 @@ pub fn write_blocks(
     data: &[u8],
 ) -> Result<(), BlockError> {
     let num_blocks = (data.len() + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    let mut block = [0u8; BLOCK_SIZE];
 
     for i in 0..num_blocks {
         let offset = i * BLOCK_SIZE;
         let end = (offset + BLOCK_SIZE).min(data.len());
-        block = [0u8; BLOCK_SIZE]; // Zero-fill last partial block
+        let mut block = [0u8; BLOCK_SIZE]; // Zero-fill for partial blocks
         block[..end - offset].copy_from_slice(&data[offset..end]);
         dev.write_block(start + i as u64, &block)?;
     }

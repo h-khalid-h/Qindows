@@ -11,6 +11,7 @@
 //! - **Semantic Search**: "Show me the contract from Sarah" works
 
 #![no_std]
+#![allow(dead_code)]
 
 extern crate alloc;
 

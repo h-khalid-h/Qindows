@@ -7,6 +7,7 @@
 //! Uses System Call Translation (not slow VM emulation).
 
 #![no_std]
+#![allow(dead_code)]
 
 extern crate alloc;
 
