@@ -62,6 +62,7 @@ pub mod msr;
 pub mod disk_sched;
 pub mod cgroup;
 pub mod gpu_sched;
+pub mod virtio;
 pub mod thermal;
 pub mod rcu;
 pub mod kprobe;
