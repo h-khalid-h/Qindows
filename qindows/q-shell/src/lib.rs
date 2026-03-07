@@ -25,7 +25,6 @@ pub mod qclip;
 pub mod task_switcher;
 pub mod readline;
 pub mod variables;
-pub mod aliases;
 
 use alloc::string::String;
 use alloc::vec::Vec;

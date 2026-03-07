@@ -1,13 +1,29 @@
 //! # Q-Shell Alias System
 //!
 //! Command aliases with parameter substitution, recursive
-//! expansion, and system/user alias separation.
+//! expansion, per-Silo namespacing, and system/user alias
+//! separation (Section 7.6).
+//!
+//! Features:
+//! - Parameter substitution ($1, $2, $@, $#)
+//! - System aliases (cannot be overridden by user)
+//! - Per-Silo alias scopes (Silo-local overrides global)
+//! - Recursive expansion with loop detection
+//! - Invocation counting and statistics
+//! - Built-in defaults for navigation, safety, and Q-Shell
 
 extern crate alloc;
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
+
+/// Alias scope.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AliasScope {
+    Global,
+    Silo(u64),
+}
 
 /// An alias definition.
 #[derive(Debug, Clone)]
@@ -24,24 +40,33 @@ pub struct Alias {
     pub invocations: u64,
 }
 
-/// The Alias Manager.
-pub struct AliasManager {
-    /// Aliases: name → definition
-    pub aliases: BTreeMap<String, Alias>,
-    /// Maximum recursion depth for alias expansion
-    pub max_depth: u8,
-    /// Stats
+/// Alias manager statistics.
+#[derive(Debug, Clone, Default)]
+pub struct AliasStats {
     pub total_expansions: u64,
     pub expansion_errors: u64,
+    pub loop_detections: u64,
+}
+
+/// The Alias Manager.
+pub struct AliasManager {
+    /// Global aliases: name → definition
+    pub global: BTreeMap<String, Alias>,
+    /// Per-Silo aliases: silo_id → (name → definition)
+    pub silo_aliases: BTreeMap<u64, BTreeMap<String, Alias>>,
+    /// Maximum recursion depth for alias expansion
+    pub max_depth: u8,
+    /// Statistics
+    pub stats: AliasStats,
 }
 
 impl AliasManager {
     pub fn new() -> Self {
         let mut mgr = AliasManager {
-            aliases: BTreeMap::new(),
-            max_depth: 10,
-            total_expansions: 0,
-            expansion_errors: 0,
+            global: BTreeMap::new(),
+            silo_aliases: BTreeMap::new(),
+            max_depth: 16,
+            stats: AliasStats::default(),
         };
         mgr.load_defaults();
         mgr
@@ -54,11 +79,17 @@ impl AliasManager {
         self.add_system("..", "cd ..");
         self.add_system("...", "cd ../..");
         self.add_system("~", "cd $HOME");
+        self.add_system("cls", "clear");
 
         // Safety
         self.add_system("rm", "rm -i");
         self.add_system("cp", "cp -i");
         self.add_system("mv", "mv -i");
+
+        // Utilities
+        self.add_system("grep", "grep --color=auto");
+        self.add_system("df", "df -h");
+        self.add_system("du", "du -sh");
 
         // Q-Shell specific
         self.add_system("silo-list", "qctl silo list");
@@ -69,7 +100,7 @@ impl AliasManager {
     }
 
     fn add_system(&mut self, name: &str, expansion: &str) {
-        self.aliases.insert(String::from(name), Alias {
+        self.global.insert(String::from(name), Alias {
             name: String::from(name),
             expansion: String::from(expansion),
             system: true,
@@ -78,31 +109,49 @@ impl AliasManager {
         });
     }
 
-    /// Define a user alias.
-    pub fn define(&mut self, name: &str, expansion: &str) -> bool {
-        let key = String::from(name);
-
-        // Cannot override system aliases
-        if let Some(existing) = self.aliases.get(&key) {
-            if existing.system { return false; }
+    /// Define a user alias in any scope.
+    pub fn define(&mut self, name: &str, expansion: &str, scope: AliasScope) -> bool {
+        // Cannot override system aliases in global scope
+        if let AliasScope::Global = scope {
+            if let Some(existing) = self.global.get(name) {
+                if existing.system { return false; }
+            }
         }
 
-        self.aliases.insert(key.clone(), Alias {
-            name: key,
+        let alias = Alias {
+            name: String::from(name),
             expansion: String::from(expansion),
             system: false,
             recursive: true,
             invocations: 0,
-        });
+        };
+
+        match scope {
+            AliasScope::Global => { self.global.insert(String::from(name), alias); }
+            AliasScope::Silo(id) => {
+                self.silo_aliases.entry(id)
+                    .or_insert_with(BTreeMap::new)
+                    .insert(String::from(name), alias);
+            }
+        }
         true
     }
 
     /// Remove a user alias.
-    pub fn undefine(&mut self, name: &str) -> bool {
-        if let Some(alias) = self.aliases.get(name) {
-            if alias.system { return false; }
+    pub fn undefine(&mut self, name: &str, scope: AliasScope) -> bool {
+        match scope {
+            AliasScope::Global => {
+                if let Some(alias) = self.global.get(name) {
+                    if alias.system { return false; }
+                }
+                self.global.remove(name).is_some()
+            }
+            AliasScope::Silo(id) => {
+                self.silo_aliases.get_mut(&id)
+                    .map(|m| m.remove(name).is_some())
+                    .unwrap_or(false)
+            }
         }
-        self.aliases.remove(name).is_some()
     }
 
     /// Expand a command line, replacing alias names with their expansions.
@@ -111,13 +160,19 @@ impl AliasManager {
     /// - `$1`, `$2`, ... → positional arguments
     /// - `$@` → all arguments
     /// - `$#` → argument count
-    pub fn expand(&mut self, input: &str) -> String {
-        self.expand_recursive(input, 0)
+    ///
+    /// Silo-scoped aliases take priority over global aliases.
+    pub fn expand(&mut self, input: &str, silo_id: Option<u64>) -> String {
+        self.expand_recursive(input, 0, silo_id, &mut Vec::new())
     }
 
-    fn expand_recursive(&mut self, input: &str, depth: u8) -> String {
+    fn expand_recursive(
+        &mut self, input: &str, depth: u8,
+        silo_id: Option<u64>, seen: &mut Vec<String>,
+    ) -> String {
         if depth >= self.max_depth {
-            self.expansion_errors += 1;
+            self.stats.expansion_errors += 1;
+            self.stats.loop_detections += 1;
             return String::from(input);
         }
 
@@ -125,17 +180,35 @@ impl AliasManager {
         let cmd = parts[0];
         let args_str = if parts.len() > 1 { parts[1] } else { "" };
 
-        // Look up the alias
-        let alias = match self.aliases.get(cmd) {
-            Some(a) => a.clone(),
+        // Loop detection
+        let cmd_string = String::from(cmd);
+        if seen.contains(&cmd_string) {
+            self.stats.loop_detections += 1;
+            return String::from(input);
+        }
+
+        // Look up: Silo-scoped first, then global
+        let alias = silo_id
+            .and_then(|id| self.silo_aliases.get(&id))
+            .and_then(|m| m.get(cmd))
+            .or_else(|| self.global.get(cmd))
+            .cloned();
+
+        let alias = match alias {
+            Some(a) => a,
             None => return String::from(input),
         };
 
-        // Track invocation (need to re-borrow mutably)
-        if let Some(a) = self.aliases.get_mut(cmd) {
+        // Track invocation
+        if let Some(a) = silo_id
+            .and_then(|id| self.silo_aliases.get_mut(&id))
+            .and_then(|m| m.get_mut(cmd))
+        {
+            a.invocations += 1;
+        } else if let Some(a) = self.global.get_mut(cmd) {
             a.invocations += 1;
         }
-        self.total_expansions += 1;
+        self.stats.total_expansions += 1;
 
         // Parse arguments
         let args: Vec<&str> = if args_str.is_empty() {
@@ -149,7 +222,10 @@ impl AliasManager {
 
         // Recursively expand if enabled
         if alias.recursive {
-            self.expand_recursive(&expanded, depth + 1)
+            seen.push(cmd_string);
+            let result = self.expand_recursive(&expanded, depth + 1, silo_id, seen);
+            seen.pop();
+            result
         } else {
             expanded
         }
@@ -202,33 +278,44 @@ impl AliasManager {
         result
     }
 
-    /// Get an alias by name.
-    pub fn get(&self, name: &str) -> Option<&Alias> {
-        self.aliases.get(name)
+    /// Get an alias by name (checks Silo scope first, then global).
+    pub fn get(&self, name: &str, silo_id: Option<u64>) -> Option<&Alias> {
+        silo_id
+            .and_then(|id| self.silo_aliases.get(&id))
+            .and_then(|m| m.get(name))
+            .or_else(|| self.global.get(name))
     }
 
-    /// List all aliases (sorted by name).
+    /// List all global aliases (sorted by name).
     pub fn list_all(&self) -> Vec<(&str, &str, bool)> {
-        self.aliases.values()
+        self.global.values()
             .map(|a| (a.name.as_str(), a.expansion.as_str(), a.system))
             .collect()
     }
 
-    /// List only user aliases.
+    /// List aliases for a specific Silo.
+    pub fn list_silo(&self, silo_id: u64) -> Vec<(&str, &str)> {
+        self.silo_aliases.get(&silo_id)
+            .map(|m| m.values().map(|a| (a.name.as_str(), a.expansion.as_str())).collect())
+            .unwrap_or_default()
+    }
+
+    /// List only user (non-system) global aliases.
     pub fn list_user(&self) -> Vec<(&str, &str)> {
-        self.aliases.values()
+        self.global.values()
             .filter(|a| !a.system)
             .map(|a| (a.name.as_str(), a.expansion.as_str()))
             .collect()
     }
 
     /// Check if a command is aliased.
-    pub fn is_alias(&self, name: &str) -> bool {
-        self.aliases.contains_key(name)
+    pub fn is_alias(&self, name: &str, silo_id: Option<u64>) -> bool {
+        self.get(name, silo_id).is_some()
     }
 
     /// Reset all user aliases (keep system ones).
     pub fn reset_user(&mut self) {
-        self.aliases.retain(|_, a| a.system);
+        self.global.retain(|_, a| a.system);
+        self.silo_aliases.clear();
     }
 }
