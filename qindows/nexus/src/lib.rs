@@ -71,6 +71,7 @@ pub mod mesh_topology;
 pub mod mesh_quorum;
 pub mod mesh_registry;
 pub mod peer_reputation;
+pub mod telemetry_stream;
 
 use alloc::vec::Vec;
 use alloc::string::String;
