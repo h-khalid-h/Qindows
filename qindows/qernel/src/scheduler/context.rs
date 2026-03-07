@@ -19,14 +19,14 @@ use super::FiberContext;
 ///
 /// This is a `naked` function — the compiler generates no prologue/epilogue.
 /// We manage all register state manually via inline assembly.
-#[naked]
+#[unsafe(naked)]
 pub unsafe extern "C" fn switch_context(
     _old: *mut FiberContext,
     _new: *const FiberContext,
 ) {
     // RDI = old context pointer
     // RSI = new context pointer
-    core::arch::asm!(
+    core::arch::naked_asm!(
         // ═══════════════════════════════════════════
         // SAVE current fiber's state into *old (RDI)
         // ═══════════════════════════════════════════
@@ -62,7 +62,6 @@ pub unsafe extern "C" fn switch_context(
         "push rax",
         "popfq",
         "mov rax, [rsi + 0x00]",
-        "mov rbx, [rsi + 0x08]",
         "mov rcx, [rsi + 0x10]",
         "mov rdx, [rsi + 0x18]",
         // RSI loaded last (it's our pointer)
@@ -84,7 +83,6 @@ pub unsafe extern "C" fn switch_context(
         "mov rsi, [rsi + 0x20]",
         // Return — pops the new fiber's RIP from the stack
         "ret",
-        options(noreturn)
     );
 }
 

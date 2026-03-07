@@ -63,7 +63,7 @@ fn efi_main(image: Handle, mut system_table: SystemTable<Boot>) -> Status {
 
     // Select the highest available resolution
     let mode = gop
-        .modes()
+        .modes(system_table.boot_services())
         .last()
         .expect("No display modes available");
 
@@ -73,7 +73,7 @@ fn efi_main(image: Handle, mut system_table: SystemTable<Boot>) -> Status {
     let (h_res, v_res) = mode_info.resolution();
     let stride = mode_info.stride();
 
-    let fb = gop.frame_buffer();
+    let mut fb = gop.frame_buffer();
     let fb_addr = fb.as_mut_ptr() as u64;
     let fb_size = fb.size() as u64;
 
@@ -95,14 +95,14 @@ fn efi_main(image: Handle, mut system_table: SystemTable<Boot>) -> Status {
 
     let mmap_slice = unsafe { core::slice::from_raw_parts_mut(mmap_buffer, mmap_size) };
 
-    let (_key, desc_iter) = system_table
+    let memory_map = system_table
         .boot_services()
         .memory_map(mmap_slice)
         .expect("Failed to obtain UEFI memory map");
 
     let mut usable_ram: u64 = 0;
     let mut entry_count: u64 = 0;
-    for desc in desc_iter {
+    for desc in memory_map.entries() {
         if desc.ty == MemoryType::CONVENTIONAL {
             usable_ram += desc.page_count * 4096;
         }

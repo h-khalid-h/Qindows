@@ -10,22 +10,22 @@ SECTIONS {
     . = 2M;
 
     /* Code section — executable, read-only */
-    .text BLOCK(4K) : ALIGN(4K) {
+    .text : ALIGN(4K) {
         *(.text .text.*)
     }
 
     /* Read-only data (constants, string literals) */
-    .rodata BLOCK(4K) : ALIGN(4K) {
+    .rodata : ALIGN(4K) {
         *(.rodata .rodata.*)
     }
 
     /* Initialized data */
-    .data BLOCK(4K) : ALIGN(4K) {
+    .data : ALIGN(4K) {
         *(.data .data.*)
     }
 
     /* Uninitialized data (zeroed at boot) */
-    .bss BLOCK(4K) : ALIGN(4K) {
+    .bss : ALIGN(4K) {
         __bss_start = .;
         *(.bss .bss.*)
         *(COMMON)

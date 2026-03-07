@@ -109,9 +109,10 @@ impl Hpet {
 
     /// Arm a one-shot timer.
     pub fn arm_oneshot(&mut self, timer: u8, delay_ns: u64, irq: u8) -> bool {
+        let ticks = self.ns_to_ticks(delay_ns);
         if let Some(t) = self.timers.get_mut(timer as usize) {
             t.mode = HpetTimerMode::OneShot;
-            t.comparator_value = self.ns_to_ticks(delay_ns);
+            t.comparator_value = ticks;
             t.irq = irq;
             true
         } else { false }
@@ -119,10 +120,11 @@ impl Hpet {
 
     /// Arm a periodic timer.
     pub fn arm_periodic(&mut self, timer: u8, interval_ns: u64, irq: u8) -> bool {
+        let ticks = self.ns_to_ticks(interval_ns);
         if let Some(t) = self.timers.get_mut(timer as usize) {
             if !t.supports_periodic { return false; }
             t.mode = HpetTimerMode::Periodic;
-            t.comparator_value = self.ns_to_ticks(interval_ns);
+            t.comparator_value = ticks;
             t.irq = irq;
             true
         } else { false }

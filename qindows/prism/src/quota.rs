@@ -163,6 +163,8 @@ impl QuotaManager {
 
     /// Record a write (update usage).
     pub fn record_write(&mut self, silo_id: u64, size: u64) {
+        let mut event: Option<QuotaEvent> = None;
+
         if let Some(quota) = self.quotas.get_mut(&silo_id) {
             quota.used += size;
             quota.object_count += 1;
@@ -175,16 +177,20 @@ impl QuotaManager {
                 if let EnforcementPolicy::Soft { grace_seconds } = self.policy {
                     quota.grace_seconds = grace_seconds;
                 }
-                self.log_event(QuotaEvent::Exceeded {
+                event = Some(QuotaEvent::Exceeded {
                     silo_id, used: quota.used, limit: quota.limit,
                 });
             } else if quota.usage_percent() > 80.0 {
-                self.log_event(QuotaEvent::Warning {
+                event = Some(QuotaEvent::Warning {
                     silo_id, usage_percent: quota.usage_percent(),
                 });
             }
 
             self.total_used += size;
+        }
+
+        if let Some(evt) = event {
+            self.log_event(evt);
         }
     }
 

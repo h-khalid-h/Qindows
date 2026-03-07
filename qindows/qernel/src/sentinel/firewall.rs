@@ -240,17 +240,22 @@ impl Firewall {
             return Action::Block;
         }
 
-        // Find first matching rule
-        for rule in &mut self.rules {
+        // Find first matching rule — collect info without borrowing self mutably
+        let mut matched: Option<(usize, Action, u64)> = None;
+        for (idx, rule) in self.rules.iter().enumerate() {
             if !rule.enabled { continue; }
-            if !self.rule_matches(rule, attempt) { continue; }
+            if !Self::rule_matches_static(rule, attempt) { continue; }
+            matched = Some((idx, rule.action, rule.id));
+            break;
+        }
 
-            rule.hits += 1;
+        if let Some((idx, action, rule_id)) = matched {
+            self.rules[idx].hits += 1;
 
             // Log the connection
-            self.log_connection(attempt, rule.action, Some(rule.id));
+            self.log_connection(attempt, action, Some(rule_id));
 
-            match rule.action {
+            match action {
                 Action::Allow => { self.stats.allowed += 1; }
                 Action::Block | Action::BlockLog => { self.stats.blocked += 1; }
                 Action::RateLimit(_) => { self.stats.rate_limited += 1; }
@@ -261,7 +266,7 @@ impl Firewall {
                 }
             }
 
-            return rule.action;
+            return action;
         }
 
         // Default action
@@ -270,7 +275,7 @@ impl Firewall {
     }
 
     /// Check if a rule matches a connection attempt.
-    fn rule_matches(&self, rule: &FirewallRule, attempt: &ConnectionAttempt) -> bool {
+    fn rule_matches_static(rule: &FirewallRule, attempt: &ConnectionAttempt) -> bool {
         // Direction
         if rule.direction != Direction::Both && rule.direction != attempt.direction {
             return false;

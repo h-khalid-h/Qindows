@@ -12,6 +12,8 @@
 
 extern crate alloc;
 
+pub mod math_ext;
+
 pub mod bci;
 pub mod dialog;
 pub mod embeddings;

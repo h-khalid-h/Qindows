@@ -15,6 +15,7 @@ extern crate alloc;
 
 use alloc::collections::BTreeMap;
 use alloc::string::String;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 
 /// Variable scope.

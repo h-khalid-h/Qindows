@@ -15,6 +15,7 @@
 extern crate alloc;
 
 use alloc::string::String;
+use crate::math_ext::{F32Ext, F64Ext};
 use alloc::vec::Vec;
 
 // ─── Touch Points ───────────────────────────────────────────────────────────

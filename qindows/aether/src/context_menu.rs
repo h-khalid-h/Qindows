@@ -200,20 +200,20 @@ impl ContextMenu {
     /// Activate highlighted item. Returns action ID if clicked.
     pub fn activate(&mut self) -> Option<u64> {
         let idx = self.highlight?;
-        match &self.items[idx] {
-            MenuItem::Action { id, enabled, .. } => {
-                if *enabled {
-                    self.hide();
-                    Some(*id)
-                } else {
-                    None
-                }
-            }
-            MenuItem::Submenu { .. } => {
-                self.active_submenu = Some(idx);
-                None
-            }
-            _ => None,
+        let (is_action_enabled, action_id, is_submenu) = match &self.items[idx] {
+            MenuItem::Action { id, enabled, .. } => (*enabled, Some(*id), false),
+            MenuItem::Submenu { .. } => (false, None, true),
+            _ => (false, None, false),
+        };
+
+        if is_action_enabled {
+            self.hide();
+            action_id
+        } else if is_submenu {
+            self.active_submenu = Some(idx);
+            None
+        } else {
+            None
         }
     }
 }

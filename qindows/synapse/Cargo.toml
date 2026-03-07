@@ -5,3 +5,4 @@ edition.workspace = true
 description = "Q-Synapse — Neural Integration (BCI)"
 
 [dependencies]
+libm = { workspace = true }

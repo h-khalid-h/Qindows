@@ -171,7 +171,7 @@ impl QLock {
     /// Simple deadlock detection (cycle in wait-for graph).
     fn detect_deadlock(&self, start: u64) -> bool {
         let mut visited = Vec::new();
-        let mut stack = vec![start];
+        let mut stack = alloc::vec![start];
 
         while let Some(node) = stack.pop() {
             if visited.contains(&node) { continue; }

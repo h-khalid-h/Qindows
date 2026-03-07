@@ -97,7 +97,7 @@ impl MeshDns {
 
         // Check local overrides first
         if let Some(value) = self.overrides.get(name) {
-            return vec![DnsRecord {
+            return alloc::vec![DnsRecord {
                 name: String::from(name), record_type: RecordType::Peer,
                 value: value.clone(), peer_id: [0u8; 32],
                 ttl: u64::MAX, created_at: 0, signature: [0u8; 64],

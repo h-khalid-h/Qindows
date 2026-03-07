@@ -14,6 +14,8 @@
 
 extern crate alloc;
 
+pub mod math_ext;
+
 pub mod block;
 pub mod btree;
 pub mod btree_iter;
@@ -114,8 +116,8 @@ impl PrismGraph {
     /// If an object with the same OID already exists (deduplication),
     /// the existing one is returned instead.
     pub fn store(&mut self, node: QNode) -> &QNode {
-        if let Some(existing) = self.objects.iter().find(|n| n.oid == node.oid) {
-            return existing;
+        if let Some(pos) = self.objects.iter().position(|n| n.oid == node.oid) {
+            return &self.objects[pos];
         }
         self.objects.push(node);
         self.objects.last().unwrap()

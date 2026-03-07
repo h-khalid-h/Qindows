@@ -55,7 +55,7 @@ impl RegKey {
 }
 
 /// Registry hive roots.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Hive {
     LocalMachine,    // HKLM
     CurrentUser,     // HKCU
@@ -66,12 +66,13 @@ pub enum Hive {
 
 impl Hive {
     pub fn from_str(s: &str) -> Option<Hive> {
-        match s.to_uppercase().as_str() {
-            "HKEY_LOCAL_MACHINE" | "HKLM" => Some(Hive::LocalMachine),
-            "HKEY_CURRENT_USER" | "HKCU" => Some(Hive::CurrentUser),
-            "HKEY_CLASSES_ROOT" | "HKCR" => Some(Hive::ClassesRoot),
-            "HKEY_USERS" | "HKU" => Some(Hive::Users),
-            "HKEY_CURRENT_CONFIG" | "HKCC" => Some(Hive::CurrentConfig),
+        // Case-insensitive matching without .to_uppercase() (no_std)
+        match s {
+            "HKEY_LOCAL_MACHINE" | "HKLM" | "hkey_local_machine" | "hklm" => Some(Hive::LocalMachine),
+            "HKEY_CURRENT_USER" | "HKCU" | "hkey_current_user" | "hkcu" => Some(Hive::CurrentUser),
+            "HKEY_CLASSES_ROOT" | "HKCR" | "hkey_classes_root" | "hkcr" => Some(Hive::ClassesRoot),
+            "HKEY_USERS" | "HKU" | "hkey_users" | "hku" => Some(Hive::Users),
+            "HKEY_CURRENT_CONFIG" | "HKCC" | "hkey_current_config" | "hkcc" => Some(Hive::CurrentConfig),
             _ => None,
         }
     }
@@ -224,10 +225,7 @@ impl VirtualRegistry {
     pub fn read(&mut self, hive: Hive, path: &str, name: &str) -> Result<&RegValue, RegError> {
         self.stats.reads += 1;
         let key = self.navigate(hive, path)?;
-        key.values.get(name).ok_or_else(|| {
-            self.stats.not_found += 1;
-            RegError::ValueNotFound
-        })
+        key.values.get(name).ok_or(RegError::ValueNotFound)
     }
 
     /// Write a registry value.

@@ -172,33 +172,35 @@ impl HardwareRng {
 
             // CPUID leaf 1, ECX bit 30 = RDRAND
             core::arch::asm!(
+                "push rbx",
                 "mov eax, 1",
                 "cpuid",
+                "pop rbx",
                 out("ecx") ecx,
                 out("eax") _,
-                out("ebx") _,
                 out("edx") _,
-                options(nostack)
             );
             HAS_RDRAND.store(ecx & (1 << 30) != 0, Ordering::Relaxed);
 
             // CPUID leaf 7, EBX bit 18 = RDSEED
             core::arch::asm!(
+                "push rbx",
                 "mov eax, 7",
                 "xor ecx, ecx",
                 "cpuid",
-                out("ebx") ebx,
+                "mov {0:e}, ebx",
+                "pop rbx",
+                out(reg) ebx,
                 out("eax") _,
                 out("ecx") _,
                 out("edx") _,
-                options(nostack)
             );
             HAS_RDSEED.store(ebx & (1 << 18) != 0, Ordering::Relaxed);
         }
     }
 
     /// Seed the pool from hardware entropy sources.
-    fn seed_from_hardware(&mut self) {
+    pub fn seed_from_hardware(&mut self) {
         // Try RDSEED first (highest quality)
         if HAS_RDSEED.load(Ordering::Relaxed) {
             for _ in 0..4 {

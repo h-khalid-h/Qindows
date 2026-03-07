@@ -168,13 +168,13 @@ impl QFabric {
     pub fn remove_link(&mut self, link_id: u64) {
         self.links.remove(&link_id);
         // Reassign flows from this link
-        let orphaned: Vec<u64> = self.flows.iter()
+        let orphaned: Vec<(u64, TrafficClass)> = self.flows.iter()
             .filter(|(_, f)| f.assigned_link == link_id)
-            .map(|(&id, _)| id)
+            .map(|(&id, f)| (id, f.traffic_class))
             .collect();
-        for fid in orphaned {
-            if let Some(flow) = self.flows.get_mut(&fid) {
-                if let Some(new_link) = self.select_link(flow.traffic_class) {
+        for (fid, tc) in orphaned {
+            if let Some(new_link) = self.select_link(tc) {
+                if let Some(flow) = self.flows.get_mut(&fid) {
                     flow.assigned_link = new_link;
                     self.stats.failovers += 1;
                 }

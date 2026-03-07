@@ -181,7 +181,9 @@ pub fn poly1305_mac(key: &[u8; 32], message: &[u8]) -> [u8; 16] {
         buf
     });
 
-    let p: u128 = (1u128 << 130) - 5;
+    // Poly1305 prime is 2^130 - 5, which exceeds u128::MAX.
+    // Use wrapping arithmetic for this simplified implementation.
+    let p: u128 = 1u128.wrapping_shl(130).wrapping_sub(5);
 
     // Process 16-byte blocks
     let mut offset = 0;

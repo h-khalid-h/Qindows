@@ -117,8 +117,8 @@ impl DxgkShim {
 
     /// D3DKMTCreateContext
     pub fn create_context(&mut self, device: D3dHandle, is_3d: bool) -> Result<D3dHandle, &'static str> {
+        let handle = self.alloc_handle();
         if let Some(dev) = self.devices.get_mut(&device) {
-            let handle = self.alloc_handle();
             self.contexts.insert(handle, DxgkContext {
                 handle,
                 device_handle: device,
@@ -135,9 +135,8 @@ impl DxgkShim {
 
     /// D3DKMTCreateAllocation
     pub fn create_allocation(&mut self, device: D3dHandle, size: u64, cpu_visible: bool) -> Result<D3dHandle, &'static str> {
+        let handle = self.alloc_handle();
         if let Some(dev) = self.devices.get_mut(&device) {
-            let handle = self.alloc_handle();
-            
             // In production: Create actual Prism object and VirtIO ResourceCreate3D
             let virtio_res_id = (handle % 10000) as u32; 
 

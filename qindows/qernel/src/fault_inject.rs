@@ -117,6 +117,8 @@ impl FaultInjector {
         *counter += 1;
         let count = *counter;
 
+        // Pre-compute random value to avoid borrow conflict in loop
+        let random_val = self.pseudo_random() % 100;
         let mut fired_rule_id = None;
 
         for rule in self.rules.values() {
@@ -126,8 +128,7 @@ impl FaultInjector {
             let should_fire = match rule.trigger {
                 Trigger::AfterCount(n) => count >= n,
                 Trigger::Probability(pct) => {
-                    let roll = self.pseudo_random() % 100;
-                    roll < pct as u64
+                    random_val < pct as u64
                 }
                 Trigger::AtTime(t) => now >= t,
                 Trigger::Always => true,

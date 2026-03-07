@@ -14,6 +14,8 @@
 
 extern crate alloc;
 
+pub mod math_ext;
+
 pub mod a11y;
 pub mod animations;
 pub mod clipboard_mgr;
@@ -45,6 +47,7 @@ pub mod display_profiles;
 pub mod focus_manager;
 
 use alloc::vec::Vec;
+use crate::math_ext::{F32Ext, F64Ext};
 
 /// 2D vector
 #[derive(Debug, Clone, Copy, Default)]

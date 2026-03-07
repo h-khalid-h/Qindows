@@ -157,11 +157,11 @@ impl AhciController {
         };
 
         unsafe {
-            let regs = bar5 as *const HbaRegisters;
+            let regs = bar5 as *mut HbaRegisters;
 
             // Enable AHCI mode
-            let ghc = core::ptr::read_volatile(&(*regs).ghc);
-            core::ptr::write_volatile(&(*regs).ghc as *const _ as *mut u32, ghc | (1 << 31));
+            let ghc = core::ptr::read_volatile(core::ptr::addr_of!((*regs).ghc));
+            core::ptr::write_volatile(core::ptr::addr_of_mut!((*regs).ghc), ghc | (1 << 31));
 
             // Get ports implemented
             let pi = core::ptr::read_volatile(&(*regs).pi);

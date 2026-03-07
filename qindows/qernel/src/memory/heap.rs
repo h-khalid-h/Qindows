@@ -46,11 +46,12 @@ impl LinkedListAllocator {
 
         let mut current = &mut self.head;
         while let Some(ref mut region) = current.next {
-            let alloc_start = align_up(region as *const FreeNode as usize, align);
+            let region_addr = *region as *mut FreeNode as usize;
+            let alloc_start = align_up(region_addr, align);
             let alloc_end = alloc_start + size;
 
-            if alloc_end <= (region as *const FreeNode as usize) + region.size {
-                let excess = (region as *const FreeNode as usize) + region.size - alloc_end;
+            if alloc_end <= region_addr + region.size {
+                let excess = region_addr + region.size - alloc_end;
                 if excess > core::mem::size_of::<FreeNode>() {
                     // Split the block
                     unsafe {

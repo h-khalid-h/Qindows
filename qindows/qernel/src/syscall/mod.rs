@@ -146,9 +146,9 @@ pub fn init() {
 /// - R11 = user RFLAGS
 /// - RAX = syscall number
 /// - RDI, RSI, RDX, R10, R8, R9 = arguments
-#[naked]
+#[unsafe(naked)]
 unsafe extern "C" fn syscall_entry() {
-    core::arch::asm!(
+    core::arch::naked_asm!(
         // Switch to kernel stack (saved in TSS.rsp0)
         // For now, save user RSP and switch
         "swapgs",                    // Switch GS base to kernel
@@ -159,7 +159,6 @@ unsafe extern "C" fn syscall_entry() {
         "push rcx",                  // User RIP
         "push r11",                  // User RFLAGS
         "push rbp",
-        "push rbx",
         "push r12",
         "push r13",
         "push r14",
@@ -187,7 +186,6 @@ unsafe extern "C" fn syscall_entry() {
         // Return to user space
         "sysretq",
         dispatch = sym dispatch_syscall,
-        options(noreturn)
     );
 }
 

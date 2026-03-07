@@ -18,6 +18,7 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
+use alloc::boxed::Box;
 
 /// Script value types.
 #[derive(Debug, Clone)]

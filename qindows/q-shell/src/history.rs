@@ -8,6 +8,7 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
+use alloc::string::ToString;
 
 /// A single history entry.
 #[derive(Debug, Clone)]
@@ -107,8 +108,8 @@ impl History {
         if self.entries.is_empty() { return None; }
 
         let idx = match self.cursor {
-            Some(c) if c > 0 => c - 1,
             Some(0) => return Some(&self.entries[0].command),
+            Some(c) => c - 1,
             None => self.entries.len() - 1,
         };
 
@@ -159,11 +160,15 @@ impl History {
     pub fn search_char(&mut self, ch: char) -> Option<&str> {
         if let Some(ref mut query) = self.search_query {
             query.push(ch);
-            let results = self.search(query);
-            if let Some(first) = results.first() {
-                self.search_index = Some(first.index);
-                return Some(&self.entries[first.index].command);
-            }
+        }
+        let query = match self.search_query {
+            Some(ref q) => q.clone(),
+            None => return None,
+        };
+        let results = self.search(&query);
+        if let Some(first) = results.first() {
+            self.search_index = Some(first.index);
+            return Some(&self.entries[first.index].command);
         }
         None
     }

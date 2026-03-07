@@ -227,20 +227,18 @@ pub fn init() {
         // Reload segment registers
         core::arch::asm!(
             // Set data segments to kernel data
-            "mov ax, {kd:x}",
+            "mov ax, 0x10",         // KERNEL_DATA selector
             "mov ds, ax",
             "mov es, ax",
             "mov fs, ax",
             "mov gs, ax",
             "mov ss, ax",
             // Far return to reload CS with kernel code selector
-            "push {kc}",          // Push kernel code selector
+            "push 0x08",           // KERNEL_CODE selector
             "lea rax, [rip + 2f]", // Push return address
             "push rax",
             "retfq",              // Far return
             "2:",
-            kd = const selectors::KERNEL_DATA as u64,
-            kc = const selectors::KERNEL_CODE as u64,
             out("rax") _,
             options(preserves_flags)
         );

@@ -105,41 +105,60 @@ pub fn init() {
 
 // ── Exception Handlers ──────────────────────────────────────────────
 
-extern "x86-interrupt" fn division_error() {
+/// Minimal interrupt stack frame pushed by CPU on interrupt entry.
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct InterruptStackFrame {
+    pub instruction_pointer: u64,
+    pub code_segment: u64,
+    pub cpu_flags: u64,
+    pub stack_pointer: u64,
+    pub stack_segment: u64,
+}
+
+impl fmt::Display for InterruptStackFrame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "InterruptStackFrame {{ rip: {:#x}, cs: {:#x}, flags: {:#x}, rsp: {:#x}, ss: {:#x} }}",
+            self.instruction_pointer, self.code_segment, self.cpu_flags,
+            self.stack_pointer, self.stack_segment)
+    }
+}
+
+extern "x86-interrupt" fn division_error(_frame: InterruptStackFrame) {
     crate::serial_println!("EXCEPTION: Division Error (#DE)");
     loop { unsafe { core::arch::asm!("hlt") }; }
 }
 
-extern "x86-interrupt" fn invalid_opcode() {
+extern "x86-interrupt" fn invalid_opcode(_frame: InterruptStackFrame) {
     crate::serial_println!("EXCEPTION: Invalid Opcode (#UD)");
     loop { unsafe { core::arch::asm!("hlt") }; }
 }
 
-extern "x86-interrupt" fn double_fault() {
+extern "x86-interrupt" fn double_fault(_frame: InterruptStackFrame, _error_code: u64) -> ! {
     crate::serial_println!("!!! DOUBLE FAULT — SYSTEM HALTED !!!");
     loop { unsafe { core::arch::asm!("hlt") }; }
 }
 
-extern "x86-interrupt" fn general_protection() {
+extern "x86-interrupt" fn general_protection(_frame: InterruptStackFrame, _error_code: u64) {
     crate::serial_println!("EXCEPTION: General Protection Fault (#GP)");
     crate::serial_println!("Sentinel: Q-Manifest violation detected. Silo vaporized.");
     loop { unsafe { core::arch::asm!("hlt") }; }
 }
 
-extern "x86-interrupt" fn page_fault() {
+extern "x86-interrupt" fn page_fault(_frame: InterruptStackFrame, _error_code: u64) {
     crate::serial_println!("EXCEPTION: Page Fault (#PF)");
     loop { unsafe { core::arch::asm!("hlt") }; }
 }
 
 // ── Hardware IRQ Handlers ───────────────────────────────────────────
 
-extern "x86-interrupt" fn timer_handler() {
+extern "x86-interrupt" fn timer_handler(_frame: InterruptStackFrame) {
     // Called by the APIC timer every ~1ms.
     // In production: drives the Fiber scheduler's time-slicing.
     unsafe { send_eoi(); }
 }
 
-extern "x86-interrupt" fn keyboard_handler() {
+extern "x86-interrupt" fn keyboard_handler(_frame: InterruptStackFrame) {
     // Read the scancode from the PS/2 controller
     let scancode: u8;
     unsafe {
@@ -156,7 +175,7 @@ extern "x86-interrupt" fn keyboard_handler() {
 ///
 /// When a Q-Silo executes `int 0x80`, the CPU switches to Ring 0
 /// and this handler dispatches the request based on the syscall ID.
-extern "x86-interrupt" fn syscall_handler() {
+extern "x86-interrupt" fn syscall_handler(_frame: InterruptStackFrame) {
     // In production:
     // - Read syscall ID from RAX
     // - Read arguments from RDI, RSI, RDX, R10, R8, R9

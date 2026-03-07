@@ -6,3 +6,4 @@ description = "Prism — Semantic Object Storage for Qindows"
 
 [dependencies]
 spin = { workspace = true }
+libm = { workspace = true }
