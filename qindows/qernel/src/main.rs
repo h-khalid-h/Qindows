@@ -326,6 +326,98 @@ pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
     console.print_ok(&mut display, "Silo Manager: System Silo (PID 1) ONLINE");
     serial_println!("[OK] Phase 13: Genesis Protocol + System Silo spawned");
 
+    // ── Phase 14: Service Silos ─────────────────────────────────
+    // Spawn dedicated silos for each major subsystem.
+    // Each silo gets only the capabilities it needs (least privilege).
+    let mut ipc_mgr = ipc::IpcManager::new();
+    {
+        use capability::{CapToken, Permissions};
+
+        // ── Prism (Object Storage Engine) ───────────────────────
+        let prism_silo_id = silo_mgr.spawn(0x0000_0001_0000_0001, 0);
+        if let Some(prism) = silo_mgr.get_mut(prism_silo_id) {
+            prism.grant_capability(CapToken::new(
+                prism_silo_id, 0,
+                Permissions::READ | Permissions::WRITE | Permissions::PRISM | Permissions::DEVICE,
+            ));
+            prism.state = silo::SiloState::Running;
+        }
+        let _ = ipc_mgr.create_channel(
+            system_silo_id, prism_silo_id,
+            &CapToken::new(system_silo_id, 0, Permissions::SPAWN),
+        );
+        serial_println!("  → Prism Silo #{} spawned (R/W + Storage)", prism_silo_id);
+
+        // ── Aether (GPU Compositor / UI) ────────────────────────
+        let aether_silo_id = silo_mgr.spawn(0x0000_0002_0000_0001, 0);
+        if let Some(aether) = silo_mgr.get_mut(aether_silo_id) {
+            aether.grant_capability(CapToken::new(
+                aether_silo_id, 0,
+                Permissions::READ | Permissions::GRAPHICS | Permissions::DEVICE,
+            ));
+            aether.state = silo::SiloState::Running;
+        }
+        let _ = ipc_mgr.create_channel(
+            system_silo_id, aether_silo_id,
+            &CapToken::new(system_silo_id, 0, Permissions::SPAWN),
+        );
+        serial_println!("  → Aether Silo #{} spawned (GFX + Input)", aether_silo_id);
+
+        // ── Nexus (Mesh Networking) ─────────────────────────────
+        let nexus_silo_id = silo_mgr.spawn(0x0000_0003_0000_0001, 0);
+        if let Some(nexus) = silo_mgr.get_mut(nexus_silo_id) {
+            nexus.grant_capability(CapToken::new(
+                nexus_silo_id, 0,
+                Permissions::NET_SEND | Permissions::NET_RECV | Permissions::DEVICE,
+            ));
+            nexus.state = silo::SiloState::Running;
+        }
+        let _ = ipc_mgr.create_channel(
+            system_silo_id, nexus_silo_id,
+            &CapToken::new(system_silo_id, 0, Permissions::SPAWN),
+        );
+        serial_println!("  → Nexus Silo #{} spawned (Net Send/Recv)", nexus_silo_id);
+
+        // ── Synapse (AI / NLP Engine) ───────────────────────────
+        let synapse_silo_id = silo_mgr.spawn(0x0000_0004_0000_0001, 0);
+        if let Some(synapse) = silo_mgr.get_mut(synapse_silo_id) {
+            synapse.grant_capability(CapToken::new(
+                synapse_silo_id, 0,
+                Permissions::READ | Permissions::NEURAL | Permissions::DEVICE,
+            ));
+            synapse.state = silo::SiloState::Running;
+        }
+        let _ = ipc_mgr.create_channel(
+            system_silo_id, synapse_silo_id,
+            &CapToken::new(system_silo_id, 0, Permissions::SPAWN),
+        );
+        serial_println!("  → Synapse Silo #{} spawned (Neural + Read)", synapse_silo_id);
+
+        // ── Q-Shell (Terminal) ──────────────────────────────────
+        let qshell_silo_id = silo_mgr.spawn(0x0000_0005_0000_0001, 0);
+        if let Some(qshell) = silo_mgr.get_mut(qshell_silo_id) {
+            qshell.grant_capability(CapToken::new(
+                qshell_silo_id, 0,
+                Permissions::READ | Permissions::WRITE | Permissions::EXECUTE | Permissions::SPAWN,
+            ));
+            qshell.state = silo::SiloState::Running;
+        }
+        let _ = ipc_mgr.create_channel(
+            system_silo_id, qshell_silo_id,
+            &CapToken::new(system_silo_id, 0, Permissions::SPAWN),
+        );
+        serial_println!("  → Q-Shell Silo #{} spawned (R/W/X + Spawn)", qshell_silo_id);
+    }
+
+    let active_silo_count = silo_mgr.silos.len();
+    let active_channel_count = ipc_mgr.channels.len();
+
+    console.print_ok(&mut display, "Service Silos: Prism + Aether + Nexus + Synapse + Q-Shell");
+    serial_println!(
+        "[OK] Phase 14: {} Service Silos spawned, {} IPC channels established",
+        active_silo_count, active_channel_count
+    );
+
     // ── Boot Complete ───────────────────────────────────────────
     console.write_str(&mut display, "\n");
     console.set_fg(0x00_06_D6_A0);
@@ -334,12 +426,14 @@ pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
 
     serial_println!("╔══════════════════════════════════════╗");
     serial_println!("║    QINDOWS QERNEL v1.0.0 ONLINE     ║");
-    serial_println!("║    13/13 Phases Complete             ║");
+    serial_println!("║    14/14 Phases Complete             ║");
     serial_println!("║    Memory · GDT · IDT · APIC        ║");
     serial_println!("║    Aether · Syscall · Sentinel       ║");
     serial_println!("║    Scheduler · Timekeeping           ║");
     serial_println!("║    Hardware · Security · Services    ║");
-    serial_println!("║    Genesis · THE MESH AWAITS.        ║");
+    serial_println!("║    Genesis · Service Silos LIVE      ║");
+    serial_println!("║   {} Silos · {} IPC Channels          ║", active_silo_count, active_channel_count);
+    serial_println!("║    THE MESH AWAITS.                  ║");
     serial_println!("╚══════════════════════════════════════╝");
 
     // Enter the idle loop — HLT until an interrupt fires
