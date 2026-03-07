@@ -219,7 +219,7 @@ pub fn dispatch_syscall(
         12 => handle_prism_write(arg0, arg1 as *const u8, arg2 as usize),
         13 => handle_prism_close(arg0),
         20 => handle_ipc_send(arg0, arg1, arg2),
-        21 => handle_ipc_recv(arg0, arg1 as *mut u8, arg2 as usize),
+        21 => handle_ipc_recv(arg0, arg1, arg2 as usize),
         50 => handle_get_time(),
         52 => handle_get_silo_id(),
         _ => SyscallError::InvalidSyscall as i64,
@@ -229,28 +229,28 @@ pub fn dispatch_syscall(
 // ─── Syscall Handlers ───────────────────────────────────────────────
 
 fn handle_yield() -> i64 {
-    // Trigger a context switch to the next ready Fiber
+    // Trigger a context switch to the next ready Fiber.
     // In production: call scheduler::schedule()
     0
 }
 
 fn handle_exit(code: i32) -> i64 {
-    // Mark current fiber as Dead
     crate::serial_println!("Fiber exit with code {}", code);
     0
 }
 
 fn handle_spawn_fiber(entry_point: u64) -> i64 {
-    // Create a new fiber at the given entry point
-    // Returns the fiber ID on success
+    // Create a new fiber at the given entry point.
+    // Returns the fiber ID on success.
     let _ = entry_point;
-    1 // Stub fiber ID
+    1 // Stub fiber ID — production wires to scheduler
 }
 
 fn handle_prism_open(query_ptr: u64, query_len: u64) -> i64 {
-    // Open a Prism object by semantic query
     let _ = (query_ptr, query_len);
-    0 // Stub handle
+    // TODO: Wire to Prism silo via IPC — send PrismOpen message
+    // and wait for handle response.
+    0
 }
 
 fn handle_prism_read(handle: u64, buf: *mut u8, len: usize) -> i64 {
@@ -268,23 +268,67 @@ fn handle_prism_close(handle: u64) -> i64 {
     0
 }
 
-fn handle_ipc_send(channel: u64, msg_ptr: u64, msg_len: u64) -> i64 {
-    let _ = (channel, msg_ptr, msg_len);
-    0
+fn handle_ipc_send(channel_id: u64, msg_type: u64, sender_silo: u64) -> i64 {
+    use crate::ipc::{QMessage, MessageType, MessagePayload};
+
+    let msg = QMessage {
+        msg_type: match msg_type {
+            0 => MessageType::Data,
+            1 => MessageType::CapTransfer,
+            2 => MessageType::Notification,
+            3 => MessageType::FsRequest,
+            6 => MessageType::GfxCommand,
+            8 => MessageType::Shutdown,
+            _ => MessageType::Data,
+        },
+        sender: sender_silo,
+        payload: MessagePayload::Empty,
+        timestamp: crate::kstate::state().boot_timestamp,
+    };
+
+    let mut ipc = crate::kstate::ipc();
+    if let Some(channel) = ipc.get_channel(channel_id) {
+        // Determine direction: if sender is silo_a, send to B; else to A
+        if channel.ring_ab.producer_silo == sender_silo {
+            if channel.send_to_b(msg) {
+                0 // Success
+            } else {
+                SyscallError::Busy as i64 // Ring full
+            }
+        } else {
+            if channel.send_to_a(msg) {
+                0
+            } else {
+                SyscallError::Busy as i64
+            }
+        }
+    } else {
+        SyscallError::NotFound as i64 // Channel not found
+    }
 }
 
-fn handle_ipc_recv(channel: u64, buf: *mut u8, buf_len: usize) -> i64 {
-    let _ = (channel, buf, buf_len);
-    SyscallError::WouldBlock as i64
+fn handle_ipc_recv(channel_id: u64, silo_id: u64, max_msgs: usize) -> i64 {
+    let mut ipc = crate::kstate::ipc();
+    if let Some(channel) = ipc.get_channel(channel_id) {
+        // Determine direction: receive messages destined for this silo
+        let msgs = if channel.ring_ab.consumer_silo == silo_id {
+            channel.recv_for_b(max_msgs)
+        } else {
+            channel.recv_for_a(max_msgs)
+        };
+        msgs.len() as i64 // Return count of messages drained
+    } else {
+        SyscallError::NotFound as i64
+    }
 }
 
 fn handle_get_time() -> i64 {
-    // Return scheduler tick count
-    0
+    crate::kstate::state().boot_timestamp as i64
 }
 
 fn handle_get_silo_id() -> i64 {
-    // Return the current Silo's ID
+    // In production: read from the per-CPU current-silo field.
+    // For now, return 0 (kernel context).
     0
 }
 
