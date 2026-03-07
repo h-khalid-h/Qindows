@@ -28,6 +28,7 @@ pub mod usb_host;
 pub mod bluetooth;
 pub mod screen_capture;
 pub mod d3d_compute;
+pub mod dxgkrnl_shim;
 pub mod virtual_display;
 pub mod font_mapper;
 
