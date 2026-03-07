@@ -97,6 +97,7 @@ pub mod timer;
 pub mod timer_wheel;
 pub mod qaudit;
 pub mod qquota;
+pub mod kstate;
 
 use core::panic::PanicInfo;
 
@@ -418,6 +419,13 @@ pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
         active_silo_count, active_channel_count
     );
 
+    // ── Phase 15: Kernel State Finalization ─────────────────────
+    // Transfer ownership of managers into the global kernel state.
+    // From this point, syscall handlers can access silos, IPC, and audit.
+    kstate::init(silo_mgr, ipc_mgr, audit, boot_timestamp);
+    console.print_ok(&mut display, "Kernel State: Global singleton initialized");
+    serial_println!("[OK] Phase 15: Kernel state finalized — syscall dispatch LIVE");
+
     // ── Boot Complete ───────────────────────────────────────────
     console.write_str(&mut display, "\n");
     console.set_fg(0x00_06_D6_A0);
@@ -426,7 +434,7 @@ pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
 
     serial_println!("╔══════════════════════════════════════╗");
     serial_println!("║    QINDOWS QERNEL v1.0.0 ONLINE     ║");
-    serial_println!("║    14/14 Phases Complete             ║");
+    serial_println!("║    15/15 Phases Complete             ║");
     serial_println!("║    Memory · GDT · IDT · APIC        ║");
     serial_println!("║    Aether · Syscall · Sentinel       ║");
     serial_println!("║    Scheduler · Timekeeping           ║");
