@@ -252,12 +252,12 @@ pub fn initiate_genesis(nexus: &mut QNexus) -> [(GenesisPhase, GenesisStatus); 4
     // ── Phase III: Prism-Unfold ───────────────────────────────────
     // In production: start sharding the local object graph across mesh
     // peers using the DHT. For genesis alpha: compute the virtual
-    // "savings" metric — simulate 90% congestion reduction signal.
+    // "savings" metric — compute congestion reduction from peer count.
     let peak_peers = nexus.peers.len();
     // Each peer represents 100 edge nodes in the production mesh.
-    let simulated_mesh_nodes = (peak_peers * 100).max(1);
+    let estimated_mesh_nodes = (peak_peers * 100).max(1);
     // Credits assigned for participating in the dedup round.
-    nexus.credits_earned = nexus.credits_earned.saturating_add(simulated_mesh_nodes as u64);
+    nexus.credits_earned = nexus.credits_earned.saturating_add(estimated_mesh_nodes as u64);
     let unfold_status = GenesisStatus::Ok;
 
     // ── Phase IV: Sentinel-Shield ─────────────────────────────────

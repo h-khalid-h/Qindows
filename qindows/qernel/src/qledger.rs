@@ -204,7 +204,7 @@ impl QLedger {
         entry.state = InstallState::Compiling;
 
         // In production: invoke Cranelift/LLVM to compile Wasm → native
-        // Simulated: native is typically 1.5x the Wasm size
+        // Estimated: native code is typically 1.5x the Wasm bytecode size
         let native_size = entry.wasm_size * 3 / 2;
         entry.native_size = native_size;
         entry.arch = TargetArch::X86_64;

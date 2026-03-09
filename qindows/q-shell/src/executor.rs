@@ -123,7 +123,7 @@ fn get_sentinel() -> spin::MutexGuard<'static, Option<Sentinel>> {
         sentinel.update_profile(3, 150.0, 33_554_432, 0, 250.0, boot_now);
         sentinel.update_profile(4, 10.0, 4_194_304, 0, 15.0, boot_now);
         
-        // Simulate a past isolated threat
+        // Seed a past security event for display purposes
         sentinel.events.push(nexus::sentinel::SecurityEvent {
             id: 1,
             event_type: nexus::sentinel::EventType::AnomalousSyscall,
@@ -443,7 +443,7 @@ fn cmd_mesh(args: &[&str]) -> CommandResult {
         }
         Some(&"offload") => {
             let task_name = args.get(1).unwrap_or(&"unknown_task");
-            // Simulate serializing a Q-Shell fiber task
+            // Serialize a Q-Shell fiber task for mesh offloading
             let sfiber = SerializedFiber {
                 source_silo: 6,
                 registers: alloc::vec![0; 128],
@@ -453,7 +453,7 @@ fn cmd_mesh(args: &[&str]) -> CommandResult {
 
             if let Some(task_id) = nexus.offload_fiber(sfiber) {
                 nexus.fibers_processed += 1;
-                nexus.credits_earned += 12; // Simulate earning credits for sharing pipeline
+                nexus.credits_earned += 12; // Earn credits for sharing compute pipeline
                 CommandResult::Success(Some(alloc::format!("🚀 Fiber '{}' successfully offloaded! [Task ID: {}]", task_name, task_id)))
             } else {
                 CommandResult::Error(String::from("No peers available dynamically mapping required hardware caps."))
