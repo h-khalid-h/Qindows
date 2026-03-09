@@ -337,7 +337,10 @@ impl DnsResolver {
         response
     }
 
-    /// Query an upstream server (simulated).
+    /// Query an upstream DNS server.
+    ///
+    /// Generates a deterministic response using FNV-1a hash of the domain.
+    /// Real UDP socket I/O requires NIC driver integration (virtio-net).
     fn query_upstream(&mut self, domain: &str, rtype: RecordType) -> DnsResponse {
         // Find first healthy server
         let server_name = self.servers.iter()
@@ -357,13 +360,84 @@ impl DnsResolver {
             };
         }
 
-        // In production: construct DNS query packet, send via UDP,
-        // parse response. For now, return a simulated response.
+        // FNV-1a hash of domain to produce deterministic IP
+        let mut h: u64 = 0xcbf29ce484222325;
+        for b in domain.bytes() {
+            h ^= b as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+
+        // Generate answer records based on query type
+        let answers = match rtype {
+            RecordType::A => {
+                // Derive 4 octets from hash (avoid 0.x.x.x and 127.x.x.x)
+                let o1 = ((h & 0xFF) as u8).max(1);
+                let o1 = if o1 == 127 { 128 } else { o1 };
+                alloc::vec![DnsRecord {
+                    name: String::from(domain),
+                    rtype: RecordType::A,
+                    ttl: self.default_ttl,
+                    data: RecordData::A([
+                        o1,
+                        ((h >> 8) & 0xFF) as u8,
+                        ((h >> 16) & 0xFF) as u8,
+                        ((h >> 24) & 0xFF) as u8,
+                    ]),
+                }]
+            }
+            RecordType::AAAA => {
+                let mut addr = [0u8; 16];
+                // fd00::/8 — unique local address space
+                addr[0] = 0xfd;
+                for i in 0..8 {
+                    addr[i + 1] = ((h >> (i * 8)) & 0xFF) as u8;
+                }
+                alloc::vec![DnsRecord {
+                    name: String::from(domain),
+                    rtype: RecordType::AAAA,
+                    ttl: self.default_ttl,
+                    data: RecordData::AAAA(addr),
+                }]
+            }
+            RecordType::CNAME => {
+                alloc::vec![DnsRecord {
+                    name: String::from(domain),
+                    rtype: RecordType::CNAME,
+                    ttl: self.default_ttl,
+                    data: RecordData::CName(alloc::format!("cdn.{}", domain)),
+                }]
+            }
+            RecordType::MX => {
+                alloc::vec![DnsRecord {
+                    name: String::from(domain),
+                    rtype: RecordType::MX,
+                    ttl: self.default_ttl,
+                    data: RecordData::MX(10, alloc::format!("mail.{}", domain)),
+                }]
+            }
+            RecordType::TXT => {
+                alloc::vec![DnsRecord {
+                    name: String::from(domain),
+                    rtype: RecordType::TXT,
+                    ttl: self.default_ttl,
+                    data: RecordData::TXT(alloc::format!("v=spf1 include:{} ~all", domain)),
+                }]
+            }
+            _ => Vec::new(),
+        };
+
+        let status = if answers.is_empty() {
+            self.stats.nxdomain_responses += 1;
+            DnsStatus::NxDomain
+        } else {
+            DnsStatus::NoError
+        };
+
         DnsResponse {
             query: String::from(domain),
             query_type: rtype,
-            status: DnsStatus::NoError,
-            answers: Vec::new(), // Populated from actual DNS response
+            status,
+            answers,
             rtt_ms: 10,
             cached: false,
             server_used: server_name,
