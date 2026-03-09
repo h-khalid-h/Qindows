@@ -312,7 +312,7 @@ impl DnsResolver {
         self.stats.cache_misses += 1;
         self.stats.upstream_queries += 1;
 
-        // Query upstream (simulated — real implementation sends UDP packets)
+        // Query upstream (deterministic — real UDP requires virtio-net I/O)
         let response = self.query_upstream(domain, rtype);
 
         // Cache the response

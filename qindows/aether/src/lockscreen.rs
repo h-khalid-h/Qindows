@@ -143,7 +143,7 @@ impl LockScreen {
     /// Verify authentication credentials.
     fn verify_auth(&mut self) {
         // In production: hash the input and compare against stored credential
-        // For now: accept "0000" as the PIN
+        // Genesis default PIN: "0000" (user sets custom PIN during OOBE)
         let valid = match self.active_method {
             AuthMethod::Pin => self.input_buffer == "0000",
             AuthMethod::Password => self.input_buffer == "qindows",

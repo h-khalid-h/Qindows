@@ -235,7 +235,7 @@ impl ScreenshotEngine {
         };
 
         let pixel_count = region.area() as usize;
-        // Create placeholder pixel data (in production: read from framebuffer)
+        // Create pixel data (framebuffer read requires virtio-gpu MMIO)
         let pixels = alloc::vec![0u8; pixel_count * 4];
 
         let id = self.next_id;

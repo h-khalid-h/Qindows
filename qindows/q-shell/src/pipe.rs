@@ -300,7 +300,7 @@ impl PipeExecutor {
         id
     }
 
-    /// Simulate completing a job with output.
+    /// Complete a background job with output.
     pub fn complete_job(&mut self, job_id: u64, stdout: Vec<u8>, exit_code: i32, now: u64) {
         if let Some(job) = self.jobs.iter_mut().find(|j| j.id == job_id) {
             let duration = now.saturating_sub(job.started_at);
