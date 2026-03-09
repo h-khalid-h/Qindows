@@ -239,27 +239,60 @@ fn cmd_version() -> CommandResult {
 }
 
 fn cmd_silo(args: &[&str]) -> CommandResult {
+    let mut guard = get_sentinel();
+    let sentinel = guard.as_mut().unwrap();
+
     match args.first() {
-        Some(&"list") => CommandResult::List(alloc::vec![
-            String::from("[0001] qernel        ACTIVE  Ring-0  ████████████ 100%"),
-            String::from("[0002] sentinel      ACTIVE  Ring-0  █████████░░░  78%"),
-            String::from("[0003] aether        ACTIVE  Ring-3  ██████████░░  85%"),
-            String::from("[0004] q-shell       ACTIVE  Ring-3  ████░░░░░░░░  33%"),
-            String::from("[0005] prism-daemon  ACTIVE  Ring-3  ██████░░░░░░  50%"),
-        ]),
+        Some(&"list") => {
+            let silo_names: &[(u64, &str, &str)] = &[
+                (1, "qernel",       "Ring-0"),
+                (2, "sentinel",     "Ring-0"),
+                (3, "aether",       "Ring-3"),
+                (4, "q-shell",      "Ring-3"),
+                (5, "prism-daemon", "Ring-3"),
+            ];
+            let mut lines = Vec::new();
+            for &(id, name, ring) in silo_names {
+                let trust = sentinel.trust_score(id);
+                let bar_fill = (trust as usize * 12) / 100;
+                let bar: String = core::iter::repeat('█').take(bar_fill)
+                    .chain(core::iter::repeat('░').take(12 - bar_fill))
+                    .collect();
+                lines.push(alloc::format!(
+                    "[{:04}] {:<14} ACTIVE  {}  {} {:>3}%",
+                    id, name, ring, bar, trust
+                ));
+            }
+            CommandResult::List(lines)
+        }
         Some(&"inspect") => {
-            let id = args.get(1).unwrap_or(&"");
-            CommandResult::Success(Some(alloc::format!(
-                "Silo {} — Inspection Report\n\
-                 ─────────────────────────\n\
-                 State:    ACTIVE\n\
-                 Ring:     3 (User Mode)\n\
-                 Fibers:   12 running, 3 blocked\n\
-                 Memory:   4.2 MiB mapped\n\
-                 Caps:     READ, WRITE, NET\n\
-                 Health:   92/100\n\
-                 Energy:   2,400 mW (normal)", id
-            )))
+            let id_str = args.get(1).unwrap_or(&"1");
+            let id: u64 = id_str.parse().unwrap_or(1);
+            let names: &[(u64, &str)] = &[(1,"qernel"),(2,"sentinel"),(3,"aether"),(4,"q-shell"),(5,"prism-daemon")];
+            let name = names.iter().find(|(i,_)| *i == id).map(|(_,n)| *n).unwrap_or("unknown");
+
+            if let Some(profile) = sentinel.profiles.get(&id) {
+                CommandResult::Success(Some(alloc::format!(
+                    "Silo {} ({}) — Inspection Report\n\
+                     ─────────────────────────\n\
+                     State:      ACTIVE\n\
+                     Ring:       {}\n\
+                     Syscalls:   {:.1}/sec (EMA baseline)\n\
+                     Memory:     {} KiB\n\
+                     IPC Rate:   {:.1} msg/sec\n\
+                     Trust:      {}/100\n\
+                     Violations: {}",
+                    id, name,
+                    if id <= 2 { "0 (Kernel Mode)" } else { "3 (User Mode)" },
+                    profile.avg_syscalls_per_sec,
+                    profile.avg_memory / 1024,
+                    profile.avg_ipc_per_sec,
+                    profile.trust_score,
+                    profile.violations
+                )))
+            } else {
+                CommandResult::Error(alloc::format!("Silo {} not registered with Sentinel.", id))
+            }
         }
         Some(&"spawn") => CommandResult::Success(Some(String::from(
             "Spawning new Q-Silo... [OK] Silo #0006 created"
@@ -548,16 +581,27 @@ fn cmd_pci(args: &[&str]) -> CommandResult {
 }
 
 fn cmd_memory(args: &[&str]) -> CommandResult {
+    // Real heap constants from qernel/src/memory/heap.rs
+    let heap_size_kib: u64 = 4 * 1024; // 4 MiB = 4096 KiB
     match args.first() {
-        Some(&"stats") => CommandResult::Data(alloc::vec![
-            (String::from("Total"), String::from("32,768 MiB")),
-            (String::from("Used"), String::from("4,291 MiB (13%)")),
-            (String::from("Free"), String::from("28,477 MiB")),
-            (String::from("Kernel Heap"), String::from("12 MiB")),
-            (String::from("Silo Pages"), String::from("3,840 MiB")),
-            (String::from("Page Tables"), String::from("128 MiB")),
-            (String::from("Frame Alloc"), String::from("95% free frames")),
-        ]),
+        Some(&"stats") => {
+            let graph_guard = get_prism();
+            let graph = graph_guard.as_ref();
+            let obj_count = graph.map(|g| g.object_count()).unwrap_or(0);
+            // Estimate used heap from object count (~512 bytes per QNode)
+            let estimated_used_kib = (obj_count as u64 * 512) / 1024 + 64; // +64 KiB base overhead
+            let free_kib = heap_size_kib.saturating_sub(estimated_used_kib);
+            let used_pct = if heap_size_kib > 0 { estimated_used_kib * 100 / heap_size_kib } else { 0 };
+
+            CommandResult::Data(alloc::vec![
+                (String::from("Heap Total"), alloc::format!("{} KiB", heap_size_kib)),
+                (String::from("Heap Used"), alloc::format!("~{} KiB ({}%)", estimated_used_kib, used_pct)),
+                (String::from("Heap Free"), alloc::format!("~{} KiB", free_kib)),
+                (String::from("Prism Objects"), alloc::format!("{}", obj_count)),
+                (String::from("Heap Start"), String::from("0x0100_0000 (16 MiB)")),
+                (String::from("Allocator"), String::from("LinkedList (first-fit)")),
+            ])
+        }
         _ => CommandResult::Error(String::from("Usage: memory [stats]")),
     }
 }
