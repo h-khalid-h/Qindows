@@ -127,7 +127,7 @@ impl PrismGraph {
     /// Resolve an intent query — the "Hello World" of Prism.
     ///
     /// Fix #13: implements character-bigram TF cosine similarity against
-    /// label + tags, replacing the old timestamp-sort stub.
+    /// label + tags for semantic matching.
     ///
     /// Algorithm:
     /// - Decompose the query into character bigrams
@@ -202,8 +202,7 @@ impl PrismGraph {
 
     /// Return the total number of stored objects in the graph.
     ///
-    /// Used by Q-Shell `prism stats` to display a live count rather than
-    /// the hardcoded placeholder value.
+    /// Used by Q-Shell `prism stats` to display a live count.
     pub fn object_count(&self) -> usize {
         self.objects.len()
     }
