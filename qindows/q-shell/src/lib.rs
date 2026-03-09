@@ -15,6 +15,7 @@ pub mod executor;
 pub mod env;
 pub mod glob;
 pub mod history;
+pub mod persist;
 pub mod pipe;
 pub mod job_control;
 pub mod scripting;

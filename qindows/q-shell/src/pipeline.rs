@@ -22,10 +22,14 @@ use alloc::vec::Vec;
 /// Pipeline operator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PipeOp {
-    /// `|` — standard pipe
+    /// `|` — standard pipe (legacy byte stream)
     Pipe,
     /// `|&` — pipe both stdout and stderr
     PipeBoth,
+    /// `~>` — Semantic Flow (passing QNode Object-IDs)
+    Flow,
+    /// `~>>` — Remote Mesh Flow (passing Object-IDs across Q-Fabric)
+    RemoteFlow,
 }
 
 /// Redirect type.

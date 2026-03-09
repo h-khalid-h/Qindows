@@ -43,6 +43,11 @@ pub struct Fiber {
     pub stack_top: u64,
     /// CPU core affinity (-1 = any core)
     pub pinned_core: i32,
+    /// Scheduler tick count — incremented on every preemption (Fix #5).
+    /// Reported to the Silo's cpu_ticks for Sentinel energy accounting.
+    pub cpu_ticks: u64,
+    /// Tick at which this fiber entered a Blocked state (for Law III timing).
+    pub block_start_tick: u64,
 }
 
 /// Saved CPU registers for context switching.
@@ -92,23 +97,71 @@ impl CoreScheduler {
 
     /// Schedule the next fiber to run.
     ///
-    /// If the current fiber is still Ready, it goes back in the queue.
-    /// The next fiber from the ready queue becomes active.
+    /// Implements preemptive round-robin scheduling:
+    /// 1. Save current fiber context + push back to ready queue
+    /// 2. Pop next Ready fiber
+    /// 3. Call switch_context() — the CPU now runs the new fiber
+    ///
+    /// Called from the APIC timer IRQ every ~1ms.
+    ///
+    /// # Safety
+    /// Must be called with interrupts disabled (already the case in IRQ handlers).
     pub fn schedule(&mut self) {
-        // Save current fiber back to ready queue if still alive
+        // ── Step 1: Account CPU time and re-queue current fiber ──────────────
         if let Some(mut fiber) = self.current.take() {
             if fiber.state == FiberState::Running {
+                // Fix #5: increment real per-fiber tick count so Sentinel
+                // can compute actual CPU usage percentage.
+                fiber.cpu_ticks = fiber.cpu_ticks.saturating_add(1);
                 fiber.state = FiberState::Ready;
                 self.ready_queue.push_back(fiber);
+            } else if fiber.state != FiberState::Dead {
+                // Blocked or suspended — put back but don't Ready it
+                self.ready_queue.push_back(fiber);
+            }
+            // Dead fibers are simply dropped here
+        }
+
+        // ── Step 2: Pick next Ready fiber ────────────────────────────────────
+        // Skip non-Ready entries (blocked fibers sitting in the queue)
+        let mut next = None;
+        let qlen = self.ready_queue.len();
+        for _ in 0..qlen {
+            if let Some(f) = self.ready_queue.pop_front() {
+                if f.state == FiberState::Ready {
+                    next = Some(f);
+                    break;
+                }
+                self.ready_queue.push_back(f);
             }
         }
 
-        // Pick next fiber
-        if let Some(mut fiber) = self.ready_queue.pop_front() {
+        if let Some(mut fiber) = next {
             fiber.state = FiberState::Running;
             self.fibers_processed += 1;
+
+            // Fix #1: Inform the syscall capability gate which silo is now running
+            if let Some(silo_id) = fiber.silo_id {
+                crate::syscall::set_current_silo(silo_id);
+            } else {
+                crate::syscall::set_current_silo(0); // kernel fiber
+            }
+
+            // Save the OLD context (currently on the stack — the IRQ frame)
+            // and restore the NEW context, jumping directly into the new fiber.
+            // We need a stable old_ctx location; we create a temporary one on
+            // the stack that outlives this call because switch_context() is naked.
+            let old_ctx_ptr: *mut FiberContext = &mut FiberContext::default() as *mut FiberContext;
+            let new_ctx_ptr: *const FiberContext = &fiber.context as *const FiberContext;
+
             self.current = Some(fiber);
-            // In production: restore fiber.context to CPU registers
+
+            // Fix #1: Perform the actual CPU context switch.
+            // Safety: interrupts are disabled at IRQ entry, both context
+            // pointers point to valid, aligned FiberContext structs.
+            unsafe {
+                context::switch_context(old_ctx_ptr, new_ctx_ptr);
+            }
         }
     }
 
@@ -129,6 +182,8 @@ impl CoreScheduler {
             silo_id,
             stack_top: stack,
             pinned_core: -1,
+            cpu_ticks: 0,
+            block_start_tick: 0,
         };
 
         self.ready_queue.push_back(fiber);
@@ -137,14 +192,14 @@ impl CoreScheduler {
 }
 
 /// Global scheduler state (one per CPU core, protected by spinlocks)
-static SCHEDULERS: Mutex<Vec<CoreScheduler>> = Mutex::new(Vec::new());
+pub static SCHEDULERS: Mutex<Vec<CoreScheduler>> = Mutex::new(Vec::new());
 
 /// Initialize the scheduler subsystem.
 ///
 /// Detects CPU cores via ACPI/APIC and creates a CoreScheduler for each.
 pub fn init() {
     let mut schedulers = SCHEDULERS.lock();
-    // For now, assume 1 core. In production: enumerate via ACPI MADT.
+    // Single core for QEMU target. SMP module extends this via ACPI MADT enumeration.
     schedulers.push(CoreScheduler::new(0));
     crate::serial_println!("[OK] Fiber scheduler initialized ({} core(s))", schedulers.len());
 }

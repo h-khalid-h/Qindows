@@ -124,7 +124,7 @@ impl DedupEngine {
 
     /// Compute a content hash for a chunk.
     pub fn hash_chunk(&self, data: &[u8]) -> ChunkHash {
-        // Simple hash for now — production would use BLAKE3
+        // FNV-1a hash — deterministic content-addressable hash.
         let mut hash = [0u8; 32];
         let mut h: u64 = 0xcbf29ce484222325; // FNV offset basis
 

@@ -138,15 +138,42 @@ pub struct TlsHandshake {
 
 impl TlsHandshake {
     pub fn new(is_server: bool) -> Self {
-        // Generate ephemeral keypair (simplified — would use x25519)
-        let mut private_key = [0u8; 32];
-        let mut public_key = [0u8; 32];
+        // Fix #14: Generate ephemeral keypair using a deterministic LCG seeded
+        // from a kernel entropy mix. In production: use the hardware RNG (RDRAND)
+        // and the full x25519 Diffie-Hellman function from a vetted library.
+        //
+        // For genesis alpha: we implement the Curve25519 Montgomery ladder in
+        // pure Rust (no hardware intrinsics) so the key exchange is mathematically
+        // correct even without an external crate.
+        let seed: u64 = {
+            // Derive entropy from the stack address (ASLR), a compile-time
+            // salt, and a role-based distinguisher. No architecture-specific
+            // instructions needed — the nexus crate is platform-portable.
+            let stack_marker: u64 = 0;
+            let addr = &stack_marker as *const _ as u64;
+            let role_salt: u64 = if is_server { 0xA5A5 } else { 0x5A5A };
+            addr.wrapping_mul(0x9e37_79b9_7f4a_7c15)
+                .wrapping_add(role_salt)
+                .wrapping_add(0x6c62_272e_07bb_0142)
+        };
 
-        // In production: use crypto::random_bytes() and x25519 scalar mult
-        for i in 0..32 {
-            private_key[i] = (i as u8).wrapping_mul(0x9E).wrapping_add(0x37);
-            public_key[i] = private_key[i] ^ 0xFF; // Placeholder
+        // Generate 32-byte private key via LCG with the seed
+        let mut private_key = [0u8; 32];
+        let mut state = seed;
+        for byte in private_key.iter_mut() {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            *byte = (state >> 33) as u8;
         }
+        // Clamp the private key per RFC 7748 Section 5
+        private_key[0]  &= 248;
+        private_key[31] &= 127;
+        private_key[31] |= 64;
+
+        // Compute public key = scalar_mult(private_key, BASE_POINT)
+        // Using the Curve25519 Montgomery ladder
+        let public_key = x25519_scalar_mult(&private_key, &CURVE25519_BASE_POINT);
 
         TlsHandshake {
             state: HandshakeState::Initial,
@@ -235,18 +262,14 @@ impl TlsHandshake {
         self.compute_shared_secret();
     }
 
-    /// Compute the ECDH shared secret.
+    /// Compute the ECDH shared secret using X25519 Montgomery ladder (Fix #14).
     fn compute_shared_secret(&mut self) {
         if let Some(peer_pk) = self.peer_public_key {
-            let mut secret = [0u8; 32];
-            // Simplified ECDH — XOR private key with peer public key
-            // Production: x25519(private_key, peer_public_key)
-            for i in 0..32 {
-                secret[i] = self.private_key[i] ^ peer_pk[i];
-            }
+            // Real X25519: shared_secret = scalar_mult(private_key, peer_public_key)
+            let secret = x25519_scalar_mult(&self.private_key, &peer_pk);
             self.shared_secret = Some(secret);
 
-            // Derive traffic keys via HKDF-Expand
+            // Derive traffic keys via HKDF-style expansion
             self.derive_traffic_keys();
         }
     }
@@ -293,5 +316,259 @@ impl TlsHandshake {
     /// Is the handshake complete?
     pub fn is_connected(&self) -> bool {
         self.state == HandshakeState::Connected
+    }
+}
+
+// ── X25519 Montgomery Ladder (Fix #14) ──────────────────────────────────────
+//
+// A simplified but mathematically correct Curve25519 scalar multiplication
+// for `no_std` environments. In production: use a vetted library (e.g. dalek).
+//
+// Curve25519: y² = x³ + 486662x² + x  (mod p, where p = 2²⁵⁵ − 19)
+// We only need the x-coordinate (Montgomery form).
+
+/// The Curve25519 base point (u-coordinate = 9, little-endian).
+const CURVE25519_BASE_POINT: [u8; 32] = {
+    let mut bp = [0u8; 32];
+    bp[0] = 9;
+    bp
+};
+
+/// The prime p = 2^255 - 19, stored as 4 × u64 limbs (little-endian).
+const P: [u64; 4] = [
+    0xFFFF_FFFF_FFFF_FFED,
+    0xFFFF_FFFF_FFFF_FFFF,
+    0xFFFF_FFFF_FFFF_FFFF,
+    0x7FFF_FFFF_FFFF_FFFF,
+];
+
+/// Field element: 4 × u64 limbs (little-endian, values < 2p).
+type Fe = [u64; 4];
+
+/// Load a 32-byte little-endian integer into limbs.
+fn fe_from_bytes(b: &[u8; 32]) -> Fe {
+    let mut r = [0u64; 4];
+    for i in 0..4 {
+        let off = i * 8;
+        r[i] = u64::from_le_bytes([
+            b[off], b[off+1], b[off+2], b[off+3],
+            b[off+4], b[off+5], b[off+6], b[off+7],
+        ]);
+    }
+    r
+}
+
+/// Store limbs back to 32-byte little-endian. Assumes value is reduced mod p.
+fn fe_to_bytes(a: &Fe) -> [u8; 32] {
+    let mut r = [0u8; 32];
+    for i in 0..4 {
+        let bytes = a[i].to_le_bytes();
+        let off = i * 8;
+        r[off..off+8].copy_from_slice(&bytes);
+    }
+    r
+}
+
+/// Addition mod p (simplified: may exceed p, reduced lazily).
+fn fe_add(a: &Fe, b: &Fe) -> Fe {
+    let mut r = [0u64; 4];
+    let mut carry = 0u64;
+    for i in 0..4 {
+        let sum = (a[i] as u128) + (b[i] as u128) + (carry as u128);
+        r[i] = sum as u64;
+        carry = (sum >> 64) as u64;
+    }
+    // Lazy reduction: if carry or >= p, subtract p
+    if carry > 0 || ge_p(&r) {
+        let mut borrow = 0i64;
+        for i in 0..4 {
+            let diff = (r[i] as i128) - (P[i] as i128) - (borrow as i128);
+            r[i] = diff as u64;
+            borrow = if diff < 0 { 1 } else { 0 };
+        }
+    }
+    r
+}
+
+/// Subtraction mod p.
+fn fe_sub(a: &Fe, b: &Fe) -> Fe {
+    let mut r = [0u64; 4];
+    let mut borrow = 0i64;
+    for i in 0..4 {
+        let diff = (a[i] as i128) - (b[i] as i128) - (borrow as i128);
+        r[i] = diff as u64;
+        borrow = if diff < 0 { 1 } else { 0 };
+    }
+    if borrow != 0 {
+        // Add p back
+        let mut carry = 0u64;
+        for i in 0..4 {
+            let sum = (r[i] as u128) + (P[i] as u128) + (carry as u128);
+            r[i] = sum as u64;
+            carry = (sum >> 64) as u64;
+        }
+    }
+    r
+}
+
+/// Multiplication mod p (schoolbook, 4-limb × 4-limb → 8-limb, then Barrett-ish reduce).
+fn fe_mul(a: &Fe, b: &Fe) -> Fe {
+    // Full 512-bit product
+    let mut t = [0u128; 8];
+    for i in 0..4 {
+        let mut carry = 0u128;
+        for j in 0..4 {
+            t[i + j] += (a[i] as u128) * (b[j] as u128) + carry;
+            carry = t[i + j] >> 64;
+            t[i + j] &= 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        t[i + 4] += carry;
+    }
+
+    // Reduce mod p = 2^255 - 19
+    // Since p ≈ 2^255, we use: x mod p ≈ x_low + 38 * x_high (because 2^256 ≡ 38 mod p)
+    let mut r = [0u64; 4];
+    // x_low  = t[0..4]
+    // x_high = t[4..8], shifted: represents value × 2^256
+    // 2^256 mod p = 2 * 19 = 38
+    let mut carry = 0u128;
+    for i in 0..4 {
+        let v = t[i] + (t[i + 4] * 38) + carry;
+        r[i] = v as u64;
+        carry = v >> 64;
+    }
+    // Final carry: multiply by 38 and add
+    if carry > 0 {
+        let mut c2 = carry * 38;
+        for i in 0..4 {
+            c2 += r[i] as u128;
+            r[i] = c2 as u64;
+            c2 >>= 64;
+        }
+    }
+    // Final reduction if >= p
+    if ge_p(&r) {
+        let mut borrow = 0i64;
+        for i in 0..4 {
+            let diff = (r[i] as i128) - (P[i] as i128) - (borrow as i128);
+            r[i] = diff as u64;
+            borrow = if diff < 0 { 1 } else { 0 };
+        }
+    }
+    r
+}
+
+/// Check if a >= p.
+fn ge_p(a: &Fe) -> bool {
+    for i in (0..4).rev() {
+        if a[i] > P[i] { return true; }
+        if a[i] < P[i] { return false; }
+    }
+    true // equal
+}
+
+/// Modular inversion via Fermat's little theorem: a^(p-2) mod p.
+fn fe_inv(a: &Fe) -> Fe {
+    // p - 2 = 2^255 - 21
+    // Use square-and-multiply with a small addition chain.
+    let mut result = [0u64; 4];
+    result[0] = 1; // 1
+    let mut base = *a;
+
+    // Exponentiate by p-2 using binary method.
+    // p-2 in binary: 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF - 20
+    // = all 1s in bits 0..254, except bits for subtracting 21.
+    // Simplified: iterate over all 255 bits of p-2.
+    let p_minus_2: [u64; 4] = [
+        0xFFFF_FFFF_FFFF_FFEB, // P[0] - 2
+        0xFFFF_FFFF_FFFF_FFFF,
+        0xFFFF_FFFF_FFFF_FFFF,
+        0x7FFF_FFFF_FFFF_FFFF,
+    ];
+
+    for limb_idx in 0..4 {
+        let limb = p_minus_2[limb_idx];
+        for bit in 0..64 {
+            if limb_idx == 3 && bit >= 63 { break; } // Only 255 bits
+            if (limb >> bit) & 1 == 1 {
+                result = fe_mul(&result, &base);
+            }
+            base = fe_mul(&base, &base);
+        }
+    }
+    result
+}
+
+/// X25519 scalar multiplication using the Montgomery ladder.
+///
+/// Computes `scalar * point` on Curve25519.
+/// Both scalar and point are 32-byte little-endian.
+fn x25519_scalar_mult(scalar: &[u8; 32], point: &[u8; 32]) -> [u8; 32] {
+    // Clamp scalar per RFC 7748
+    let mut k = *scalar;
+    k[0]  &= 248;
+    k[31] &= 127;
+    k[31] |= 64;
+
+    let u = fe_from_bytes(point);
+
+    // Montgomery ladder
+    let x_1 = u;
+    let one: Fe = [1, 0, 0, 0];
+    let zero: Fe = [0, 0, 0, 0];
+
+    let mut x_2 = one;
+    let mut z_2 = zero;
+    let mut x_3 = u;
+    let mut z_3 = one;
+    let mut swap: u64 = 0;
+
+    // Iterate from bit 254 down to 0
+    for t in (0..=254).rev() {
+        let byte_idx = t / 8;
+        let bit_idx = t % 8;
+        let k_t = ((k[byte_idx] >> bit_idx) & 1) as u64;
+
+        // Conditional swap
+        let cs = swap ^ k_t;
+        swap = k_t;
+        cswap(cs, &mut x_2, &mut x_3);
+        cswap(cs, &mut z_2, &mut z_3);
+
+        let a = fe_add(&x_2, &z_2);
+        let aa = fe_mul(&a, &a);
+        let b = fe_sub(&x_2, &z_2);
+        let bb = fe_mul(&b, &b);
+        let e = fe_sub(&aa, &bb);
+        let c = fe_add(&x_3, &z_3);
+        let d = fe_sub(&x_3, &z_3);
+        let da = fe_mul(&d, &a);
+        let cb = fe_mul(&c, &b);
+        x_3 = fe_mul(&fe_add(&da, &cb), &fe_add(&da, &cb));
+        z_3 = fe_mul(&x_1, &fe_mul(&fe_sub(&da, &cb), &fe_sub(&da, &cb)));
+        x_2 = fe_mul(&aa, &bb);
+        // a24 = 121665 for Curve25519
+        let a24: Fe = [121665, 0, 0, 0];
+        let a24_e = fe_mul(&a24, &e);
+        z_2 = fe_mul(&e, &fe_add(&aa, &a24_e));
+    }
+
+    // Final conditional swap
+    cswap(swap, &mut x_2, &mut x_3);
+    cswap(swap, &mut z_2, &mut z_3);
+
+    // Result = x_2 * z_2^(p-2) (mod p)
+    let z_inv = fe_inv(&z_2);
+    let result = fe_mul(&x_2, &z_inv);
+    fe_to_bytes(&result)
+}
+
+/// Constant-time conditional swap.
+fn cswap(condition: u64, a: &mut Fe, b: &mut Fe) {
+    let mask = 0u64.wrapping_sub(condition); // 0 or 0xFFFF...
+    for i in 0..4 {
+        let t = mask & (a[i] ^ b[i]);
+        a[i] ^= t;
+        b[i] ^= t;
     }
 }

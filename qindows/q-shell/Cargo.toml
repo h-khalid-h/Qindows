@@ -6,3 +6,6 @@ description = "Q-Shell — The Semantic Command Palette"
 
 [dependencies]
 qindows-types = { workspace = true }
+prism = { path = "../prism" }
+nexus = { path = "../nexus" }
+spin = { workspace = true }

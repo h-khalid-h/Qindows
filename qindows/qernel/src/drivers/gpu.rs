@@ -9,9 +9,9 @@ pub struct AetherFrameBuffer {
     /// Base address of the framebuffer memory
     buffer: *mut u32,
     /// Width in pixels
-    width: usize,
+    pub width: usize,
     /// Height in pixels
-    height: usize,
+    pub height: usize,
     /// Pixels per scanline (may differ from width due to alignment)
     stride: usize,
 }
@@ -47,6 +47,19 @@ impl AetherFrameBuffer {
             unsafe {
                 self.buffer.add(offset).write_volatile(color);
             }
+        }
+    }
+
+    /// Read a single pixel at (x, y).
+    #[inline(always)]
+    pub fn read_pixel(&self, x: usize, y: usize) -> u32 {
+        if x < self.width && y < self.height {
+            let offset = y * self.stride + x;
+            unsafe {
+                self.buffer.add(offset).read_volatile()
+            }
+        } else {
+            0
         }
     }
 

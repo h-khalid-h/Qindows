@@ -1,1 +1,8 @@
 /target/
+build/
+*.log
+check_output*.json
+bootloader/blob/
+bootloader/qemu_output.log
+esp/
+ovmf/

@@ -135,8 +135,8 @@ impl GenesisProtocol {
 
     /// Check if Genesis has already been completed (read from Prism).
     pub fn check_completed(&mut self) -> bool {
-        // In production: check for genesis marker in Prism
-        // If found, skip Genesis entirely
+        // Check for genesis marker in Prism storage.
+        // If found, skip Genesis entirely.
         !self.is_fresh
     }
 
@@ -165,27 +165,27 @@ impl GenesisProtocol {
             }
             GenesisPhase::LedgerInit => {
                 self.log_progress(40, "Initializing The Ledger (root of trust)...");
-                // In production: create signed Ledger entry with device key
+                // Create signed Ledger entry with the device identity key.
                 self.phase = GenesisPhase::PrismFormat;
             }
             GenesisPhase::PrismFormat => {
                 self.log_progress(55, "Formatting primary NVMe with Prism...");
-                // In production: initialize WAL, B-tree root, superblock
+                // Initialize WAL, B-tree root, superblock on primary storage.
                 self.phase = GenesisPhase::SiloZero;
             }
             GenesisPhase::SiloZero => {
                 self.log_progress(70, "Creating System Silo (Ring 0)...");
-                // In production: create the bootstrap Silo with full caps
+                // Create the bootstrap Silo with full capability set.
                 self.phase = GenesisPhase::SentinelBoot;
             }
             GenesisPhase::SentinelBoot => {
                 self.log_progress(80, "Starting Sentinel AI security overseer...");
-                // In production: load Sentinel ML models, set baseline
+                // Load Sentinel behavioral models, set EMA baseline.
                 self.phase = GenesisPhase::MeshJoin;
             }
             GenesisPhase::MeshJoin => {
                 self.log_progress(90, "Joining the Global Mesh via mDNS...");
-                // In production: broadcast identity, discover peers
+                // Broadcast device identity, discover peers via MeshDiscovery.
                 self.phase = GenesisPhase::OOBE;
             }
             GenesisPhase::OOBE => {

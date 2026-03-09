@@ -7,9 +7,10 @@ use super::FrameAllocator;
 use core::alloc::{GlobalAlloc, Layout};
 use spin::Mutex;
 
-/// Heap configuration
-const HEAP_START: usize = 0x_4444_4444_0000;
-const HEAP_SIZE: usize = 1024 * 1024; // 1 MiB initial heap
+/// Heap configuration — placed at 16 MiB in identity-mapped physical memory.
+/// Well above the kernel image (loaded at 2 MiB) and its BSS/stack.
+const HEAP_START: usize = 0x0100_0000; // 16 MiB
+const HEAP_SIZE: usize = 4 * 1024 * 1024; // 4 MiB kernel heap
 
 /// A simple linked-list allocator node
 struct FreeNode {
@@ -103,15 +104,24 @@ unsafe impl GlobalAlloc for QAllocator {
 static ALLOCATOR: QAllocator = QAllocator(Mutex::new(LinkedListAllocator::new()));
 
 /// Initialize the kernel heap.
+///
+/// Fix #6: logs the actual heap region so boot output confirms correct mapping.
+/// On genesis alpha the bootloader identity-maps all physical RAM, so
+/// HEAP_START (virtual) == HEAP_START (physical). The FrameAllocator
+/// parameter is currently unused but reserved for future virtual-memory mapping.
 pub fn init(frame_allocator: &mut FrameAllocator) {
-    // In production: map HEAP_SIZE worth of physical frames
-    // to the HEAP_START virtual address range.
-    // For now, we assume identity mapping from boot.
-    let _ = frame_allocator;
+    let _ = frame_allocator; // Reserved for future page-table mapping
 
     unsafe {
         ALLOCATOR.0.lock().init(HEAP_START, HEAP_SIZE);
     }
+
+    crate::serial_println!(
+        "[OK] Kernel heap initialized: {} KiB @ {:#x}..{:#x} (identity-mapped)",
+        HEAP_SIZE / 1024,
+        HEAP_START,
+        HEAP_START + HEAP_SIZE
+    );
 }
 
 /// Align `addr` upward to alignment `align`.

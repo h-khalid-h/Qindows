@@ -68,3 +68,20 @@ pub fn ipc() -> spin::MutexGuard<'static, IpcManager> {
 pub fn audit() -> spin::MutexGuard<'static, AuditLog> {
     state().audit.lock()
 }
+
+/// Global monotonic tick counter — incremented by the APIC timer IRQ (~1 per ms).
+///
+/// Used by the Sentinel to compute silo block durations for Law III enforcement.
+static GLOBAL_TICK: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// Increment the global tick counter (called from the APIC timer IRQ handler).
+#[inline(always)]
+pub fn tick() {
+    GLOBAL_TICK.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+}
+
+/// Read the current global tick count (approximate milliseconds since boot).
+#[inline(always)]
+pub fn global_tick() -> u64 {
+    GLOBAL_TICK.load(core::sync::atomic::Ordering::Relaxed)
+}

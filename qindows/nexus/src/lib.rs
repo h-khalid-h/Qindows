@@ -59,6 +59,7 @@ pub mod mesh_heartbeat;
 pub mod mesh_topology;
 pub mod mesh_quorum;
 pub mod mesh_registry;
+pub mod mesh_discover;
 pub mod telemetry_stream;
 
 use alloc::vec::Vec;
@@ -183,16 +184,95 @@ impl QNexus {
     }
 }
 
+/// Genesis Protocol result — one entry per phase.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GenesisPhase {
+    /// Phase I: Broadcast the cryptographic handshake beacon.
+    Beacon,
+    /// Phase II: Calibrate global sub-millisecond PTP timestamp.
+    AetherSync,
+    /// Phase III: Begin planetary-scale data deduplication via Prism.
+    PrismUnfold,
+    /// Phase IV: Activate global Sentinel immune-propagation shield.
+    SentinelShield,
+}
+
+/// Status for a single genesis phase.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GenesisStatus {
+    /// Phase completed successfully.
+    Ok,
+    /// Phase partially completed (no peers yet, running locally).
+    Degraded,
+    /// Phase failed — mesh cannot proceed.
+    Failed,
+}
+
 /// Genesis Protocol — initiate the Global Mesh.
 ///
-/// This is the "Big Bang" event that connects all Qindows
-/// devices into a single planetary supercomputer.
-pub fn initiate_genesis() {
-    // Phase I: Beacon — broadcast cryptographic handshake
-    // Phase II: Aether-Sync — calibrate global timestamp
-    // Phase III: Prism-Unfold — begin data smearing
-    // Phase IV: Sentinel-Shield — activate global immunity
+/// This is the "Big Bang" event that connects all Qindows devices into a
+/// single planetary supercomputer. Returns per-phase status so the kernel
+/// can decide whether to continue or abort the protocol.
+///
+/// Phases (from spec Section 11.2):
+/// - **I: Beacon** — nodes broadcast cryptographic handshakes
+/// - **II: Aether-Sync** — calibrate global sub-ms PTP timestamp
+/// - **III: Prism-Unfold** — deduplicate objects on a planetary scale
+/// - **IV: Sentinel-Shield** — propagate immunity antibodies globally
+pub fn initiate_genesis(nexus: &mut QNexus) -> [(GenesisPhase, GenesisStatus); 4] {
+    // ── Phase I: Beacon ───────────────────────────────────────────
+    // Generate a node-specific cryptographic entropy token and
+    // "broadcast" it by stamping it into our local identity.
+    // In production: multicast via QUIC/5G/Sat to seed global entropy.
+    let mut beacon_hash = [0u8; 32];
+    for (i, b) in nexus.local_identity.node_id.iter().enumerate() {
+        beacon_hash[i] = b.wrapping_add(i as u8).wrapping_mul(0x9E);
+    }
+    nexus.local_identity.node_id = beacon_hash;
+    let beacon_status = if nexus.peers.is_empty() {
+        GenesisStatus::Degraded // No peers yet — local-only run
+    } else {
+        GenesisStatus::Ok
+    };
 
-    // In production: this triggers a cascade of QUIC-native
-    // multicast messages that propagate across the mesh.
+    // ── Phase II: Aether-Sync ─────────────────────────────────────
+    // In production: issue a PTP sync pulse and record the delta.
+    // For genesis alpha: confirm we can reach at least one peer with
+    // availability ≥ 0.3 and record the sync in credits.
+    let synced_peers = nexus.peers.iter()
+        .filter(|p| p.availability >= 0.3)
+        .count();
+    nexus.credits_earned = nexus.credits_earned.saturating_add(synced_peers as u64 * 10);
+    let sync_status = if synced_peers > 0 {
+        GenesisStatus::Ok
+    } else {
+        GenesisStatus::Degraded
+    };
+
+    // ── Phase III: Prism-Unfold ───────────────────────────────────
+    // In production: start sharding the local object graph across mesh
+    // peers using the DHT. For genesis alpha: compute the virtual
+    // "savings" metric — simulate 90% congestion reduction signal.
+    let peak_peers = nexus.peers.len();
+    // Each peer represents 100 edge nodes in the production mesh.
+    let simulated_mesh_nodes = (peak_peers * 100).max(1);
+    // Credits assigned for participating in the dedup round.
+    nexus.credits_earned = nexus.credits_earned.saturating_add(simulated_mesh_nodes as u64);
+    let unfold_status = GenesisStatus::Ok;
+
+    // ── Phase IV: Sentinel-Shield ─────────────────────────────────
+    // In production: broadcast the current Sentinel antibody digest to
+    // all peers so a local exploit is globally immunised in < 300 ms.
+    // For genesis alpha: record the activation event and flag our node
+    // as a shield participant.
+    nexus.fibers_processed = nexus.fibers_processed.saturating_add(1);
+    let shield_status = GenesisStatus::Ok;
+
+    [
+        (GenesisPhase::Beacon,        beacon_status),
+        (GenesisPhase::AetherSync,    sync_status),
+        (GenesisPhase::PrismUnfold,   unfold_status),
+        (GenesisPhase::SentinelShield, shield_status),
+    ]
 }
+

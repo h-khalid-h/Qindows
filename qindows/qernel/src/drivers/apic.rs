@@ -70,22 +70,36 @@ pub fn init() {
         // Set Task Priority to 0 (accept all interrupts)
         lapic_write(regs::TPR, 0);
 
-        // ── Configure APIC Timer ──
+        // ── Configure APIC Timer (but don't start yet) ──
         // Divide by 16
         lapic_write(regs::TIMER_DIVIDE, 0x03);
 
-        // Periodic mode, vector 32 (same as IRQ 0)
-        lapic_write(regs::TIMER_LVT, 32 | (0b01 << 17));
+        // Periodic mode, vector 32 — but masked (bit 16 = mask)
+        lapic_write(regs::TIMER_LVT, 32 | (0b01 << 17) | (1 << 16));
 
-        // Initial count — determines scheduling frequency
-        // Lower = faster context switches. ~10ms interval.
-        lapic_write(regs::TIMER_INITIAL, 1_000_000);
+        // Initial count = 0 — timer won't fire until start_timer() is called
+        lapic_write(regs::TIMER_INITIAL, 0);
 
         // Send EOI for any pending interrupts
         lapic_write(regs::EOI, 0);
     }
 
-    crate::serial_println!("[OK] Local APIC enabled — Timer @ vector 32 (periodic)");
+    crate::serial_println!("[OK] Local APIC enabled — Timer configured (deferred start)");
+}
+
+/// Start the APIC timer for preemptive scheduling.
+///
+/// Called after the boot sequence completes to begin periodic interrupts.
+/// This arms the timer at ~10ms interval for context switching.
+pub fn start_timer() {
+    unsafe {
+        // Unmask the timer LVT entry: periodic mode, vector 32
+        lapic_write(regs::TIMER_LVT, 32 | (0b01 << 17));
+        // Set initial count — determines scheduling frequency
+        lapic_write(regs::TIMER_INITIAL, 1_000_000);
+    }
+
+    crate::serial_println!("[OK] APIC Timer armed — preemptive scheduling active");
 }
 
 /// Send End-of-Interrupt to the Local APIC.
@@ -185,5 +199,8 @@ pub fn init_ioapic() {
     // Route COM1 serial (IRQ 4) → vector 36
     route_irq(4, 36, 0);
 
-    crate::serial_println!("[OK] IO APIC initialized — Keyboard:33, Serial:36");
+    // Route PS/2 Mouse (IRQ 12) → vector 44
+    route_irq(12, 44, 0);
+
+    crate::serial_println!("[OK] IO APIC initialized — Keyboard:33, Serial:36, Mouse:44");
 }

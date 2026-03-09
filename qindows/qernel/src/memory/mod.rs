@@ -46,7 +46,7 @@ impl FrameAllocator {
     /// Scans the memory map to determine usable regions and builds
     /// the allocation bitmap.
     pub fn init(
-        memory_map_addr: u64,
+        _memory_map_addr: u64,
         _memory_map_entries: u64,
         _desc_size: u64,
     ) -> Self {
@@ -56,17 +56,12 @@ impl FrameAllocator {
         // 3. Place the bitmap at the start of that region
         // 4. Mark kernel/bootloader/firmware regions as used
 
-        // Placeholder: assume 256 MB of usable RAM for the bitmap
+        // Assume 256 MB of usable RAM for the bitmap
         let total_frames = (256 * 1024 * 1024) / PhysFrame::SIZE as usize;
-        let bitmap_size = total_frames / 8;
 
-        // Safety: this would point to a real memory region in production
-        let bitmap = unsafe {
-            core::slice::from_raw_parts_mut(
-                memory_map_addr as *mut u8,
-                bitmap_size,
-            )
-        };
+        // Use a statically-allocated bitmap in BSS (safe, always available)
+        static mut BITMAP: [u8; 8192] = [0u8; 8192];
+        let bitmap = unsafe { &mut BITMAP[..] };
 
         // Mark all frames as free initially
         bitmap.fill(0);
@@ -127,3 +122,13 @@ impl FrameAllocator {
 
 /// Global frame allocator, protected by a spinlock.
 pub static FRAME_ALLOCATOR: Mutex<Option<FrameAllocator>> = Mutex::new(None);
+
+/// Physical address of the kernel's PML4 page table.
+///
+/// Placed at 20 MiB (0x140_0000) — immediately after the 4 MiB kernel heap
+/// at 0x100_0000. The bootloader identity-maps all of physical RAM so this
+/// virtual address equals the physical address on genesis alpha.
+///
+/// Used by `silo::QSilo::vaporize()` to restore the kernel address space
+/// after invalidating a dead silo's CR3, preventing use-after-free faults.
+pub const KERNEL_PML4_PHYS: u64 = 0x0140_0000;

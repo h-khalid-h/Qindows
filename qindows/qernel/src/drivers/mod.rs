@@ -8,6 +8,7 @@ pub mod ahci;
 pub mod apic;
 pub mod audio_hda;
 pub mod console;
+pub mod desktop;
 pub mod gpu;
 pub mod gpu_compute;
 pub mod ioapic;

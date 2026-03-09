@@ -11,3 +11,5 @@ bitflags = { workspace = true }
 log = { workspace = true }
 libm = { workspace = true }
 qindows-types = { workspace = true }
+aether = { path = "../aether" }
+q-shell = { path = "../q-shell" }

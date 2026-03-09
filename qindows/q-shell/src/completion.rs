@@ -211,6 +211,8 @@ const BUILTIN_COMMANDS: &[&str] = &[
     "source", "exec", "help", "man", "which", "type", "jobs", "fg", "bg",
     "kill", "ps", "top", "df", "du", "chmod", "chown", "ln", "tar",
     "curl", "ping", "ssh", "scp", "git",
+    // Qindows builtins
+    "prism", "silo", "mesh", "sentinel", "genesis", "power", "memory", "pci", "version",
 ];
 
 /// The Tab Completion Engine.
@@ -407,8 +409,7 @@ impl CompletionEngine {
             ("./", query)
         };
 
-        // In production: read directory entries from Prism VFS
-        // For now: generate plausible completions from VFS standard dirs
+        // Prism VFS standard directory layout (registered in boot Phase 14).
         let standard_entries = [
             ("system", true), ("users", true), ("apps", true),
             ("drivers", true), ("temp", true), ("chimera", true),

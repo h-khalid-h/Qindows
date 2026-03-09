@@ -100,29 +100,48 @@ impl Sentinel {
     }
 
     /// Analyze a Silo's behavior and produce a health report.
+    ///
+    /// Fix #3+4: CPU usage and block time are now computed from real per-silo
+    /// tick counters instead of fixed zero / scaled-tick approximations.
     pub fn analyze(&self, silo: &QSilo) -> HealthReport {
         let mut violations = Vec::new();
         let mut score: u8 = 100;
 
-        // Law VIII: Energy Proportionality
-        // In production: read PMC (Performance Monitoring Counters)
-        let cpu_usage = (silo.cpu_ticks as f32) * 0.01; // Simplified
-        if cpu_usage > self.config.max_background_cpu {
+        // ── Law VIII: Energy Proportionality ──────────────────────────────
+        // Fix #4: compute CPU percentage from accumulated ticks vs cycle budget.
+        // cycle_interval is in scheduler ticks (~1ms each).
+        // cpu_ticks represents ticks spent executing during the last window.
+        // Percentage = (ticks_used / cycle_ticks) * 100
+        let ticks_per_cycle = self.config.cycle_interval.max(1) as f32;
+        let cpu_usage = ((silo.cpu_ticks as f32) / ticks_per_cycle * 100.0).min(100.0);
+
+        // Only flag background silos (silo ID > 1 means it's not the system silo)
+        let is_background = silo.id > 1;
+        if is_background && cpu_usage > self.config.max_background_cpu {
             violations.push(Violation::EnergyDrain {
                 cpu_percent: cpu_usage,
             });
             score = score.saturating_sub(20);
         }
 
-        // Law III: Asynchronous Everything
-        // In production: track longest fiber block time
-        let blocked_ms = 0u64; // Would come from scheduler metrics
+        // ── Law III: Asynchronous Everything ─────────────────────────────
+        // Fix #3: compute blocked_ms from block_start_tick vs global scheduler tick.
+        // If block_start_tick is non-zero, the silo is/was blocked.
+        // The global tick counter is exposed by kstate::global_tick().
+        let blocked_ms = if silo.block_start_tick > 0 {
+            let now_tick = crate::kstate::global_tick();
+            // Each tick ≈ 1 ms; compute elapsed ticks since block began.
+            now_tick.saturating_sub(silo.block_start_tick)
+        } else {
+            0u64
+        };
+
         if blocked_ms > self.config.max_sync_block_ms {
             violations.push(Violation::SyncBlock { blocked_ms });
             score = score.saturating_sub(15);
         }
 
-        // Memory leak detection
+        // ── Memory Leak Detection ─────────────────────────────────────────
         if silo.memory_used > silo.memory_limit {
             violations.push(Violation::MemoryLeak {
                 leaked_bytes: silo.memory_used - silo.memory_limit,
@@ -135,7 +154,7 @@ impl Sentinel {
             cpu_usage_percent: cpu_usage,
             memory_usage_bytes: silo.memory_used,
             thread_blocked_ms: blocked_ms,
-            cache_miss_rate: 0.0,
+            cache_miss_rate: 0.0, // PMC-based in production
             network_bytes_sent: 0,
             health_score: score,
             violations,

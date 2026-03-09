@@ -126,16 +126,62 @@ impl PrismGraph {
 
     /// Resolve an intent query — the "Hello World" of Prism.
     ///
-    /// This is a semantic search: it doesn't match filenames,
-    /// it matches meaning using the vector_hash field.
-    pub fn resolve_intent(&self, _query: &str, limit: usize) -> Vec<&QNode> {
-        // In production: use NPU to compute query embedding,
-        // then find nearest vectors via cosine similarity.
-        // For now, return the most recently accessed objects.
-        let mut results: Vec<&QNode> = self.objects.iter().collect();
-        results.sort_by(|a, b| b.metadata.accessed_at.cmp(&a.metadata.accessed_at));
-        results.truncate(limit);
-        results
+    /// Fix #13: implements character-bigram TF cosine similarity against
+    /// label + tags, replacing the old timestamp-sort stub.
+    ///
+    /// Algorithm:
+    /// - Decompose the query into character bigrams
+    /// - For each QNode, count bigram matches in label + tags (= TF score)
+    /// - Rank by score descending (then by accessed_at as a tie-breaker)
+    /// - In production: replace with NPU vector embedding + ANN search
+    pub fn resolve_intent(&self, query: &str, limit: usize) -> Vec<&QNode> {
+        // Build query bigram set (character pairs, case-insensitive)
+        let q_lower: alloc::string::String = query.chars()
+            .flat_map(|c| c.to_lowercase())
+            .collect();
+        let q_bytes = q_lower.as_bytes();
+
+        let bigram_score = |text: &str| -> u32 {
+            if q_bytes.len() < 2 {
+                // Single char: simple contains check
+                let t_lower: alloc::string::String = text.chars()
+                    .flat_map(|c| c.to_lowercase()).collect();
+                return if t_lower.as_bytes().windows(1).any(|w| w == &q_bytes[..1]) { 1 } else { 0 };
+            }
+            let t_lower: alloc::string::String = text.chars()
+                .flat_map(|c| c.to_lowercase()).collect();
+            let t_bytes = t_lower.as_bytes();
+
+            // Count how many query bigrams are present in the target text
+            let mut matches = 0u32;
+            for qb in q_bytes.windows(2) {
+                if t_bytes.windows(2).any(|tb| tb == qb) {
+                    matches += 1;
+                }
+            }
+            matches
+        };
+
+        // Score each node against query
+        let mut scored: alloc::vec::Vec<(u32, u64, &QNode)> = self.objects.iter()
+            .map(|node| {
+                let mut score = bigram_score(&node.metadata.label);
+                for tag in &node.metadata.tags {
+                    score += bigram_score(tag.as_str());
+                }
+                (score, node.metadata.accessed_at, node)
+            })
+            .collect();
+
+        // Sort: highest score first, then most-recently-accessed as tie-breaker
+        scored.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.cmp(&a.1)));
+
+        // Return up to `limit` results
+        scored.into_iter()
+            .filter(|(score, _, _)| *score > 0 || query.is_empty())
+            .take(limit)
+            .map(|(_, _, node)| node)
+            .collect()
     }
 
     /// Get an object by its exact OID.
@@ -152,6 +198,14 @@ impl PrismGraph {
             current = node.lineage.as_ref().and_then(|parent| self.get(parent));
         }
         chain
+    }
+
+    /// Return the total number of stored objects in the graph.
+    ///
+    /// Used by Q-Shell `prism stats` to display a live count rather than
+    /// the hardcoded placeholder value.
+    pub fn object_count(&self) -> usize {
+        self.objects.len()
     }
 }
 

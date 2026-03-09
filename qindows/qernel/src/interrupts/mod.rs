@@ -86,6 +86,7 @@ pub fn init() {
         // ── Hardware IRQs (APIC mapped to vectors 32+) ──
         IDT.entries[32].set_handler(timer_handler as *const () as u64, 0x08);
         IDT.entries[33].set_handler(keyboard_handler as *const () as u64, 0x08);
+        IDT.entries[44].set_handler(mouse_handler as *const () as u64, 0x08);
 
         // ── Q-Ring System Call (vector 0x80) ──
         IDT.entries[0x80].set_handler(syscall_handler as *const () as u64, 0x08);
@@ -145,17 +146,36 @@ extern "x86-interrupt" fn general_protection(_frame: InterruptStackFrame, _error
     loop { unsafe { core::arch::asm!("hlt") }; }
 }
 
-extern "x86-interrupt" fn page_fault(_frame: InterruptStackFrame, _error_code: u64) {
-    crate::serial_println!("EXCEPTION: Page Fault (#PF)");
+extern "x86-interrupt" fn page_fault(_frame: InterruptStackFrame, error_code: u64) {
+    let cr2: u64;
+    unsafe { core::arch::asm!("mov {}, cr2", out(reg) cr2, options(nomem, nostack)); }
+    crate::serial_println!(
+        "EXCEPTION: Page Fault (#PF) at {:#x}, error={:#x}",
+        cr2, error_code
+    );
     loop { unsafe { core::arch::asm!("hlt") }; }
 }
 
 // ── Hardware IRQ Handlers ───────────────────────────────────────────
 
 extern "x86-interrupt" fn timer_handler(_frame: InterruptStackFrame) {
-    // Called by the APIC timer every ~1ms.
-    // In production: drives the Fiber scheduler's time-slicing.
+    // Fix #8: Increment the global monotonic tick counter so the Sentinel
+    // can measure per-silo block durations for Law III enforcement.
+    crate::kstate::tick();
+
+    // Send EOI before the context switch so the APIC can fire the next timer
+    // interrupt even if we're still inside the new fiber's stack.
     unsafe { send_eoi(); }
+
+    // Invoke the fiber scheduler — this may call switch_context() and resume
+    // a different fiber, so control may not return here immediately.
+    let mut scheds = crate::scheduler::SCHEDULERS.lock();
+    if let Some(core0) = scheds.first_mut() {
+        if !core0.ready_queue.is_empty() || core0.current.is_some() {
+            core0.schedule();
+        }
+    }
+    drop(scheds);
 }
 
 extern "x86-interrupt" fn keyboard_handler(_frame: InterruptStackFrame) {
@@ -164,8 +184,14 @@ extern "x86-interrupt" fn keyboard_handler(_frame: InterruptStackFrame) {
     unsafe {
         core::arch::asm!("in al, 0x60", out("al") scancode, options(nomem, nostack));
     }
-    // In production: push to the Q-Shell's async input buffer
-    crate::serial_println!("Keyboard: scancode {:#04x}", scancode);
+    // Forward to the keyboard driver
+    crate::drivers::keyboard::handle_scancode(scancode);
+    unsafe { send_eoi(); }
+}
+
+extern "x86-interrupt" fn mouse_handler(_frame: InterruptStackFrame) {
+    // Forward to the mouse driver
+    crate::drivers::mouse::irq_handler();
     unsafe { send_eoi(); }
 }
 

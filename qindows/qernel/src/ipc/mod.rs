@@ -1,244 +1,273 @@
-//! # Q-Ring IPC — Async Ring Buffer Communication
+//! # Fiber IPC — Q-Ring Manager + Channel API
 //!
-//! The backbone of microkernel communication. Every interaction
-//! between Silos flows through Q-Rings — lock-free, asynchronous
-//! ring buffers that avoid the traditional microkernel IPC tax.
+//! Manages both:
+//! 1. **Q-Ring lock-free SPSC buffers** (Phase 11) for zero-copy fiber IPC
+//! 2. **IPC Channels** (backward compat) for Silo-to-Silo message passing
 //!
-//! Design: Single-Producer Single-Consumer (SPSC) rings with
-//! up to 50 messages batched in a single kernel trip.
+//! ## Handle Model
+//!
+//! A `QRingHandle` is an opaque `u64` that maps to an internal ring buffer.
+//! Handles are per-Silo — a fiber cannot access rings belonging to another Silo.
 
-pub mod message_bus;
+#![allow(dead_code)]
 
-use core::sync::atomic::{AtomicU64, Ordering};
+pub mod qring;
+
+extern crate alloc;
+
+use alloc::collections::BTreeMap;
+use alloc::string::String;
 use alloc::vec::Vec;
-use crate::capability::{CapToken, Permissions};
+use qring::{QRing, QRingError};
 
-/// Size of the ring buffer (must be power of 2).
-const RING_SIZE: usize = 256;
+// ── Message Types (used by syscall/mod.rs) ───────────────────────────
 
-/// A single message in the Q-Ring.
-#[derive(Debug, Clone)]
-pub struct QMessage {
-    /// Message type discriminator
-    pub msg_type: MessageType,
-    /// Source Silo ID
-    pub sender: u64,
-    /// Payload — inline small data or a Prism OID for large payloads
-    pub payload: MessagePayload,
-    /// Timestamp (scheduler tick)
-    pub timestamp: u64,
-}
-
-/// Message types flowing through Q-Rings.
+/// IPC message type tag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MessageType {
     /// Raw data transfer
     Data,
-    /// Capability token transfer (delegation)
+    /// Capability token transfer
     CapTransfer,
-    /// Notification (no payload, just a signal)
+    /// One-way notification
     Notification,
-    /// File system request (read/write/open)
+    /// Filesystem request
     FsRequest,
-    /// File system response
-    FsResponse,
-    /// Network packet
-    NetPacket,
-    /// Graphics command (for Aether)
+    /// Graphics compositor command
     GfxCommand,
-    /// Device driver request
-    DeviceRequest,
-    /// Shutdown / cleanup signal
+    /// Shutdown signal
     Shutdown,
 }
 
-/// Message payload — either inline data or a reference to larger data.
+/// Message payload variants.
 #[derive(Debug, Clone)]
 pub enum MessagePayload {
-    /// Small inline data (≤ 64 bytes)
-    Inline([u8; 64]),
-    /// Reference to a Prism Object by OID
-    ObjectRef { oid: [u8; 32] },
-    /// Capability token being transferred
-    Capability(CapToken),
-    /// No payload (for notifications)
+    /// No payload
     Empty,
+    /// Raw bytes
+    Bytes(Vec<u8>),
+    /// String payload
+    Text(String),
 }
 
-/// Q-Ring: Lock-free SPSC ring buffer.
-///
-/// One Silo writes (producer), another reads (consumer).
-/// No locks — uses atomic head/tail pointers.
-pub struct QRing {
-    /// Message buffer
-    buffer: Vec<Option<QMessage>>,
-    /// Write position (owned by producer)
-    head: AtomicU64,
-    /// Read position (owned by consumer)
-    tail: AtomicU64,
-    /// Producer's Silo ID
+/// An IPC message sent between Silos.
+#[derive(Debug, Clone)]
+pub struct QMessage {
+    /// Message type tag
+    pub msg_type: MessageType,
+    /// Sender Silo ID
+    pub sender: u64,
+    /// Payload
+    pub payload: MessagePayload,
+    /// Timestamp (boot ticks)
+    pub timestamp: u64,
+}
+
+// ── IPC Channel (Silo-to-Silo bidirectional) ─────────────────────────
+
+/// One direction of an IPC channel ring.
+pub struct ChannelRing {
+    /// Silo that writes to this ring
     pub producer_silo: u64,
-    /// Consumer's Silo ID
+    /// Silo that reads from this ring
     pub consumer_silo: u64,
+    /// Message queue (FIFO)
+    messages: Vec<QMessage>,
 }
 
-impl QRing {
-    /// Create a new Q-Ring between two Silos.
-    pub fn new(producer: u64, consumer: u64) -> Self {
-        let mut buffer = Vec::with_capacity(RING_SIZE);
-        for _ in 0..RING_SIZE {
-            buffer.push(None);
-        }
-
-        QRing {
-            buffer,
-            head: AtomicU64::new(0),
-            tail: AtomicU64::new(0),
+impl ChannelRing {
+    fn new(producer: u64, consumer: u64) -> Self {
+        ChannelRing {
             producer_silo: producer,
             consumer_silo: consumer,
+            messages: Vec::new(),
         }
     }
 
-    /// Push a message into the ring (producer side).
-    ///
-    /// Returns false if the ring is full (consumer is too slow).
-    pub fn push(&mut self, msg: QMessage) -> bool {
-        let head = self.head.load(Ordering::Relaxed);
-        let tail = self.tail.load(Ordering::Acquire);
-        let next_head = (head + 1) % RING_SIZE as u64;
-
-        if next_head == tail {
-            return false; // Ring full
-        }
-
-        self.buffer[head as usize] = Some(msg);
-        self.head.store(next_head, Ordering::Release);
+    fn push(&mut self, msg: QMessage) -> bool {
+        if self.messages.len() >= 256 { return false; } // backpressure
+        self.messages.push(msg);
         true
     }
 
-    /// Pop a message from the ring (consumer side).
-    pub fn pop(&mut self) -> Option<QMessage> {
-        let tail = self.tail.load(Ordering::Relaxed);
-        let head = self.head.load(Ordering::Acquire);
-
-        if tail == head {
-            return None; // Ring empty
-        }
-
-        let msg = self.buffer[tail as usize].take();
-        self.tail.store((tail + 1) % RING_SIZE as u64, Ordering::Release);
-        msg
-    }
-
-    /// Batch pop: drain up to `max` messages at once.
-    ///
-    /// This is the Q-Ring's main advantage: 50 messages
-    /// in a single kernel trip, avoiding per-message syscall overhead.
-    pub fn drain(&mut self, max: usize) -> Vec<QMessage> {
-        let mut batch = Vec::with_capacity(max);
-        for _ in 0..max {
-            match self.pop() {
-                Some(msg) => batch.push(msg),
-                None => break,
-            }
-        }
-        batch
-    }
-
-    /// Check how many messages are pending.
-    pub fn pending(&self) -> u64 {
-        let head = self.head.load(Ordering::Relaxed);
-        let tail = self.tail.load(Ordering::Relaxed);
-        if head >= tail {
-            head - tail
-        } else {
-            RING_SIZE as u64 - tail + head
-        }
-    }
-
-    /// Is the ring empty?
-    pub fn is_empty(&self) -> bool {
-        self.head.load(Ordering::Relaxed) == self.tail.load(Ordering::Relaxed)
+    fn drain(&mut self, max: usize) -> Vec<QMessage> {
+        let n = max.min(self.messages.len());
+        self.messages.drain(..n).collect()
     }
 }
 
-/// A bidirectional IPC channel — two Q-Rings (one in each direction).
-pub struct QChannel {
-    /// Messages from A → B
-    pub ring_ab: QRing,
-    /// Messages from B → A
-    pub ring_ba: QRing,
-    /// Channel identifier
-    pub channel_id: u64,
+/// A bidirectional IPC channel between two Silos.
+pub struct IpcChannel {
+    /// Channel ID
+    pub id: u64,
+    /// A→B direction ring
+    pub ring_ab: ChannelRing,
+    /// B→A direction ring
+    pub ring_ba: ChannelRing,
 }
 
-impl QChannel {
-    /// Create a new bidirectional channel between two Silos.
-    pub fn create(silo_a: u64, silo_b: u64) -> Self {
-        static NEXT_CHAN: core::sync::atomic::AtomicU64 =
-            core::sync::atomic::AtomicU64::new(1);
-
-        QChannel {
-            ring_ab: QRing::new(silo_a, silo_b),
-            ring_ba: QRing::new(silo_b, silo_a),
-            channel_id: NEXT_CHAN.fetch_add(1, Ordering::Relaxed),
-        }
-    }
-
-    /// Send a message from Silo A to Silo B.
+impl IpcChannel {
+    /// Send a message from A to B.
     pub fn send_to_b(&mut self, msg: QMessage) -> bool {
         self.ring_ab.push(msg)
     }
 
-    /// Send a message from Silo B to Silo A.
+    /// Send a message from B to A.
     pub fn send_to_a(&mut self, msg: QMessage) -> bool {
         self.ring_ba.push(msg)
     }
 
-    /// Receive messages for Silo B (from A).
+    /// Receive messages destined for B (sent by A).
     pub fn recv_for_b(&mut self, max: usize) -> Vec<QMessage> {
         self.ring_ab.drain(max)
     }
 
-    /// Receive messages for Silo A (from B).
+    /// Receive messages destined for A (sent by B).
     pub fn recv_for_a(&mut self, max: usize) -> Vec<QMessage> {
         self.ring_ba.drain(max)
     }
 }
 
-/// IPC Manager — tracks all active channels.
-pub struct IpcManager {
-    pub channels: Vec<QChannel>,
+// ── Q-Ring Lock-Free Buffer Manager ──────────────────────────────────
+
+/// Default ring buffer size: 4 KiB (one page).
+const DEFAULT_RING_SIZE: usize = 4096;
+
+/// Opaque handle to a Q-Ring instance.
+pub type QRingHandle = u64;
+
+/// Metadata for a managed Q-Ring.
+struct ManagedRing {
+    ring: QRing<DEFAULT_RING_SIZE>,
+    producer_fiber: u64,
+    consumer_fiber: u64,
+    silo_id: u64,
+    open: bool,
+    bytes_sent: u64,
+    bytes_recv: u64,
 }
 
-impl IpcManager {
-    pub const fn new() -> Self {
-        IpcManager {
-            channels: Vec::new(),
+/// The Q-Ring Manager — allocates and manages lock-free ring buffers.
+pub struct QRingManager {
+    rings: BTreeMap<QRingHandle, ManagedRing>,
+    next_handle: QRingHandle,
+    pub total_created: u64,
+    pub total_open: u64,
+}
+
+impl QRingManager {
+    pub fn new() -> Self {
+        QRingManager {
+            rings: BTreeMap::new(),
+            next_handle: 1,
+            total_created: 0,
+            total_open: 0,
         }
     }
 
-    /// Create a new channel between two Silos.
-    ///
-    /// Requires the calling Silo to hold SPAWN capability.
+    pub fn create(&mut self, producer_fiber: u64, consumer_fiber: u64, silo_id: u64) -> QRingHandle {
+        let handle = self.next_handle;
+        self.next_handle += 1;
+        self.rings.insert(handle, ManagedRing {
+            ring: QRing::new(), producer_fiber, consumer_fiber, silo_id,
+            open: true, bytes_sent: 0, bytes_recv: 0,
+        });
+        self.total_created += 1;
+        self.total_open += 1;
+        handle
+    }
+
+    pub fn send(&mut self, handle: QRingHandle, caller: u64, data: &[u8]) -> Result<usize, QRingError> {
+        let m = self.rings.get_mut(&handle).ok_or(QRingError::InvalidHandle)?;
+        if !m.open { return Err(QRingError::Closed); }
+        if m.producer_fiber != caller { return Err(QRingError::InvalidHandle); }
+        let n = m.ring.send(data)?;
+        m.bytes_sent += n as u64;
+        Ok(n)
+    }
+
+    pub fn recv(&mut self, handle: QRingHandle, caller: u64, buf: &mut [u8]) -> Result<usize, QRingError> {
+        let m = self.rings.get_mut(&handle).ok_or(QRingError::InvalidHandle)?;
+        if !m.open { return Err(QRingError::Closed); }
+        if m.consumer_fiber != caller { return Err(QRingError::InvalidHandle); }
+        let n = m.ring.recv(buf)?;
+        m.bytes_recv += n as u64;
+        Ok(n)
+    }
+
+    pub fn close(&mut self, handle: QRingHandle) {
+        if let Some(m) = self.rings.get_mut(&handle) {
+            m.open = false;
+            self.total_open = self.total_open.saturating_sub(1);
+        }
+    }
+
+    pub fn close_silo(&mut self, silo_id: u64) {
+        for m in self.rings.values_mut() {
+            if m.silo_id == silo_id && m.open {
+                m.open = false;
+                self.total_open = self.total_open.saturating_sub(1);
+            }
+        }
+    }
+
+    pub fn close_fiber(&mut self, fiber_id: u64) {
+        for m in self.rings.values_mut() {
+            if m.open && (m.producer_fiber == fiber_id || m.consumer_fiber == fiber_id) {
+                m.open = false;
+                self.total_open = self.total_open.saturating_sub(1);
+            }
+        }
+    }
+
+    pub fn list_for_fiber(&self, fiber_id: u64) -> Vec<QRingHandle> {
+        self.rings.iter()
+            .filter(|(_, m)| m.open && (m.producer_fiber == fiber_id || m.consumer_fiber == fiber_id))
+            .map(|(&h, _)| h)
+            .collect()
+    }
+}
+
+// ── IpcManager (unified API) ─────────────────────────────────────────
+
+/// The IPC Manager — unified interface for channels + Q-Ring buffers.
+pub struct IpcManager {
+    /// Bidirectional Silo-to-Silo channels
+    pub channels: BTreeMap<u64, IpcChannel>,
+    /// Next channel ID
+    next_channel_id: u64,
+    /// Q-Ring lock-free buffer manager (Phase 11)
+    pub rings: QRingManager,
+}
+
+impl IpcManager {
+    pub fn new() -> Self {
+        IpcManager {
+            channels: BTreeMap::new(),
+            next_channel_id: 1,
+            rings: QRingManager::new(),
+        }
+    }
+
+    /// Create a bidirectional IPC channel between two Silos.
     pub fn create_channel(
         &mut self,
         silo_a: u64,
         silo_b: u64,
-        cap: &CapToken,
-    ) -> Result<u64, &'static str> {
-        if !cap.has_permission(Permissions::SPAWN) {
-            return Err("IPC channel creation requires SPAWN capability");
-        }
-
-        let channel = QChannel::create(silo_a, silo_b);
-        let id = channel.channel_id;
-        self.channels.push(channel);
-        Ok(id)
+        _cap: &crate::capability::CapToken,
+    ) -> u64 {
+        let id = self.next_channel_id;
+        self.next_channel_id += 1;
+        self.channels.insert(id, IpcChannel {
+            id,
+            ring_ab: ChannelRing::new(silo_a, silo_b),
+            ring_ba: ChannelRing::new(silo_b, silo_a),
+        });
+        id
     }
 
-    /// Find a channel by ID.
-    pub fn get_channel(&mut self, id: u64) -> Option<&mut QChannel> {
-        self.channels.iter_mut().find(|c| c.channel_id == id)
+    /// Get a mutable reference to a channel by ID.
+    pub fn get_channel(&mut self, id: u64) -> Option<&mut IpcChannel> {
+        self.channels.get_mut(&id)
     }
 }

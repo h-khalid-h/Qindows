@@ -22,12 +22,14 @@ pub struct FramebufferConsole {
     fg_color: u32,
     /// Background color (ARGB)
     bg_color: u32,
+    /// Pending scroll: set by newline() when at max_rows, consumed by write_char()
+    scroll_pending: bool,
 }
 
 /// Minimal 8×16 bitmap font — just enough for boot diagnostics.
 /// Each character is 16 bytes (one byte per row, 8 pixels wide).
 /// Only printable ASCII (0x20–0x7E) is included.
-static FONT_8X16: &[u8] = include_bytes!("font_8x16.bin");
+pub static FONT_8X16: &[u8] = include_bytes!("font_8x16.bin");
 
 /// Font dimensions
 const CHAR_WIDTH: usize = 8;
@@ -43,11 +45,17 @@ impl FramebufferConsole {
             max_rows: fb_height / CHAR_HEIGHT,
             fg_color: 0x00_06_D6_A0, // Qindows Cyan
             bg_color: 0x00_06_06_0E, // Qindows Deep Black
+            scroll_pending: false,
         }
     }
 
     /// Write a single character at (col, row).
     pub fn write_char(&mut self, fb: &mut AetherFrameBuffer, ch: char) {
+        // Process any pending scroll from the previous newline
+        if self.scroll_pending {
+            self.scroll_up(fb);
+        }
+
         if ch == '\n' {
             self.newline();
             return;
@@ -78,15 +86,49 @@ impl FramebufferConsole {
     }
 
     /// Move to the next line, scrolling if necessary.
+    ///
+    /// Fix #17: when the cursor hits the last row, we shift the entire
+    /// framebuffer up by CHAR_HEIGHT pixels (one row of text) and clear
+    /// the vacated bottom row instead of wrapping cursor to row 0.
     fn newline(&mut self) {
         self.col = 0;
-        self.row += 1;
-        if self.row >= self.max_rows {
-            self.row = self.max_rows - 1;
-            // In production: scroll the framebuffer up by CHAR_HEIGHT pixels
-            // by copying pixel rows. For now, wrap around.
-            self.row = 0;
+        if self.row + 1 < self.max_rows {
+            self.row += 1;
+        } else {
+            // We're on the last row — need to scroll up.
+            // newline() has a mutable receiver but no access to the framebuffer.
+            // Set a flag so write_char can trigger the scroll on the next call.
+            // The actual pixel shift is performed by scroll_up() called from
+            // write_str() / write_char() when scroll_pending is true.
+            self.scroll_pending = true;
         }
+    }
+
+    /// Scroll the visible area up by one character row (CHAR_HEIGHT pixels).
+    ///
+    /// Copies every pixel row `CHAR_HEIGHT..fb_height` up by CHAR_HEIGHT,
+    /// then fills the last CHAR_HEIGHT rows with the background colour.
+    pub fn scroll_up(&mut self, fb: &mut AetherFrameBuffer) {
+        let fb_w = fb.width;
+        let fb_h = fb.height;
+        let row_pixels = CHAR_HEIGHT;
+
+        // Shift every row up by row_pixels
+        for y in 0..(fb_h - row_pixels) {
+            for x in 0..fb_w {
+                let color = fb.read_pixel(x, y + row_pixels);
+                fb.draw_pixel(x, y, color);
+            }
+        }
+        // Clear the newly vacated bottom strip
+        for y in (fb_h - row_pixels)..fb_h {
+            for x in 0..fb_w {
+                fb.draw_pixel(x, y, self.bg_color);
+            }
+        }
+        // Row stays at max_rows - 1 after scroll
+        self.row = self.max_rows - 1;
+        self.scroll_pending = false;
     }
 
     /// Render a single character from the bitmap font.
@@ -136,6 +178,12 @@ impl FramebufferConsole {
         fb.clear(self.bg_color);
         self.col = 0;
         self.row = 0;
+    }
+
+    /// Set the cursor position (col, row).
+    pub fn set_cursor(&mut self, col: usize, row: usize) {
+        self.col = col.min(self.max_cols.saturating_sub(1));
+        self.row = row.min(self.max_rows.saturating_sub(1));
     }
 
     /// Print a boot status line: [OK] message

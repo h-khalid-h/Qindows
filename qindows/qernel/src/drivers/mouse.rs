@@ -219,11 +219,28 @@ pub fn init(screen_width: i32, screen_height: i32) {
     crate::serial_println!("[OK] PS/2 mouse initialized ({}×{})", screen_width, screen_height);
 }
 
-/// IRQ12 handler — called on every mouse packet byte.
 pub fn irq_handler() {
     let byte = unsafe { inb(0x60) };
     if let Some(ref mut driver) = *MOUSE.lock() {
         driver.process_byte(byte);
+    }
+}
+
+/// Pop the next mouse event from the global buffer.
+pub fn poll_event() -> Option<MouseEvent> {
+    if let Some(ref mut driver) = *MOUSE.lock() {
+        driver.poll()
+    } else {
+        None
+    }
+}
+
+/// Get the current absolute cursor position.
+pub fn get_position() -> (i32, i32) {
+    if let Some(ref driver) = *MOUSE.lock() {
+        driver.position()
+    } else {
+        (0, 0)
     }
 }
 

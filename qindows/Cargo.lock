@@ -105,16 +105,21 @@ dependencies = [
 name = "q-shell"
 version = "1.0.0-genesis"
 dependencies = [
+ "nexus",
+ "prism",
  "qindows-types",
+ "spin",
 ]
 
 [[package]]
 name = "qernel"
 version = "1.0.0-genesis"
 dependencies = [
+ "aether",
  "bitflags",
  "libm",
  "log",
+ "q-shell",
  "qindows-types",
  "spin",
 ]

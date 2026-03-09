@@ -1,0 +1,16 @@
+{
+  "name": "qshell-web",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "node-pty": "^1.1.0",
+    "ws": "^8.19.0"
+  }
+}

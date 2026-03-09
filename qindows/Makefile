@@ -21,7 +21,7 @@ BUILD_DIR    := $(WORKSPACE)/target/$(TARGET)/debug
 IMAGE_DIR    := $(WORKSPACE)/build
 OVMF_DIR     := $(WORKSPACE)/ovmf
 QERNEL_BIN   := $(BUILD_DIR)/qernel
-BOOT_BIN     := $(BUILD_DIR)/bootloader
+BOOT_BIN     := $(BUILD_DIR)/qindows-bootloader
 ESP_DIR      := $(IMAGE_DIR)/esp
 DISK_IMAGE   := $(IMAGE_DIR)/qindows.img
 

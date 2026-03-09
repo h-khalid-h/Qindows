@@ -110,10 +110,17 @@ pub use qindows_types::boot::BootInfo;
 /// This is the absolute beginning of Qindows — no standard library,
 /// no OS layer. We are talking directly to the CPU.
 #[no_mangle]
-pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
+pub extern "C" fn _start(_boot_info_arg: &'static BootInfo) -> ! {
     // Initialize serial port first (for debug output)
     drivers::serial::SerialWriter::init();
     serial_println!("Qernel boot sequence initiated...");
+
+    // Read BootInfo from the well-known fixed address (0x2FF000)
+    // where the bootloader placed it. We don't rely on the function
+    // argument because register state may be clobbered during the
+    // bootloader→kernel transition after ExitBootServices.
+    const BOOT_INFO_ADDR: u64 = 0x2F_F000;
+    let boot_info: &'static BootInfo = unsafe { &*(BOOT_INFO_ADDR as *const BootInfo) };
 
     // ── Phase 1: Memory ─────────────────────────────────────────
     // Initialize the physical memory manager with the UEFI memory map.
@@ -427,11 +434,6 @@ pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
     serial_println!("[OK] Phase 15: Kernel state finalized — syscall dispatch LIVE");
 
     // ── Boot Complete ───────────────────────────────────────────
-    console.write_str(&mut display, "\n");
-    console.set_fg(0x00_06_D6_A0);
-    console.write_str(&mut display, "  QINDOWS QERNEL v1.0.0 ONLINE\n");
-    console.write_str(&mut display, "  THE MESH AWAITS.\n");
-
     serial_println!("╔══════════════════════════════════════╗");
     serial_println!("║    QINDOWS QERNEL v1.0.0 ONLINE     ║");
     serial_println!("║    15/15 Phases Complete             ║");
@@ -444,10 +446,56 @@ pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
     serial_println!("║    THE MESH AWAITS.                  ║");
     serial_println!("╚══════════════════════════════════════╝");
 
-    // Enter the idle loop — HLT until an interrupt fires
-    loop {
-        unsafe { core::arch::asm!("hlt") };
+    // ── Render Aether Desktop ─────────────────────────────────
+    // Clear the boot console and draw the full desktop environment
+    // on the framebuffer. This is the first graphical UI the user sees.
+    serial_println!("Rendering Aether Desktop...");
+
+    // Draw the desktop (background, taskbar, icons, Q logo, status panel)
+    drivers::desktop::render_desktop(&mut display);
+
+    // Render text elements (status panel, clock)
+    drivers::desktop::render_status_text(
+        &mut display,
+        &mut console,
+        active_silo_count,
+        active_channel_count,
+    );
+
+    // Render clock from the RTC
+    drivers::desktop::render_clock(
+        &mut display,
+        &mut console,
+        wall_clock.hour,
+        wall_clock.minute,
+        wall_clock.month,
+        wall_clock.day,
+    );
+
+    serial_println!("Aether Desktop rendered — framebuffer live");
+
+    serial_println!("--- BEGIN AUTOMATED Q-SHELL SENTINEL TEST ---");
+    let test_cmds = [
+        "sentinel status",
+        "sentinel log",
+        "sentinel laws",
+        "mesh status",
+        "genesis",
+    ];
+    for cmd in test_cmds {
+        serial_println!("Executing: {}", cmd);
+        let output = crate::syscall::qshell_dispatch(cmd);
+        serial_println!("Output:\n{}", output);
     }
+    serial_println!("--- END AUTOMATED Q-SHELL SENTINEL TEST ---");
+
+    // ── Arm the APIC Timer ────────────────────────────────────
+    // Now that all subsystems are initialized, start the periodic
+    // timer for preemptive scheduling.
+    drivers::apic::start_timer();
+
+    // Enter the interactive desktop event loop
+    drivers::desktop::run_desktop_loop(&mut display, &mut console);
 
 }
 

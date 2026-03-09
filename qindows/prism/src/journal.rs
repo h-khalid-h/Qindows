@@ -185,6 +185,14 @@ impl Journal {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
+
+    /// Get a read-only view of all journal entries.
+    ///
+    /// Used by Q-Shell's PersistenceManager to scan committed entries
+    /// during boot-time state restoration.
+    pub fn entries(&self) -> &[JournalEntry] {
+        &self.entries
+    }
 }
 
 /// Transaction wrapper — ensures commit-or-rollback semantics.

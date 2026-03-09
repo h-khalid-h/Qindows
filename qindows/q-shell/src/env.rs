@@ -8,6 +8,10 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::sync::atomic::{AtomicI64, Ordering};
+
+/// Global last exit code, updated after each command execution.
+pub static LAST_EXIT_CODE: AtomicI64 = AtomicI64::new(0);
 
 /// An environment variable entry.
 #[derive(Debug, Clone)]
@@ -122,8 +126,9 @@ impl Environment {
                     }
                     if i < chars.len() { i += 1; } // skip '}'
                 } else if chars[i] == '?' {
-                    // $? = last exit code (stub)
-                    result.push('0');
+                    // $? = last exit code from global atomic
+                    let code = LAST_EXIT_CODE.load(Ordering::Relaxed);
+                    result.push_str(&alloc::format!("{}", code));
                     i += 1;
                 } else {
                     // $VAR form

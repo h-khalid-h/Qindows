@@ -180,16 +180,45 @@ impl QFabric {
         PacketHeader::new(PacketType::Beacon, source, 0) // dest=0 = broadcast
     }
 
-    /// Process a received antibody and propagate further.
-    pub fn process_antibody(&mut self, mut antibody: Antibody) {
+    /// Process a received antibody and propagate to all connected peers (Fix #15).
+    ///
+    /// When a new threat signature arrives, this function:
+    /// 1. Checks deduplication (don't re-process known threats)
+    /// 2. Increments hop_count to prevent infinite propagation (max 32 hops)
+    /// 3. Stores the antibody locally
+    /// 4. Creates relay packets for every Connected peer (real broadcast)
+    pub fn process_antibody(&mut self, mut antibody: Antibody) -> Vec<PacketHeader> {
+        let mut relay_packets = Vec::new();
+
         // Check if we already know about this threat
         let already_known = self.antibodies.iter().any(|a| a.threat_hash == antibody.threat_hash);
 
         if !already_known && antibody.hop_count < 32 {
             antibody.hop_count += 1;
+
+            // Build relay packets for every connected peer
+            let source_id = u64::from_le_bytes(
+                self.local_id[..8].try_into().unwrap_or([0; 8])
+            );
+
+            for peer in &mut self.peers {
+                if peer.state == ConnectionState::Connected {
+                    let dest_id = u64::from_le_bytes(
+                        peer.node_id[..8].try_into().unwrap_or([0; 8])
+                    );
+                    let mut pkt = PacketHeader::new(PacketType::Antibody, source_id, dest_id);
+                    pkt.payload_len = 32 + 1 + 8; // hash + severity + timestamp
+                    peer.packets_sent += 1;
+                    peer.bytes_transferred += pkt.payload_len as u64;
+                    self.total_bytes += pkt.payload_len as u64;
+                    relay_packets.push(pkt);
+                }
+            }
+
             self.antibodies.push(antibody);
-            // In production: re-broadcast to all connected peers
         }
+
+        relay_packets
     }
 
     /// Check if a binary hash matches any known antibody.

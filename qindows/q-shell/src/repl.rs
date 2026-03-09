@@ -19,6 +19,7 @@ use crate::history::History;
 use crate::completion::CompletionEngine;
 use crate::env::Environment;
 use crate::variables::VarManager;
+use crate::persist::PersistenceManager;
 
 /// Q-Shell session state.
 pub struct ShellSession {
@@ -36,6 +37,8 @@ pub struct ShellSession {
     pub env: Environment,
     /// Shell variables ($foo, etc.)
     pub vars: VarManager,
+    /// Persistence manager (Q-Shell ↔ Prism Journal)
+    pub persist: PersistenceManager,
     /// Command counter
     pub command_count: u64,
     /// Whether the shell is running
@@ -44,15 +47,25 @@ pub struct ShellSession {
 
 impl ShellSession {
     /// Create a new interactive Q-Shell session.
+    ///
+    /// Loads persisted history and environment from the Prism journal
+    /// (Phase 10: Q-Shell Persistence).
     pub fn new() -> Self {
+        let persist = PersistenceManager::new();
+
+        // Restore persisted state from the Prism WAL
+        let history = persist.load_history(1);
+        let env = persist.load_env(64);
+
         ShellSession {
             readline: Readline::new(KeyMode::Emacs),
             prompt: PromptEngine::new(),
             context: PromptContext::default(),
-            history: History::new(1),
+            history,
             completion: CompletionEngine::new(),
-            env: Environment::new(64),
+            env,
             vars: VarManager::new(),
+            persist,
             command_count: 0,
             running: true,
         }
@@ -75,8 +88,11 @@ impl ShellSession {
             return Vec::new();
         }
 
-        // Record in history
+        // Record in history + journal for persistence
         self.history.push(trimmed, "/", 0);
+        if let Some(entry) = self.history.entries.last() {
+            self.persist.journal_history_entry(entry);
+        }
         self.command_count += 1;
 
         // Check for built-in shell commands first
@@ -172,6 +188,16 @@ impl ShellSession {
             String::from("  ╚═══════════════════════════════════╝"),
             String::from(""),
         ]
+    }
+
+    /// Clean shutdown — persist all state and checkpoint the journal.
+    ///
+    /// Called when the user types `exit` or the Q-Shell Silo is vaporized.
+    pub fn shutdown(&mut self) {
+        self.persist.save_history(&self.history);
+        self.persist.save_env(&self.env);
+        self.persist.checkpoint();
+        self.running = false;
     }
 }
 

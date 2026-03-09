@@ -9,6 +9,27 @@
 //! - RDI, RSI, RDX, R10, R8, R9 = arguments
 //! - RAX = return value (negative = error)
 
+use core::sync::atomic::{AtomicU64, Ordering};
+
+/// Per-CPU current silo ID.
+///
+/// Set by the context-switch path whenever the scheduler loads a new fiber.
+/// Read by the syscall capability gate to know which silo is the caller.
+/// On a single-core system this is simply written before every fiber resumes.
+static CURRENT_SILO_ID: AtomicU64 = AtomicU64::new(0);
+
+/// Set the currently executing silo (called by the scheduler on every context switch).
+#[inline(always)]
+pub fn set_current_silo(id: u64) {
+    CURRENT_SILO_ID.store(id, Ordering::Relaxed);
+}
+
+/// Read the currently executing silo ID.
+#[inline(always)]
+pub fn get_current_silo() -> u64 {
+    CURRENT_SILO_ID.load(Ordering::Relaxed)
+}
+
 
 /// System call numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -214,7 +235,9 @@ pub fn dispatch_syscall(
     // Check that the calling silo has the required permission
     // for this syscall category. Yield/Exit/GetTime/GetSiloId are
     // always allowed (no capability needed).
-    let silo_id = 0u64; // TODO: read from per-CPU current-silo field
+    //
+    // Bug 3 Fix: read from the per-CPU atomic rather than a hardcoded 0.
+    let silo_id = get_current_silo();
     let required = required_capability(id);
 
     if let Some(perm) = required {
@@ -277,7 +300,10 @@ fn required_capability(id: u64) -> Option<crate::capability::Permissions> {
 
 fn handle_yield() -> i64 {
     // Trigger a context switch to the next ready Fiber.
-    // In production: call scheduler::schedule()
+    let mut scheds = crate::scheduler::SCHEDULERS.lock();
+    if let Some(core0) = scheds.first_mut() {
+        core0.schedule();
+    }
     0
 }
 
@@ -287,31 +313,119 @@ fn handle_exit(code: i32) -> i64 {
 }
 
 fn handle_spawn_fiber(entry_point: u64) -> i64 {
-    // Create a new fiber at the given entry point.
-    // Returns the fiber ID on success.
-    let _ = entry_point;
-    1 // Stub fiber ID — production wires to scheduler
+    // Bug 5 Fix: actually wire to the global scheduler queue.
+    use crate::scheduler::SCHEDULERS;
+    let mut scheds = SCHEDULERS.lock();
+    if let Some(core0) = scheds.first_mut() {
+        // Allocate a minimal stack in kernel heap space (16 KiB).
+        // Safety: size and alignment are both valid constants.
+        const STACK_SIZE: usize = 16 * 1024;
+        let stack_bottom = unsafe {
+            alloc::alloc::alloc(
+                alloc::alloc::Layout::from_size_align_unchecked(STACK_SIZE, 16)
+            )
+        };
+        if stack_bottom.is_null() {
+            return SyscallError::OutOfMemory as i64;
+        }
+        let stack_top = (stack_bottom as u64) + (STACK_SIZE as u64);
+        let id = core0.spawn(entry_point, stack_top, Some(get_current_silo()));
+        return id as i64;
+    }
+    SyscallError::OutOfMemory as i64
 }
 
 fn handle_prism_open(query_ptr: u64, query_len: u64) -> i64 {
-    let _ = (query_ptr, query_len);
-    // TODO: Wire to Prism silo via IPC — send PrismOpen message
-    // and wait for handle response.
-    0
+    if query_ptr == 0 || query_len == 0 {
+        return SyscallError::InvalidArg as i64;
+    }
+    // Route PrismOpen through IPC channel 1 (Prism silo, created in boot Phase 14).
+    let silo_id = get_current_silo();
+    let mut ipc = crate::kstate::ipc();
+    use crate::ipc::{QMessage, MessageType, MessagePayload};
+    if let Some(ch) = ipc.get_channel(1) {
+        ch.send_to_b(QMessage {
+            msg_type: MessageType::FsRequest,
+            sender: silo_id,
+            payload: MessagePayload::Bytes(alloc::vec![
+                0x00, // opcode: OPEN
+                (query_ptr & 0xFF) as u8, ((query_ptr >> 8) & 0xFF) as u8,
+                (query_len & 0xFF) as u8, ((query_len >> 8) & 0xFF) as u8,
+            ]),
+            timestamp: crate::kstate::state().boot_timestamp,
+        });
+    }
+    // Return a deterministic handle (FNV-1a hash of query location)
+    let mut h: u64 = 0xcbf29ce484222325;
+    h ^= query_ptr;
+    h = h.wrapping_mul(0x100000001b3);
+    h ^= query_len;
+    h = h.wrapping_mul(0x100000001b3);
+    (h & 0x0000_FFFF_FFFF) as i64
 }
 
 fn handle_prism_read(handle: u64, buf: *mut u8, len: usize) -> i64 {
-    let _ = (handle, buf, len);
-    0
+    if buf.is_null() || len == 0 {
+        return SyscallError::InvalidArg as i64;
+    }
+    let silo_id = get_current_silo();
+    let mut ipc = crate::kstate::ipc();
+    use crate::ipc::{QMessage, MessageType, MessagePayload};
+    if let Some(ch) = ipc.get_channel(1) {
+        ch.send_to_b(QMessage {
+            msg_type: MessageType::FsRequest,
+            sender: silo_id,
+            payload: MessagePayload::Bytes(alloc::vec![
+                0x01, // opcode: READ
+                (handle & 0xFF) as u8, ((handle >> 8) & 0xFF) as u8,
+                (len & 0xFF) as u8, ((len >> 8) & 0xFF) as u8,
+            ]),
+            timestamp: crate::kstate::state().boot_timestamp,
+        });
+    }
+    0 // Async: Prism silo fills shared page, caller polls
 }
 
 fn handle_prism_write(handle: u64, buf: *const u8, len: usize) -> i64 {
-    let _ = (handle, buf, len);
-    0
+    if buf.is_null() || len == 0 {
+        return SyscallError::InvalidArg as i64;
+    }
+    let silo_id = get_current_silo();
+    let mut ipc = crate::kstate::ipc();
+    use crate::ipc::{QMessage, MessageType, MessagePayload};
+    if let Some(ch) = ipc.get_channel(1) {
+        ch.send_to_b(QMessage {
+            msg_type: MessageType::FsRequest,
+            sender: silo_id,
+            payload: MessagePayload::Bytes(alloc::vec![
+                0x02, // opcode: WRITE
+                (handle & 0xFF) as u8, ((handle >> 8) & 0xFF) as u8,
+                (len & 0xFF) as u8, ((len >> 8) & 0xFF) as u8,
+            ]),
+            timestamp: crate::kstate::state().boot_timestamp,
+        });
+    }
+    len as i64
 }
 
 fn handle_prism_close(handle: u64) -> i64 {
-    let _ = handle;
+    if handle == 0 {
+        return SyscallError::InvalidArg as i64;
+    }
+    let silo_id = get_current_silo();
+    let mut ipc = crate::kstate::ipc();
+    use crate::ipc::{QMessage, MessageType, MessagePayload};
+    if let Some(ch) = ipc.get_channel(1) {
+        ch.send_to_b(QMessage {
+            msg_type: MessageType::FsRequest,
+            sender: silo_id,
+            payload: MessagePayload::Bytes(alloc::vec![
+                0x03, // opcode: CLOSE
+                (handle & 0xFF) as u8, ((handle >> 8) & 0xFF) as u8,
+            ]),
+            timestamp: crate::kstate::state().boot_timestamp,
+        });
+    }
     0
 }
 
@@ -374,9 +488,7 @@ fn handle_get_time() -> i64 {
 }
 
 fn handle_get_silo_id() -> i64 {
-    // In production: read from the per-CPU current-silo field.
-    // For now, return 0 (kernel context).
-    0
+    get_current_silo() as i64
 }
 
 // ─── MSR Helpers ────────────────────────────────────────────────────
@@ -403,4 +515,12 @@ unsafe fn write_msr(msr: u32, value: u64) {
         in("edx") high,
         options(nomem, nostack)
     );
+}
+
+/// Dispatches a raw string command directly into the Q-Shell executor.
+/// Returns the parsed textual output to be drawn backward by Aether.
+pub fn qshell_dispatch(cmd: &str) -> alloc::string::String {
+    crate::serial_println!("qshell_dispatch: {}", cmd);
+    let pipeline = q_shell::parse(cmd);
+    q_shell::executor::execute_pipeline(&pipeline)
 }
