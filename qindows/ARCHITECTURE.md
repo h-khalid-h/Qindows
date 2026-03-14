@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 205 / March 2026)
+## IMPLEMENTATION STATUS (Phase 210 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -559,6 +559,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Elastic Render Cap Bridge (Network:EXEC gate on Q-Server GPU offload) | `elastic_render_cap_bridge.rs` | ✅ Phase 203 |
 | Kernel Integration Health Bridge (boot-time kstate_ext subsystem probe) | `kernel_integration_health_bridge.rs` | ✅ Phase 204 |
 | Collab CRDT Cap Bridge (Prism:READ/WRITE gates on CRDT ops) | `collab_crdt_cap_bridge.rs` | ✅ Phase 205 |
+| KDump Admin Cap Bridge (Admin:EXEC gate on crash dump read) | `kdump_admin_cap_bridge.rs` | ✅ Phase 206 |
+| Fault Injector Admin Bridge (Admin:EXEC gate on fault rule arm) | `fault_injector_admin_bridge.rs` | ✅ Phase 207 |
+| Mem Compress Silo Quota Bridge (max 2048 compression pages per Silo) | `mem_compress_silo_quota_bridge.rs` | ✅ Phase 208 |
+| Hotplug Cap Bridge (Admin:EXEC gate on HotplugAction::Add) | `hotplug_cap_bridge.rs` | ✅ Phase 209 |
+| Intent Pipeline Rate Bridge (max 8 intent events per Silo per tick) | `intent_pipeline_rate_bridge.rs` | ✅ Phase 210 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

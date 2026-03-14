@@ -197,7 +197,11 @@ pub mod page_cache_silo_quota_bridge;  // Phase 202: Max 4096 pages per Silo quo
 pub mod elastic_render_cap_bridge;     // Phase 203: Network:EXEC gate on Q-Server GPU offload
 pub mod kernel_integration_health_bridge; // Phase 204: Boot-time kstate_ext subsystem probe
 pub mod collab_crdt_cap_bridge;        // Phase 205: Prism:READ/WRITE cap gates on CRDT ops
-
+pub mod kdump_admin_cap_bridge;        // Phase 206: Admin:EXEC gate on crash dump read
+pub mod fault_injector_admin_bridge;   // Phase 207: Admin:EXEC gate on fault injection arm
+pub mod mem_compress_silo_quota_bridge; // Phase 208: Max 2048 compression pages per Silo
+pub mod hotplug_cap_bridge;           // Phase 209: Admin:EXEC gate on hotplug device attach
+pub mod intent_pipeline_rate_bridge;   // Phase 210: Max 8 intent events per Silo per tick
 
 
 
