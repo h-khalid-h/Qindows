@@ -277,6 +277,11 @@ pub mod elf_binary_load_cap_bridge;    // Phase 282: Max 512 MiB ELF LOAD segmen
 pub mod qfs_ghost_version_rate_bridge; // Phase 283: Max 256 versions per PrismObject
 pub mod elastic_render_scene_cap_bridge; // Phase 284: Max 64 MiB SceneGraph wire size
 pub mod ghost_write_engine_transaction_rate_bridge; // Phase 285: Max 1024 ops per GwTransaction
+pub mod hotswap_module_load_cap_bridge;  // Phase 286: Max 8 hot-swaps/session + Admin:EXEC gate
+pub mod mem_compress_budget_cap_bridge;   // Phase 287: Max 1024 compressed pages per Silo
+pub mod page_cache_eviction_silo_bridge;  // Phase 288: Max 2048 cached pages per Silo
+pub mod disk_sched_io_priority_bridge;    // Phase 289: Admin:EXEC gate on RealTime I/O priority
+pub mod entropy_pool_drain_rate_bridge;   // Phase 290: Max 1024 entropy bits/Silo/tick
 
 
 

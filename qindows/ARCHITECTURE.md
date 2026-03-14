@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 285 / March 2026)
+## IMPLEMENTATION STATUS (Phase 290 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -639,6 +639,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | QFS Ghost Version Rate Bridge (max 256 versions/PrismObject) | `qfs_ghost_version_rate_bridge.rs` | ✅ Phase 283 |
 | Elastic Render Scene Cap Bridge (max 64 MiB SceneGraph wire size) | `elastic_render_scene_cap_bridge.rs` | ✅ Phase 284 |
 | Ghost Write Engine Transaction Rate Bridge (max 1024 ops/transaction) | `ghost_write_engine_transaction_rate_bridge.rs` | ✅ Phase 285 |
+| Hot-Swap Module Load Cap Bridge (max 8 swaps/session + Admin:EXEC) | `hotswap_module_load_cap_bridge.rs` | ✅ Phase 286 |
+| Memory Compress Budget Cap Bridge (max 1024 compressed pages/Silo) | `mem_compress_budget_cap_bridge.rs` | ✅ Phase 287 |
+| Page Cache Eviction Silo Bridge (max 2048 cached pages/Silo) | `page_cache_eviction_silo_bridge.rs` | ✅ Phase 288 |
+| Disk Scheduler I/O Priority Bridge (Admin:EXEC on Critical/System I/O) | `disk_sched_io_priority_bridge.rs` | ✅ Phase 289 |
+| Entropy Pool Drain Rate Bridge (max 1024 entropy bits/Silo/tick) | `entropy_pool_drain_rate_bridge.rs` | ✅ Phase 290 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*
