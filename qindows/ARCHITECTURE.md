@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 250 / March 2026)
+## IMPLEMENTATION STATUS (Phase 255 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -604,6 +604,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | V-GDI Upscale Silo Cap Bridge (Law 6 gate on cross-Silo capture buffer) | `v_gdi_upscale_silo_cap_bridge.rs` | ✅ Phase 248 |
 | Silo Snapshot Ownership Bridge (Admin:EXEC gate on cross-Silo snapshot) | `silo_snapshot_ownership_bridge.rs` | ✅ Phase 249 |
 | UNS Resolver Auth Bridge (Network:EXEC gate on remote path resolution) | `uns_resolver_auth_bridge.rs` | ✅ Phase 250 |
+| Energy Scheduler Law 8 Bridge (P3 demotion on energy budget excess) | `energy_scheduler_law8_bridge.rs` | ✅ Phase 251 |
+| QRing Dispatch Rate Bridge (max 128 dispatches/Silo/tick, Law 4) | `qring_dispatch_rate_bridge.rs` | ✅ Phase 252 |
+| Virtio Queue Silo Bridge (max 32 VirtIO descriptors/Silo/tick) | `virtio_queue_silo_bridge.rs` | ✅ Phase 253 |
+| Prism Live Index Eviction Bridge (max 1024 live objects/Silo) | `prism_live_index_eviction_bridge.rs` | ✅ Phase 254 |
+| WASM Runtime Validation Bridge (16 MiB binary size cap, Law 4) | `wasm_runtime_validation_bridge.rs` | ✅ Phase 255 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

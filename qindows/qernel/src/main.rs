@@ -242,6 +242,11 @@ pub mod usb_hci_silo_cap_bridge;       // Phase 247: Admin:EXEC gate on HID/Mass
 pub mod v_gdi_upscale_silo_cap_bridge; // Phase 248: Law 6 gate on cross-Silo GDI capture buffer read
 pub mod silo_snapshot_ownership_bridge; // Phase 249: Admin:EXEC gate on cross-Silo snapshot read
 pub mod uns_resolver_auth_bridge;      // Phase 250: Network:EXEC gate on remote UNS path resolution
+pub mod energy_scheduler_law8_bridge; // Phase 251: P-state enforcement on energy budget excess (Law 8)
+pub mod qring_dispatch_rate_bridge;    // Phase 252: Max 128 Q-Ring dispatches/Silo/tick (Law 4)
+pub mod virtio_queue_silo_bridge;      // Phase 253: Max 32 VirtIO descriptors/Silo/tick
+pub mod prism_live_index_eviction_bridge; // Phase 254: Max 1024 live objects/Silo quota
+pub mod wasm_runtime_validation_bridge; // Phase 255: 16 MiB WASM binary size cap (Law 4)
 
 
 
