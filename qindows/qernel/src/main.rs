@@ -167,7 +167,11 @@ pub mod uns_ttl_enforcer_bridge;   // Phase 172: UNS cache sweep + vaporize URI 
 pub mod prism_key_rotation_bridge; // Phase 173: HMAC-SHA256 key derive + zeroize on vaporize (Law 9)
 pub mod wasm_jit_cap_bridge;       // Phase 174: Wasm:EXEC gate on load + call
 pub mod qfs_ghost_retention_bridge; // Phase 175: Ghost TTL enforcement + Prism:READ gate + sweep
-
+pub mod ledger_verify_cap_bridge;   // Phase 176: AppManifest validate + CapToken match at launch
+pub mod qring_guard_audit_bridge;   // Phase 177: harden_qring_batch + audit rejections (Law 6)
+pub mod hotswap_audit_bridge;       // Phase 178: stage/verify/apply hotswap + rollback on fail
+pub mod q_admin_escalation_audit_bridge; // Phase 179: Escalation request/approve audit log
+pub mod telemetry_quota_bridge;     // Phase 180: Max 16 telemetry records/Silo/tick
 
 
 
