@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 235 / March 2026)
+## IMPLEMENTATION STATUS (Phase 240 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -589,6 +589,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | NPU Scheduler Cap Bridge (Admin:EXEC gate on Critical NPU priority) | `npu_scheduler_cap_bridge.rs` | ✅ Phase 233 |
 | QView Browser Nav Cap Bridge (Law 6 gate on cross-Silo DOM injection) | `qview_browser_nav_cap_bridge.rs` | ✅ Phase 234 |
 | QView WM Monitor Cap Bridge (Admin:EXEC gate on Monocle layout mode) | `qview_wm_monitor_cap_bridge.rs` | ✅ Phase 235 |
+| UNS Resolution Rate Bridge (max 64 resolutions/Silo/tick) | `uns_resolution_rate_bridge.rs` | ✅ Phase 236 |
+| Silo Launch Validation Bridge (entry point + Law 2 audit) | `silo_launch_validation_bridge.rs` | ✅ Phase 237 |
+| KProbe Admin Cap Bridge (Admin:EXEC gate on kprobe insertion) | `kprobe_admin_cap_bridge.rs` | ✅ Phase 238 |
+| Object Shard Integrity Bridge (ShardSet recovery health check, Law 9) | `object_shard_integrity_bridge.rs` | ✅ Phase 239 |
+| GPU Scheduler Silo Budget Bridge (2GB VRAM cap + Admin:EXEC on Critical) | `gpu_scheduler_silo_budget_bridge.rs` | ✅ Phase 240 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

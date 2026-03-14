@@ -227,6 +227,11 @@ pub mod pcm_audio_silo_cap_bridge;     // Phase 232: Max 4 audio streams per Sil
 pub mod npu_scheduler_cap_bridge;      // Phase 233: Admin:EXEC gate on NpuPriority::Critical
 pub mod qview_browser_nav_cap_bridge;  // Phase 234: Law 6 gate on cross-Silo DOM injection
 pub mod qview_wm_monitor_cap_bridge;   // Phase 235: Admin:EXEC gate on Fullscreen/Presentation
+pub mod uns_resolution_rate_bridge;    // Phase 236: Max 64 UNS resolutions/Silo/tick
+pub mod silo_launch_validation_bridge; // Phase 237: Entry point + Law 2 audit on Silo launch
+pub mod kprobe_admin_cap_bridge;       // Phase 238: Admin:EXEC gate on KProbe insertion
+pub mod object_shard_integrity_bridge; // Phase 239: ShardSet recovery health check (Law 9)
+pub mod gpu_scheduler_silo_budget_bridge; // Phase 240: 2GB VRAM cap + Admin:EXEC on Critical GPU
 
 
 
