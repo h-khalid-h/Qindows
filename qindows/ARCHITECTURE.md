@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 210 / March 2026)
+## IMPLEMENTATION STATUS (Phase 215 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -564,6 +564,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Mem Compress Silo Quota Bridge (max 2048 compression pages per Silo) | `mem_compress_silo_quota_bridge.rs` | ✅ Phase 208 |
 | Hotplug Cap Bridge (Admin:EXEC gate on HotplugAction::Add) | `hotplug_cap_bridge.rs` | ✅ Phase 209 |
 | Intent Pipeline Rate Bridge (max 8 intent events per Silo per tick) | `intent_pipeline_rate_bridge.rs` | ✅ Phase 210 |
+| QUpdate Engine Audit Bridge (Law 2 audit on Qernel/Firmware staging) | `qupdate_engine_audit_bridge.rs` | ✅ Phase 211 |
+| Identity Token Expiry Bridge (is_valid_at() expiry enforcement, Law 1) | `identity_token_expiry_bridge.rs` | ✅ Phase 212 |
+| ACPI Power Profile Bridge (Admin:EXEC gate on PowerProfile change) | `acpi_power_profile_bridge.rs` | ✅ Phase 213 |
+| ELF Load Cap Bridge (Admin:EXEC + binary hash gate, Law 2) | `elf_load_cap_bridge.rs` | ✅ Phase 214 |
+| Firstboot Genesis Audit Bridge (genesis event audit trail at firstboot) | `firstboot_genesis_audit_bridge.rs` | ✅ Phase 215 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

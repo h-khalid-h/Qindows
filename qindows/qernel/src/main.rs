@@ -202,7 +202,11 @@ pub mod fault_injector_admin_bridge;   // Phase 207: Admin:EXEC gate on fault in
 pub mod mem_compress_silo_quota_bridge; // Phase 208: Max 2048 compression pages per Silo
 pub mod hotplug_cap_bridge;           // Phase 209: Admin:EXEC gate on hotplug device attach
 pub mod intent_pipeline_rate_bridge;   // Phase 210: Max 8 intent events per Silo per tick
-
+pub mod qupdate_engine_audit_bridge;   // Phase 211: Law 2 audit on Kernel/Firmware staging
+pub mod identity_token_expiry_bridge;  // Phase 212: IdentityToken expiry enforcement (Law 1)
+pub mod acpi_power_profile_bridge;     // Phase 213: Admin:EXEC gate on ACPI PowerProfile
+pub mod elf_load_cap_bridge;           // Phase 214: Admin:EXEC + hash gate on ELF load
+pub mod firstboot_genesis_audit_bridge; // Phase 215: Genesis event audit trail at firstboot
 
 
 
