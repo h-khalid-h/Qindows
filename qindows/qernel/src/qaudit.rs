@@ -14,7 +14,6 @@
 
 extern crate alloc;
 
-use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -78,8 +77,8 @@ pub struct AuditLog {
     pub max_events: usize,
     next_seq: u64,
     last_hash: u64,
-    /// Per-category event count
-    pub category_counts: BTreeMap<AuditCategory, u64>,
+    /// Per-category event count (indexed by AuditCategory::as_u8())
+    pub category_counts: [u64; 11],
     pub stats: AuditStats,
 }
 
@@ -121,7 +120,7 @@ impl AuditLog {
             max_events,
             next_seq: 1,
             last_hash: 0,
-            category_counts: BTreeMap::new(),
+            category_counts: [0; 11],
             stats: AuditStats::default(),
         }
     }
@@ -165,7 +164,7 @@ impl AuditLog {
         self.last_hash = hash;
         self.events.push(event);
 
-        *self.category_counts.entry(category).or_insert(0) += 1;
+        self.category_counts[category.as_u8() as usize] += 1;
         self.stats.events_logged += 1;
 
         match severity {

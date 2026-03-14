@@ -29,6 +29,7 @@
 //! ```
 
 use core::sync::atomic::{AtomicUsize, Ordering};
+use core::cell::UnsafeCell;
 
 /// Errors returned by Q-Ring operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,9 +64,13 @@ pub struct QRing<const N: usize> {
     head: AtomicUsize,
     /// Read cursor (owned by consumer, read by producer).
     tail: AtomicUsize,
-    /// Inline ring buffer storage.
-    buffer: [u8; N],
+    /// Inline ring buffer storage (interior mutability for lock-free updates).
+    buffer: UnsafeCell<[u8; N]>,
 }
+
+// SAFETY: SPSC ring boundaries and atomic cursors ensure no data races on the buffer.
+unsafe impl<const N: usize> Sync for QRing<N> {}
+unsafe impl<const N: usize> Send for QRing<N> {}
 
 impl<const N: usize> QRing<N> {
     /// Create a new, empty Q-Ring.
@@ -79,7 +84,7 @@ impl<const N: usize> QRing<N> {
         QRing {
             head: AtomicUsize::new(0),
             tail: AtomicUsize::new(0),
-            buffer: [0u8; N],
+            buffer: UnsafeCell::new([0u8; N]),
         }
     }
 
@@ -95,7 +100,7 @@ impl<const N: usize> QRing<N> {
     /// enough contiguous space for the entire message.
     ///
     /// **Thread safety**: Only ONE producer fiber may call `send()`.
-    pub fn send(&mut self, data: &[u8]) -> Result<usize, QRingError> {
+    pub fn send(&self, data: &[u8]) -> Result<usize, QRingError> {
         if data.len() >= N {
             return Err(QRingError::TooLarge);
         }
@@ -106,11 +111,9 @@ impl<const N: usize> QRing<N> {
         let head = self.head.load(Ordering::Relaxed);
         let tail = self.tail.load(Ordering::Acquire);
 
-        let free = if head >= tail {
-            N - 1 - (head - tail)
-        } else {
-            tail - head - 1
-        };
+        // Architecture Guardian Fix: Use wrapping arithmetic for cursors
+        let available = head.wrapping_sub(tail);
+        let free = N - 1 - available;
 
         if data.len() > free {
             return Err(QRingError::Full);
@@ -118,13 +121,15 @@ impl<const N: usize> QRing<N> {
 
         // Copy data into the ring, handling wrap-around
         for (i, &byte) in data.iter().enumerate() {
-            let idx = Self::mask(head + i);
-            // SAFETY: We verified there's enough space and idx < N.
-            self.buffer[idx] = byte;
+            let idx = Self::mask(head.wrapping_add(i));
+            // SAFETY: We verified there's enough space and idx < N. Only one producer exists.
+            unsafe {
+                (*self.buffer.get())[idx] = byte;
+            }
         }
 
         // Advance head — makes the data visible to the consumer
-        self.head.store(head + data.len(), Ordering::Release);
+        self.head.store(head.wrapping_add(data.len()), Ordering::Release);
         Ok(data.len())
     }
 
@@ -134,7 +139,7 @@ impl<const N: usize> QRing<N> {
     /// or `Err(Empty)` if the ring is empty.
     ///
     /// **Thread safety**: Only ONE consumer fiber may call `recv()`.
-    pub fn recv(&mut self, buf: &mut [u8]) -> Result<usize, QRingError> {
+    pub fn recv(&self, buf: &mut [u8]) -> Result<usize, QRingError> {
         let tail = self.tail.load(Ordering::Relaxed);
         let head = self.head.load(Ordering::Acquire);
 
@@ -147,12 +152,15 @@ impl<const N: usize> QRing<N> {
 
         // Copy data out, handling wrap-around
         for i in 0..to_read {
-            let idx = Self::mask(tail + i);
-            buf[i] = self.buffer[idx];
+            let idx = Self::mask(tail.wrapping_add(i));
+            // SAFETY: Only one consumer exists, and we only read up to the `head` cursor.
+            unsafe {
+                buf[i] = (*self.buffer.get())[idx];
+            }
         }
 
         // Advance tail — frees space for the producer
-        self.tail.store(tail + to_read, Ordering::Release);
+        self.tail.store(tail.wrapping_add(to_read), Ordering::Release);
         Ok(to_read)
     }
 

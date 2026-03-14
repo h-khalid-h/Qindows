@@ -1,0 +1,6 @@
+/// Standard 8x16 VGA font for software rasterization.
+pub const VGA_FONT: [[u8; 16]; 256] = [
+    [0x00; 16], // Need to hook up real VGA later, stubbing 0...
+    // ...
+    [0x00; 16]
+];

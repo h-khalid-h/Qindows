@@ -1,0 +1,16 @@
+[build]
+target = "x86_64-unknown-none"
+
+[target.x86_64-unknown-none]
+rustflags = [
+    "-C", "link-arg=-Tq-shell/linker.ld",
+    "-C", "target-feature=-redzone",
+    # CRITICAL: We DO NOT use relocation-model=static for q-shell
+    # because it operates in Ring 3 user-space, though for this hardcoded mapped
+    # ELF loader it might still be needed if the parser doesn't resolve dynamically.
+    "-C", "relocation-model=static"
+]
+
+[unstable]
+build-std = ["core", "compiler_builtins", "alloc"]
+build-std-features = ["compiler-builtins-mem"]

@@ -162,13 +162,15 @@ impl XhciController {
             let cmd = core::ptr::read_volatile(usbcmd);
             core::ptr::write_volatile(usbcmd, cmd | (1 << 1));
 
-            // Wait for reset complete (HCRST bit clears)
-            while core::ptr::read_volatile(usbcmd) & (1 << 1) != 0 {
+            // Wait for reset complete (HCRST bit clears) — with timeout
+            for _ in 0..100_000u32 {
+                if core::ptr::read_volatile(usbcmd) & (1 << 1) == 0 { break; }
                 core::hint::spin_loop();
             }
 
-            // Wait for CNR (Controller Not Ready) to clear
-            while core::ptr::read_volatile(usbsts) & (1 << 11) != 0 {
+            // Wait for CNR (Controller Not Ready) to clear — with timeout
+            for _ in 0..100_000u32 {
+                if core::ptr::read_volatile(usbsts) & (1 << 11) == 0 { break; }
                 core::hint::spin_loop();
             }
 

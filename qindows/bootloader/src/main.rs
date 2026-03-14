@@ -102,6 +102,18 @@ fn efi_main(_image: Handle, mut system_table: SystemTable<Boot>) -> Status {
             count,
             ram / (1024 * 1024)
         );
+        
+        // Print memory map to help diagnose AllocateType::Address failures
+        for desc in memory_map.entries() {
+            if desc.ty == MemoryType::CONVENTIONAL {
+                let start = desc.phys_start;
+                let size = desc.page_count * 4096;
+                let end = start + size;
+                if start <= 0x20_0000 && end > 0x20_0000 {
+                    info!("Hole at 2MiB: START {:#x} END {:#x} SIZE {} MiB", start, end, size / (1024*1024));
+                }
+            }
+        }
 
         (mmap_buffer as u64, count, ram)
     }; // ← memory_map borrow dropped here
@@ -137,8 +149,10 @@ fn efi_main(_image: Handle, mut system_table: SystemTable<Boot>) -> Status {
     let ph_num = u16::from_le_bytes([KERNEL_ELF[56], KERNEL_ELF[57]]) as usize;
 
     // Allocate enough pages to cover the kernel address range
-    // We'll allocate generously: 256 pages (1 MiB) starting at 2 MiB
-    let kernel_pages = 256; // 1 MiB of space
+    // We'll allocate 1024 pages (4 MiB) starting at 2 MiB
+    // This gives room for the kernel + embedded Ring 3 ELF payload (1.5 MiB combined)
+    // while staying within the 6 MiB contiguous UEFI RAM hole (0x20_0000 -> 0x80_0000).
+    let kernel_pages = 1024; // 4 MiB of space
     system_table
         .boot_services()
         .allocate_pages(
@@ -155,9 +169,9 @@ fn efi_main(_image: Handle, mut system_table: SystemTable<Boot>) -> Status {
 
     // ── Step 3: Prepare Boot Info for Qernel ───────────────────────
     // Write BootInfo at a fixed address within the kernel's allocated
-    // 1 MiB region. This ensures the pointer survives ExitBootServices.
-    // We place it at the end of the 1 MiB region at 0x2FF000.
-    const BOOT_INFO_ADDR: u64 = 0x2F_F000;
+    // 4 MiB region. This ensures the pointer survives ExitBootServices.
+    // We place it at the end of the 4 MiB region at 0x5FF000.
+    const BOOT_INFO_ADDR: u64 = 0x5F_F000;
     let boot_info_ptr = BOOT_INFO_ADDR as *mut BootInfo;
 
     unsafe {

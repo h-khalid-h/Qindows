@@ -140,8 +140,13 @@ extern "x86-interrupt" fn double_fault(_frame: InterruptStackFrame, _error_code:
     loop { unsafe { core::arch::asm!("hlt") }; }
 }
 
-extern "x86-interrupt" fn general_protection(_frame: InterruptStackFrame, _error_code: u64) {
+extern "x86-interrupt" fn general_protection(frame: InterruptStackFrame, error_code: u64) {
     crate::serial_println!("EXCEPTION: General Protection Fault (#GP)");
+    crate::serial_println!(
+        "  RIP={:#x}  RSP={:#x}  CS={:#x}  error={:#x}",
+        frame.instruction_pointer, frame.stack_pointer,
+        frame.code_segment, error_code,
+    );
     crate::serial_println!("Sentinel: Q-Manifest violation detected. Silo vaporized.");
     loop { unsafe { core::arch::asm!("hlt") }; }
 }
@@ -159,19 +164,24 @@ extern "x86-interrupt" fn page_fault(_frame: InterruptStackFrame, error_code: u6
 // ── Hardware IRQ Handlers ───────────────────────────────────────────
 
 extern "x86-interrupt" fn timer_handler(_frame: InterruptStackFrame) {
-    // Fix #8: Increment the global monotonic tick counter so the Sentinel
-    // can measure per-silo block durations for Law III enforcement.
+    // Always safe: increments a static AtomicU64, no heap or lock required.
     crate::kstate::tick();
 
-    // Send EOI before the context switch so the APIC can fire the next timer
-    // interrupt even if we're still inside the new fiber's stack.
+    // Send EOI immediately so the APIC can fire the next timer interrupt.
     unsafe { send_eoi(); }
 
-    // Invoke the fiber scheduler — this may call switch_context() and resume
-    // a different fiber, so control may not return here immediately.
+    // Only attempt preemptive scheduling AFTER boot is complete (Phase 15 done).
+    // BOOT_COMPLETE is set by kstate::signal_boot_complete() at the end of Phase 15.
+    // Before that point, SCHEDULERS may not be safe to access from an interrupt
+    // because heap allocations during boot can hold internal spinlocks.
+    if !crate::kstate::BOOT_COMPLETE.load(core::sync::atomic::Ordering::Acquire) {
+        return;
+    }
+
+    // Only preempt if there are OTHER ready fibers to switch to (not just current).
     let mut scheds = crate::scheduler::SCHEDULERS.lock();
     if let Some(core0) = scheds.first_mut() {
-        if !core0.ready_queue.is_empty() || core0.current.is_some() {
+        if !core0.ready_queue.is_empty() && core0.current.is_some() {
             core0.schedule();
         }
     }
@@ -197,17 +207,74 @@ extern "x86-interrupt" fn mouse_handler(_frame: InterruptStackFrame) {
 
 // ── System Call Handler ─────────────────────────────────────────────
 
-/// The Q-Ring system call entry point.
+/// The Q-Ring system call entry point (naked ASM trampoline).
 ///
-/// When a Q-Silo executes `int 0x80`, the CPU switches to Ring 0
-/// and this handler dispatches the request based on the syscall ID.
-extern "x86-interrupt" fn syscall_handler(_frame: InterruptStackFrame) {
-    // In production:
-    // - Read syscall ID from RAX
-    // - Read arguments from RDI, RSI, RDX, R10, R8, R9
-    // - Dispatch to the appropriate kernel service
-    // - Check capability tokens before granting access
-    unsafe { send_eoi(); }
+/// When a Q-Silo executes `int 0x80`, the CPU pushes SS, RSP, RFLAGS,
+/// CS, RIP onto the kernel stack and switches to Ring 0. This naked
+/// handler reads the syscall number from RAX and arguments from
+/// RDI, RSI, RDX, R10, R8, then calls `dispatch_syscall()`.
+///
+/// The result is returned in RAX. After sending APIC EOI, `iretq`
+/// returns to user space.
+#[unsafe(naked)]
+unsafe extern "C" fn syscall_handler() {
+    core::arch::naked_asm!(
+        // Save all caller-saved registers (we must preserve them for iretq)
+        "push rax",
+        "push rcx",
+        "push rdx",
+        "push rsi",
+        "push rdi",
+        "push r8",
+        "push r9",
+        "push r10",
+        "push r11",
+
+        // Set up arguments for dispatch_syscall(id, arg0..arg4):
+        //   User RAX = syscall number → RDI (arg 0 for SysV ABI)
+        //   User RDI = arg0           → RSI (arg 1)
+        //   User RSI = arg1           → RDX (arg 2)
+        //   User RDX = arg2           → RCX (arg 3)
+        //   User R10 = arg3           → R8  (arg 4)
+        //   User R8  = arg4           → R9  (arg 5)
+        //
+        // Note: at this point the pushed values are on the stack.
+        // The original register values are still in registers because
+        // we pushed them AFTER the CPU delivered the interrupt.
+        "mov r9,  r8",     // arg5 = user R8
+        "mov r8,  r10",    // arg4 = user R10
+        "mov rcx, rdx",    // arg3 = user RDX
+        "mov rdx, rsi",    // arg2 = user RSI
+        "mov rsi, rdi",    // arg1 = user RDI
+        "mov rdi, rax",    // arg0 = user RAX (syscall number)
+
+        // Call the Rust dispatcher
+        "call {dispatch}",
+
+        // RAX now holds the return value from dispatch_syscall.
+        // Save it in R11 temporarily while we send EOI.
+        "mov r11, rax",
+
+        // Send APIC End-Of-Interrupt (write 0 to 0xFEE000B0)
+        "mov rdi, 0xFEE000B0",
+        "mov dword ptr [rdi], 0",
+
+        // Restore caller-saved registers, but put the return value into RAX
+        // (skip the original RAX restore, use dispatch result instead)
+        "mov rax, r11",    // Return value → user RAX
+        "pop r11",         // Restore R11
+        "pop r10",
+        "pop r9",
+        "pop r8",
+        "pop rdi",
+        "pop rsi",
+        "pop rdx",
+        "pop rcx",
+        "add rsp, 8",      // Skip the pushed original RAX (replaced by result)
+
+        "iretq",
+        dispatch = sym crate::syscall::dispatch_syscall,
+    );
 }
 
 /// Send End-Of-Interrupt signal to the APIC.

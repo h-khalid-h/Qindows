@@ -74,7 +74,8 @@ unsafe fn pci_config_read32(bus: u8, device: u8, function: u8, offset: u8) -> u3
 
     // Write address to CONFIG_ADDRESS port
     core::arch::asm!(
-        "out 0xCF8, eax",
+        "out dx, eax",
+        in("dx") 0xCF8u16,
         in("eax") address,
         options(nomem, nostack)
     );
@@ -82,7 +83,8 @@ unsafe fn pci_config_read32(bus: u8, device: u8, function: u8, offset: u8) -> u3
     // Read data from CONFIG_DATA port
     let result: u32;
     core::arch::asm!(
-        "in eax, 0xCFC",
+        "in eax, dx",
+        in("dx") 0xCFCu16,
         out("eax") result,
         options(nomem, nostack)
     );

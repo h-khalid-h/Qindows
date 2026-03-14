@@ -109,7 +109,7 @@ impl Pcr {
     }
 
     /// Simplified hash for no_std (production uses hardware SHA-256).
-    fn simple_hash(data: &[u8]) -> Digest {
+    pub fn simple_hash(data: &[u8]) -> Digest {
         let mut hash = [0u8; 32];
         let mut h: u64 = 0x6a09e667bb67ae85;
         for (i, &b) in data.iter().enumerate() {

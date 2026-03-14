@@ -29,6 +29,7 @@ pub mod gdt;
 pub mod interrupts;
 pub mod ioapic;
 pub mod ipc;
+pub mod watchdog;
 pub mod lapic;
 pub mod loader;
 pub mod logging;
@@ -43,6 +44,147 @@ pub mod sentinel;
 pub mod settings;
 pub mod smbios;
 pub mod iommu;
+pub mod qring_guard; // Phase 52: Q-Ring slot-bound validation + syscall allowlist
+pub mod qfs_ghost;   // Phase 53: QFS versioned CoW Ghost-Write path
+pub mod silo_launch; // Phase 54: ELF Ring-3 Silo launch (SYSRET path)
+pub mod qfabric;     // Phase 55: Q-Fabric QUIC-native network layer
+pub mod chimera;     // Phase 57: Win32 → Qindows-native API translation bridge
+pub mod uns;         // Phase 58: Universal Namespace resolver (prism://, qfa://, dev://)
+pub mod aether;       // Phase 59: GPU-accelerated Aether compositor interface
+pub mod synapse;      // Phase 60: Q-Synapse BCI neural intent pipeline
+pub mod nexus;        // Phase 61: Nexus Global Mesh / Genesis Protocol
+pub mod wasm_runtime; // Phase 62: WASM universal binary runtime kernel interface
+pub mod ledger;       // Phase 63: Q-Ledger content-addressable package registry
+pub mod identity;     // Phase 64: Q-Identity TPM hardware enclave & auth tokens
+pub mod bridge;       // Phase 65: Q-Bridge Windows migration & legacy data ingestion
+pub mod qshell;       // Phase 66: Q-Shell semantic object pipeline & Q-Admin escalation
+pub mod collab;       // Phase 67: Q-Collab CRDT distributed collaborative workspace
+pub mod firstboot;    // Phase 68: First Boot setup wizard state machine
+pub mod qtraffic;     // Phase 69: Law 7 traffic flow visualizer & telemetry monitor
+pub mod qupdate;      // Phase 70: Atomic hot-swap system updater (zero reboot)
+pub mod q_metrics;    // Phase 71: Performance counters & benchmark observatory
+pub mod prism_search; // Phase 72: Semantic object graph engine (q_resolve_intent)
+pub mod active_task;  // Phase 73: Law 8 energy proportionality enforcement
+pub mod q_view;       // Phase 74: Q-View Browser — websites as native Q-Silos
+pub mod fiber_offload;   // Phase 75: Edge-Kernel "Scale to Cloud" Fiber serialization
+pub mod digital_antibody;// Phase 76: Sentinel Digital Antibody & Global Immunization (<300ms)
+pub mod compute_auction; // Phase 77: Nexus Phase V Compute Auction & Q-Credits engine
+pub mod q_silo_fork;     // Phase 78: Copy-on-Write Silo forking (CoWFork syscall)
+pub mod intent_router;        // Phase 79: Q-Synapse intent → subsystem dispatch (§6.2 complete)
+pub mod q_manifest_enforcer;  // Phase 80: Unified 10-laws enforcement bus + compound detection
+pub mod elastic_render;       // Phase 81: Aether elastic GPU offload to Q-Server (§9)
+pub mod object_shard;         // Phase 82: Prism erasure-coded HA sharding across Nexus peers
+pub mod q_credits_wallet;     // Phase 83: User Q-Credits wallet + donation device management
+pub mod black_box;            // Phase 84: Sentinel Black Box recorder — Post-Mortem objects (§7)
+pub mod silo_events;          // Phase 85: Silo lifecycle pub-sub event bus (loose coupling)
+pub mod ghost_write_engine;   // Phase 86: Full Ghost-Write atomic save pipeline (§3.3)
+pub mod q_energy;             // Phase 87: Integrated law-8 energy proportionality layer
+pub mod timeline_slider;      // Phase 88: Ghost-Write version history navigator (Timeline UI)
+pub mod uns_cache;            // Phase 89: Two-tier UNS address resolution cache (L1+L2)
+pub mod sentinel_anomaly;     // Phase 90: Sentinel AI PMC-based anomaly scoring engine
+pub mod aether_a11y;          // Phase 91: Aether accessibility layer (ARIA + screen magnification)
+pub mod q_view_wm;            // Phase 92: Q-View multi-window tiling engine with AI placement
+pub mod prism_query;          // Phase 93: Prism structured query DSL engine (filter/sort/dedup)
+pub mod nexus_dht;            // Phase 94: Kademlia DHT routing table for Nexus peer discovery
+pub mod q_fonts;              // Phase 95: SDF vector font rasterization engine
+pub mod q_view_browser;       // Phase 96: Q-View Browser — websites as first-class Silos (§5.4)
+pub mod v_gdi_upscale;        // Phase 97: V-GDI legacy GDI/DirectX → SDF upscaling pipeline (§8)
+pub mod q_kit_sdk;            // Phase 98: Q-Kit declarative native UI layout engine (§4.6)
+pub mod qring_async;          // Phase 99: Q-Ring io_uring-style async batch processor (§2.1)
+pub mod kernel_integration;   // Phase 100: Cross-subsystem wire-up, boot integration, law audit
+pub mod kstate_ext;           // Phase 101: Once-static extension for Phase 84-100 subsystems
+pub mod synapse_bridge;       // Phase 102: Kernel ↔ Synapse Silo IPC bridge (BCI neural pipeline)
+pub mod chimera_vgdi_bridge;  // Phase 103: Chimera GDI BitBlt → V-GDI SDF upscaler bridge
+pub mod qring_dispatch;       // Phase 104: Q-Ring real dispatch table (replaces stubs in qring_async)
+pub mod uns_resolver;         // Phase 105: Full UNS path resolution pipeline (§3) — 6-stage waterfall
+pub mod intent_pipeline;      // Phase 106: Synapse → IntentRouter → Q-Ring execution pipeline
+pub mod q_manifest_audit;     // Phase 107: Per-law runtime audit hooks for all 10 Q-Manifest laws
+pub mod boot_sequence;        // Phase 108: boot_phase2() integrator — wires all subsystems at startup
+pub mod aether_kit_bridge;    // Phase 109: Q-Kit layout engine → Aether compositor Q-Ring bridge
+pub mod pmc_anomaly_loop;     // Phase 110: PMC hardware counters → anomaly scorer → law enforcement
+pub mod nexus_kernel_bridge;  // Phase 111: Nexus Silo ↔ kernel Q-Fabric routing bridge
+pub mod q_energy_scheduler;   // Phase 112: Law-8 energy proportionality scheduler integration
+pub mod crypto_primitives;    // Phase 113: SHA-256/HMAC/FNV1a-256/SipHash — replaces XOR stubs
+pub mod prism_live_index;     // Phase 114: Live object metadata index → feeds PrismQueryEngine
+pub mod collab_session_net;   // Phase 115: CRDT collab delta push/receive via Nexus mesh IPC
+pub mod hotswap_verifier;     // Phase 116: SHA-256 patch verify + Law2 rollback audit integration
+pub mod identity_tpm_bridge;  // Phase 117: TPM-rooted identity, node attestation, CapToken key derivation
+// Note: syscall_table already declared (Phase 75) — Phase 118 extends it (no new file needed)
+pub mod cap_tokens;           // Phase 119: CapToken forge — mint/verify/revoke HMAC-signed caps
+pub mod silo_ipc_router;      // Phase 120: IPC routing IpcSend→IpcRecv with cap check + backpressure
+pub mod wasm_prism_bridge;    // Phase 121: WASM AOT pipeline → Prism OID → Silo spawn
+pub mod ledger_verifier;      // Phase 122: SHA-256 manifest hash + publisher sig + Credits deduction
+pub mod snapshot_restore_bridge; // Phase 123: RestoreStrategy → relaunch/migrate bridge
+pub mod q_admin_bridge;       // Phase 124: Admin query bridge → real kernel state + crypto self-test
+pub mod telemetry_bridge;     // Phase 125: Feed PMC/energy/traffic data into TelemetryEngine
+pub mod secure_boot_integ;    // Phase 126: SHA-256 boot measurements, replace Pcr::simple_hash XOR stub
+pub mod prism_store_bridge;   // Phase 127: PrismObjectStore ↔ LiveObjectIndex synchronized bridge
+pub mod update_pipeline;      // Phase 128: QUpdateEngine + HotSwapVerifier + SecureBoot integration
+pub mod rng_entropy_feeder;   // Phase 129: TSC/network/PMC entropy feeds + periodic refresh
+pub mod q_metrics_bridge;     // Phase 130: Feed IPC/CtxSwitch/QRing/Prism latencies into QMetricsStore
+pub mod qshell_kernel_bridge; // Phase 131: QShellEngine pipeline + CapToken escalation
+pub mod quota_enforcement_bridge; // Phase 132: QuotaManager gates for Prism/net/CPU
+pub mod sandbox_cap_bridge;   // Phase 133: SandboxManager ↔ CapTokenForge (TrapReason→Law map)
+pub mod fork_cow_bridge;      // Phase 134: SiloForkEngine + CoW + CapToken lifecycle
+pub mod settings_kernel_bridge; // Phase 135: SettingsManager seeded with all kernel defaults
+pub mod qring_hardening_bridge; // Phase 136: harden_qring_batch() gate before every dispatch
+pub mod qaudit_kernel;          // Phase 137: AuditLog kernel integration (law/cap/silo/quota/hotswap)
+pub mod sentinel_anomaly_gate;  // Phase 138: SentinelAnomalyScorer → PMC → block anomalous Silos
+pub mod qtraffic_law7_bridge;   // Phase 139: Law7Verdict gate on every outbound Nexus flow
+pub mod compute_auction_bridge; // Phase 140: ComputeAuction Energy cap gate + CreditLedger integration
+pub mod digital_antibody_bridge;   // Phase 141: AntibodyGenerator + immunity registry → Nexus bus
+pub mod collab_cap_bridge;         // Phase 142: CRDT collaborative edits behind Collab CapToken
+pub mod disk_sched_silo_bridge;    // Phase 143: DiskScheduler Silo priority + CapToken I/O tiers
+pub mod prism_search_cap_bridge;   // Phase 144: PrismIndex ingest/get behind Prism:READ/EXEC gate
+pub mod uns_cache_silo_bridge;     // Phase 145: UNS cache invalidation on Silo vaporize
+pub mod aether_cap_bridge;         // Phase 146: Aether:EXEC gate on every widget submit (Law 3)
+pub mod storage_driver_bridge;     // Phase 147: AHCI + NVMe → DiskSchedSiloBridge (I/O fairness)
+pub mod message_bus_cap_bridge;    // Phase 148: MessageBus IPC:EXEC gate (Law 1)
+pub mod sentinel_firewall_bridge;  // Phase 149: QTrafficEngine verdicts → Firewall rule table
+pub mod watchdog_anomaly_bridge;   // Phase 150: WatchdogManager wired to Q-Ring + anomaly scores
+pub mod prism_acl_cap_bridge;      // Phase 151: Prism ACL + CapToken conjunction (Law 1)
+pub mod cgroup_quota_bridge;       // Phase 152: CGroupManager wired to Silo lifecycle
+pub mod object_shard_prism_bridge; // Phase 153: 1MiB+ objects trigger distributed sharding
+pub mod kprobe_sentinel_bridge;    // Phase 154: KProbeManager fed from real kernel hotpaths
+pub mod cap_mapper_token_bridge;   // Phase 155: Page table perms derived from CapToken at spawn
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 pub mod usb;
 pub mod hotplug;
 pub mod telemetry;
@@ -81,6 +223,8 @@ pub mod pci_enum;
 pub mod spinlock;
 pub mod ioport;
 pub mod msi;
+pub mod irq_router; // Phase 49: per-Silo interrupt vector isolation
+
 pub mod tsc;
 pub mod apic_timer;
 pub mod hpet;
@@ -130,8 +274,10 @@ pub extern "C" fn _start(_boot_info_arg: &'static BootInfo) -> ! {
         boot_info.memory_map_desc_size,
     );
     memory::paging::init(&mut frame_allocator);
+    memory::pcid::init(); // Reserve PCID 0 for kernel identity map
     memory::heap::init(&mut frame_allocator);
-    serial_println!("[OK] Phase 1: Memory (frames + paging + heap)");
+    serial_println!("[OK] Phase 1: Memory (frames + paging + heap + PCID pool)");
+
 
     // ── Phase 2: GDT ────────────────────────────────────────────
     // Set up privilege levels (Ring 0 ↔ Ring 3) and the TSS
@@ -294,11 +440,11 @@ pub extern "C" fn _start(_boot_info_arg: &'static BootInfo) -> ! {
 
     // ── Phase 13: Genesis Protocol ──────────────────────────────
     // First-boot initialization: HW survey, identity, Silo Zero.
-    let mut genesis = genesis::GenesisProtocol::new();
+    let mut genesis = genesis::GenesisProtocol::default();
 
     if !genesis.check_completed() {
         serial_println!("  Genesis: First boot detected — running full protocol");
-        let _ = genesis.run_full(boot_timestamp);
+        genesis.step(boot_timestamp);  // Advance through setup wizard
         console.print_ok(&mut display, "Genesis: Identity + Ledger + Prism DONE");
     } else {
         console.print_ok(&mut display, "Genesis: Previously completed (skipping)");
@@ -474,28 +620,55 @@ pub extern "C" fn _start(_boot_info_arg: &'static BootInfo) -> ! {
 
     serial_println!("Aether Desktop rendered — framebuffer live");
 
-    serial_println!("--- BEGIN AUTOMATED Q-SHELL SENTINEL TEST ---");
-    let test_cmds = [
-        "sentinel status",
-        "sentinel log",
-        "sentinel laws",
-        "mesh status",
-        "genesis",
-    ];
-    for cmd in test_cmds {
-        serial_println!("Executing: {}", cmd);
-        let output = crate::syscall::qshell_dispatch(cmd);
-        serial_println!("Output:\n{}", output);
-    }
-    serial_println!("--- END AUTOMATED Q-SHELL SENTINEL TEST ---");
+    serial_println!("--- INITIATING RING 3 USERSPACE TRANSITION ---");
+
+    // 1. Load the compiled Q-Shell ELF executable payload
+    let q_shell_elf = include_bytes!("../../target/x86_64-unknown-none/release/q-shell");
+    
+    let mut loader = crate::elf::ElfLoader::new();
+    let elf_info = match loader.parse(q_shell_elf) {
+        Ok(info) => info,
+        Err(e) => panic!("Failed to parse Q-Shell ELF: {:?}", e),
+    };
+
+    serial_println!("  Parsed Q-Shell ELF: {} bytes, {} segments", q_shell_elf.len(), elf_info.segments.len());
+
+    // 2. Map the ELF segments into physical memory
+    let loaded = unsafe { loader.load_into_memory(q_shell_elf, &elf_info).expect("Failed to load ELF segments") };
+    
+    serial_println!("  ELF Loaded! Entry point: {:#018x}", loaded.entry_point);
+
+    // 3. Allocate a User Stack
+    let user_stack_size = 2 * 1024 * 1024;
+    
+    // Allocate contiguous pages from the kernel heap (which spans 32MiB)
+    extern crate alloc;
+    let mut ring3_stack = alloc::vec::Vec::<u8>::with_capacity(user_stack_size);
+    // Force the memory to be committed
+    for _ in 0..user_stack_size { ring3_stack.push(0); }
+    let user_stack_base = ring3_stack.as_ptr() as u64;
+    
+    // Leak the Vec so the memory stays allocated as the Ring 3 stack forever
+    core::mem::forget(ring3_stack);
+    
+    let user_stack_top = user_stack_base + user_stack_size as u64;
+    
+    serial_println!("  User Stack allocated: Base={:#018x}, Top={:#018x}", user_stack_base, user_stack_top);
+
+    // Get the Q-Shell Silo ID to masquerade as
+    let qshell_id = kstate::silos().silos.iter().find(|s| s.binary_oid == 0x0000_0005_0000_0001).unwrap().id;
+
+    serial_println!("  Transitioning CPU to Ring 3 (IRETQ)...");
+    serial_println!("══════════════════════════════════════════════");
 
     // ── Arm the APIC Timer ────────────────────────────────────
-    // Now that all subsystems are initialized, start the periodic
-    // timer for preemptive scheduling.
     drivers::apic::start_timer();
 
-    // Enter the interactive desktop event loop
-    drivers::desktop::run_desktop_loop(&mut display, &mut console);
+    // 4. Perform the hardware privilege drop
+    unsafe {
+        crate::syscall::set_current_silo(qshell_id);
+        crate::scheduler::context::switch_to_user_mode(loaded.entry_point, user_stack_top);
+    }
 
 }
 

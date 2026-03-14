@@ -55,6 +55,8 @@ pub enum EventType {
     IpcAnomaly,
     /// Kernel exploit attempt
     KernelExploit,
+    /// Unauthorized capability access or forced revocation
+    UnauthorizedCapAccess,
 }
 
 /// A security event.
@@ -95,6 +97,8 @@ pub enum ResponseAction {
     Kill,
     /// Alert the user
     Alert,
+    /// Forcibly revoke a capability token
+    RevokeCap,
 }
 
 /// Behavioral profile for a Silo.

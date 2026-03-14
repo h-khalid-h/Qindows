@@ -4,8 +4,14 @@ version.workspace = true
 edition.workspace = true
 description = "Q-Shell — The Semantic Command Palette"
 
+[lib]
+name = "q_shell"
+path = "src/lib.rs"
+
+[[bin]]
+name = "q-shell"
+path = "src/main.rs"
+
 [dependencies]
 qindows-types = { workspace = true }
-prism = { path = "../prism" }
-nexus = { path = "../nexus" }
 spin = { workspace = true }

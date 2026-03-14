@@ -194,8 +194,9 @@ impl NvmeController {
             let cc = core::ptr::read_volatile(&(*regs).cc);
             core::ptr::write_volatile(&mut (*regs).cc, cc & !1);
 
-            // Wait for CSTS.RDY = 0
-            while core::ptr::read_volatile(&(*regs).csts) & 1 != 0 {
+            // Wait for CSTS.RDY = 0 (with timeout)
+            for _ in 0..100_000u32 {
+                if core::ptr::read_volatile(&(*regs).csts) & 1 == 0 { break; }
                 core::hint::spin_loop();
             }
 
@@ -215,8 +216,9 @@ impl NvmeController {
             // Enable controller (CSS=NVM, MPS=0, AMS=RR)
             core::ptr::write_volatile(&mut (*regs).cc, 0x00460001);
 
-            // Wait for CSTS.RDY = 1
-            while core::ptr::read_volatile(&(*regs).csts) & 1 == 0 {
+            // Wait for CSTS.RDY = 1 (with timeout)
+            for _ in 0..100_000u32 {
+                if core::ptr::read_volatile(&(*regs).csts) & 1 != 0 { break; }
                 core::hint::spin_loop();
             }
         }

@@ -186,11 +186,13 @@ impl HdaController {
             // Reset controller
             let gctl = (bar0 + 0x08) as *mut u32;
             core::ptr::write_volatile(gctl, 0); // Assert reset
-            while core::ptr::read_volatile(gctl) & 1 != 0 {
+            for _ in 0..100_000u32 {
+                if core::ptr::read_volatile(gctl) & 1 == 0 { break; }
                 core::hint::spin_loop();
             }
             core::ptr::write_volatile(gctl, 1); // Deassert reset
-            while core::ptr::read_volatile(gctl) & 1 == 0 {
+            for _ in 0..100_000u32 {
+                if core::ptr::read_volatile(gctl) & 1 != 0 { break; }
                 core::hint::spin_loop();
             }
 

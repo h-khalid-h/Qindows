@@ -8,7 +8,10 @@ target = "x86_64-unknown-none"
 runner = "qemu-system-x86_64 -bios /usr/share/OVMF/OVMF.fd -drive format=raw,file="
 
 # Kernel-mode crates use panic=abort (no unwinding in bare metal)
-rustflags = ["-C", "link-arg=-Tqernel/linker.ld"]
+# CRITICAL: relocation-model=static prevents PIE/DYN ELF output.
+# Without this, the kernel has R_X86_64_RELATIVE relocations that
+# the bootloader cannot process, causing #UD crashes at boot.
+rustflags = ["-C", "link-arg=-Tqernel/linker.ld", "-C", "relocation-model=static", "-C", "target-feature=-redzone"]
 
 [unstable]
 build-std = ["core", "compiler_builtins", "alloc"]

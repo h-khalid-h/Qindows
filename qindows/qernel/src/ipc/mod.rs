@@ -12,6 +12,7 @@
 #![allow(dead_code)]
 
 pub mod qring;
+pub mod batch;
 
 extern crate alloc;
 
@@ -35,6 +36,8 @@ pub enum MessageType {
     FsRequest,
     /// Graphics compositor command
     GfxCommand,
+    /// Aether UI composition event
+    AetherEvent,
     /// Shutdown signal
     Shutdown,
 }

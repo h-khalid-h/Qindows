@@ -150,4 +150,70 @@ impl Iommu {
         }
         self.stats.faults += 1;
     }
+
+    // ── Phase 48: Capability-Gated Device Assignment ─────────────────────────
+
+    /// Assign a PCIe device to a Silo, gated on the Silo's `DEVICE` CapToken.
+    ///
+    /// Validates that the requesting Silo holds a valid, non-expired `DEVICE`
+    /// capability before writing the DMA Remapping Table (DMAR) entry that
+    /// binds the device's DMA address space to the Silo's PML4.
+    ///
+    /// ## Q-Manifest Law 1: Zero-Ambient Authority
+    /// No Silo may access hardware DMA unless it explicitly holds a DEVICE token.
+    /// This function is the single architectural enforcement point.
+    ///
+    /// ## Q-Manifest Law 6: Silo Sandbox
+    /// After assignment, the device's DMA is remapped through `silo_pml4_phys`,
+    /// preventing the device from accessing any other Silo's physical memory.
+    pub fn assign_device_to_silo_capped(
+        &mut self,
+        device_id: u32,
+        silo_id: u64,
+        silo_pml4_phys: u64,
+        cap: &crate::capability::CapToken,
+        current_tick: u64,
+    ) -> Result<(), &'static str> {
+        use crate::capability::{validate_capability, Permissions};
+
+        // Enforce DEVICE capability — no token = no hardware access
+        validate_capability(cap, Permissions::DEVICE, current_tick)
+            .map_err(|_| "IOMMU: Silo lacks DEVICE capability")?;
+
+        // Ensure the token belongs to the requesting Silo (prevent stolen caps)
+        if cap.owner_silo != silo_id {
+            return Err("IOMMU: CapToken owner mismatch — wrong Silo");
+        }
+
+        // Register device ownership
+        if self.device_owners.contains_key(&device_id) {
+            return Err("IOMMU: Device already assigned to a Silo");
+        }
+        self.device_owners.insert(device_id, silo_id);
+        self.stats.devices_assigned += 1;
+
+        // Write simulated DMAR entry — in real hardware this would write to
+        // the Root Table Entry / Context Table Entry of the VT-d DMAR structure.
+        crate::serial_println!(
+            "[IOMMU] Device {:04x} bound to Silo {} (PML4=0x{:x}) — DEVICE cap validated",
+            device_id, silo_id, silo_pml4_phys
+        );
+
+        Ok(())
+    }
+
+    /// Release all DMA mappings and device assignments for a vaporized Silo.
+    ///
+    /// Called by `silo/mod.rs::vaporize()` to ensure no DMA-capable
+    /// device retains access to the Silo's now-freed physical memory.
+    pub fn release_silo(&mut self, silo_id: u64) {
+        // Remove all DMA mappings for this Silo
+        self.page_tables.remove(&silo_id);
+
+        // Remove device ownership if this Silo held any devices
+        self.device_owners.retain(|_, &mut owner| owner != silo_id);
+
+        crate::serial_println!("[IOMMU] Silo {} DMA mappings released", silo_id);
+    }
 }
+

@@ -231,7 +231,7 @@ pub struct TelemetryStats {
 /// The Telemetry Engine.
 pub struct TelemetryEngine {
     /// All registered metrics
-    pub metrics: BTreeMap<String, Metric>,
+    pub metrics: alloc::vec::Vec<Metric>,
     /// Per-Silo resource accounting
     pub silo_usage: BTreeMap<u64, SiloUsage>,
     /// Alert rules
@@ -245,7 +245,7 @@ pub struct TelemetryEngine {
 impl TelemetryEngine {
     pub fn new() -> Self {
         let mut engine = TelemetryEngine {
-            metrics: BTreeMap::new(),
+            metrics: alloc::vec::Vec::new(),
             silo_usage: BTreeMap::new(),
             alerts: Vec::new(),
             next_alert_id: 1,
@@ -271,6 +271,7 @@ impl TelemetryEngine {
     }
 
     /// Register a new metric.
+    #[inline(never)]
     pub fn register(
         &mut self,
         name: &str,
@@ -279,13 +280,13 @@ impl TelemetryEngine {
         capacity: usize,
     ) {
         let metric = Metric::new(name, category, unit, capacity);
-        self.metrics.insert(String::from(name), metric);
+        self.metrics.push(metric);
         self.stats.metrics_registered += 1;
     }
 
     /// Record a metric value.
     pub fn record(&mut self, name: &str, value: f64, now: u64) {
-        if let Some(metric) = self.metrics.get_mut(name) {
+        if let Some(metric) = self.metrics.iter_mut().find(|m| m.name == name) {
             metric.record(value, now);
             self.stats.total_samples += 1;
         }
@@ -344,7 +345,7 @@ impl TelemetryEngine {
         for alert in &mut self.alerts {
             if alert.fired { continue; }
 
-            let current = self.metrics.get(&alert.metric)
+            let current = self.metrics.iter().find(|m| m.name == alert.metric)
                 .and_then(|m| m.latest());
 
             if let Some(val) = current {
@@ -370,19 +371,17 @@ impl TelemetryEngine {
         fired
     }
 
-    /// Get a snapshot of all latest metric values.
     pub fn snapshot(&mut self) -> Vec<(String, f64)> {
         self.stats.snapshots_taken += 1;
         self.metrics.iter()
-            .filter_map(|(name, m)| m.latest().map(|v| (name.clone(), v)))
+            .filter_map(|m| m.latest().map(|v| (m.name.clone(), v)))
             .collect()
     }
 
-    /// Get metrics by category.
     pub fn by_category(&self, cat: MetricCategory) -> Vec<(&str, f64)> {
         self.metrics.iter()
-            .filter(|(_, m)| m.category == cat)
-            .filter_map(|(name, m)| m.latest().map(|v| (name.as_str(), v)))
+            .filter(|m| m.category == cat)
+            .filter_map(|m| m.latest().map(|v| (m.name.as_str(), v)))
             .collect()
     }
 

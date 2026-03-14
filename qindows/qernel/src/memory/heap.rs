@@ -9,8 +9,11 @@ use spin::Mutex;
 
 /// Heap configuration — placed at 16 MiB in identity-mapped physical memory.
 /// Well above the kernel image (loaded at 2 MiB) and its BSS/stack.
-const HEAP_START: usize = 0x0100_0000; // 16 MiB
-const HEAP_SIZE: usize = 4 * 1024 * 1024; // 4 MiB kernel heap
+/// 16 MiB heap provides headroom for BTree-heavy subsystems:
+/// TelemetryEngine (13 metrics × BTree nodes), AuditLog, SiloManager,
+/// IommuManager, IpcManager, and runtime allocations from Q-Shell/Prism.
+const HEAP_START: usize = 0x0100_0000; // 16 MiB physical
+const HEAP_SIZE: usize = 128 * 1024 * 1024; // 128 MiB kernel heap
 
 /// A simple linked-list allocator node
 struct FreeNode {
@@ -42,8 +45,9 @@ impl LinkedListAllocator {
 
     /// Allocate a block of memory.
     pub fn allocate(&mut self, layout: Layout) -> *mut u8 {
-        let (size, align) = (layout.size().max(core::mem::size_of::<FreeNode>()),
-                              layout.align().max(core::mem::align_of::<FreeNode>()));
+        let align = layout.align().max(core::mem::align_of::<FreeNode>()).max(16);
+        let mut size = layout.size().max(core::mem::size_of::<FreeNode>());
+        size = align_up(size, align);
 
         let mut current = &mut self.head;
         while let Some(ref mut region) = current.next {
@@ -66,16 +70,23 @@ impl LinkedListAllocator {
                 } else {
                     current.next = region.next.take();
                 }
+                crate::serial_println!("ALLOC: {:#x} .. {:#x} (size {})", alloc_start, alloc_end, size);
                 return alloc_start as *mut u8;
             }
             current = current.next.as_deref_mut().unwrap();
         }
+        crate::serial_println!("OOM: heap exhausted!");
         core::ptr::null_mut() // OOM
     }
 
     /// Deallocate a previously allocated block.
     pub fn deallocate(&mut self, ptr: *mut u8, layout: Layout) {
-        let size = layout.size().max(core::mem::size_of::<FreeNode>());
+        let align = layout.align().max(core::mem::align_of::<FreeNode>()).max(16);
+        let mut size = layout.size().max(core::mem::size_of::<FreeNode>());
+        size = align_up(size, align);
+        
+        crate::serial_println!("DEALLOC: {:#x} (size {})", ptr as usize, size);
+
         unsafe {
             let node = ptr as *mut FreeNode;
             node.write(FreeNode {

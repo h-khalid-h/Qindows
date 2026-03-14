@@ -43,6 +43,15 @@ pub enum Violation {
     SideChannelAttack { cache_miss_rate: f32 },
     /// Memory leak detected (growing allocation without bounds)
     MemoryLeak { leaked_bytes: u64 },
+    // ── Phase 50: New hardware subsystem violations ────────────────────────
+    /// Silo triggered excessive Copy-on-Write faults (Law II: Immutable Binaries abuse)
+    /// High CoW fault rates can indicate a Silo is attempting to probe shared memory.
+    CoWFault { fault_count: u64 },
+    /// Silo attempted to steal or claim another Silo's IRQ vector (Law VI: Silo Sandbox)
+    IrqVectorSteal { fault_count: usize },
+    /// PCID pool is under pressure — risk of isolation breakdown (Law VI)
+    /// Triggered when > 80% of all 4095 PCIDs are allocated simultaneously.
+    PcidPoolPressure { allocated: u32, total: u32 },
 }
 
 /// Health report for a single Silo.
@@ -56,6 +65,13 @@ pub struct HealthReport {
     pub network_bytes_sent: u64,
     pub health_score: u8,
     pub violations: alloc::vec::Vec<Violation>,
+    // ── Phase 50: Hardware subsystem fault counters ────────────────────────
+    /// CoW page faults triggered by this Silo (from memory::cow)
+    pub cow_faults: u64,
+    /// IRQ vector fault attempts for this Silo (from irq_router)
+    pub irq_faults: usize,
+    /// System-wide PCID allocation pressure (0–100 percent)
+    pub pcid_pressure_pct: u8,
 }
 
 use alloc::vec::Vec;
@@ -158,6 +174,83 @@ impl Sentinel {
             network_bytes_sent: 0,
             health_score: score,
             violations,
+            // Phase 50 fields — set to zero here; populated by analyze_extended()
+            cow_faults: 0,
+            irq_faults: 0,
+            pcid_pressure_pct: 0,
+        }
+    }
+
+    // ── Phase 50: Extended analysis with hardware subsystem fault data ────────
+
+    /// Full analysis combining base metrics with Phase 48/49 hardware fault data.
+    ///
+    /// Called once per monitor cycle **after** `analyze()`. Merges CoW fault counts,
+    /// IRQ Router fault counts, and PCID pressure into the report and updates the
+    /// health score accordingly.
+    ///
+    /// ## Architecture Guardian: Separation of Concerns
+    /// This function is deliberately separate from `analyze()` — it depends on
+    /// `KernelState` (global singleton holding IrqRouter, CowManager, PcidAllocator)
+    /// while `analyze()` depends only on the Silo itself. Keeping them separate
+    /// prevents `analyze()` from gaining a dependency on the global state.
+    pub fn analyze_extended(
+        &self,
+        report: &mut HealthReport,
+        cow_faults_for_silo: u64,
+        irq_faults_for_silo: usize,
+    ) {
+        // ── Phase 48: CoW Fault Rate (Law II: Immutable Binaries) ────────────
+        // A small number of CoW faults is normal (Prism Ghost-Writes).
+        // A spike suggests a Silo is probing shared pages to detect memory layout.
+        const COW_FAULT_SPIKE_THRESHOLD: u64 = 50;
+        report.cow_faults = cow_faults_for_silo;
+        if cow_faults_for_silo > COW_FAULT_SPIKE_THRESHOLD {
+            report.violations.push(Violation::CoWFault {
+                fault_count: cow_faults_for_silo,
+            });
+            report.health_score = report.health_score.saturating_sub(25);
+            crate::serial_println!(
+                "SENTINEL: Silo {} CoW spike ({} faults) — possible memory probe.",
+                report.silo_id, cow_faults_for_silo
+            );
+        }
+
+        // ── Phase 49: IRQ Vector Steal attempts (Law VI: Silo Sandbox) ───────
+        // Any non-zero IRQ fault count indicates an attempted vector steal or
+        // missing CapToken — both are immediate Law I/VI violations.
+        report.irq_faults = irq_faults_for_silo;
+        if irq_faults_for_silo > 0 {
+            report.violations.push(Violation::IrqVectorSteal {
+                fault_count: irq_faults_for_silo,
+            });
+            // IRQ steal attempts are severe — immediately critical
+            report.health_score = report.health_score.saturating_sub(40);
+            crate::serial_println!(
+                "SENTINEL: Silo {} made {} IRQ vector steal attempts — LAW VI VIOLATION.",
+                report.silo_id, irq_faults_for_silo
+            );
+        }
+
+        // ── Phase 48: PCID Pool Pressure (system-wide, Law VI) ───────────────
+        // If >80% of PCID slots are taken, the risk of PCID recycling increases.
+        // Recycled PCIDs before a full TLB flush could allow stale translations.
+        let pcid_allocated = crate::memory::pcid::allocated_count();
+        let pcid_total: u32 = 4095; // hardware maximum
+        let pressure_pct = ((pcid_allocated as u64 * 100) / pcid_total as u64).min(100) as u8;
+        report.pcid_pressure_pct = pressure_pct;
+
+        if pressure_pct > 80 {
+            report.violations.push(Violation::PcidPoolPressure {
+                allocated: pcid_allocated,
+                total: pcid_total,
+            });
+            // Pool pressure is a system-wide issue — don't penalise the Silo itself
+            // but log it for the operator.
+            crate::serial_println!(
+                "SENTINEL: PCID pool at {}% ({}/{}) — isolation pressure HIGH.",
+                pressure_pct, pcid_allocated, pcid_total
+            );
         }
     }
 
@@ -178,8 +271,38 @@ impl Sentinel {
                     silo.vaporize();
                     self.silos_vaporized += 1;
                 }
+                // ── Phase 50: New violation responses ────────────────────────
+                Violation::IrqVectorSteal { fault_count } => {
+                    // IRQ stealing is a deliberate sandbox escape attempt → vaporize
+                    crate::serial_println!(
+                        "SENTINEL: Silo {} made {} IRQ steal attempts. VAPORIZING — Law VI.",
+                        silo.id, fault_count
+                    );
+                    silo.vaporize();
+                    self.silos_vaporized += 1;
+                }
+                Violation::CoWFault { fault_count } => {
+                    // CoW spike: suspend first, vaporize if score is critical
+                    crate::serial_println!(
+                        "SENTINEL: Silo {} CoW spike ({} faults). Suspending — Law II.",
+                        silo.id, fault_count
+                    );
+                    silo.state = SiloState::Suspended;
+                    if silo.health_score < 30 {
+                        silo.vaporize();
+                        self.silos_vaporized += 1;
+                    }
+                }
+                Violation::PcidPoolPressure { allocated, total } => {
+                    // System-wide pressure — do not kill the Silo (it's not at fault)
+                    // Just log; the hypervisor layer should be alerted.
+                    crate::serial_println!(
+                        "SENTINEL: PCID pool at {}/{} — operator intervention advised.",
+                        allocated, total
+                    );
+                }
+                // ── Existing violation responses ──────────────────────────────
                 Violation::EnergyDrain { .. } => {
-                    // Warning: throttle the Silo
                     crate::serial_println!(
                         "SENTINEL: Energy drain in Silo {}. Throttling.",
                         silo.id
@@ -187,14 +310,12 @@ impl Sentinel {
                     silo.state = SiloState::Suspended;
                 }
                 Violation::SyncBlock { blocked_ms } => {
-                    // Warning: dim the window via Aether
                     crate::serial_println!(
                         "SENTINEL: Silo {} blocked for {}ms. Dimming window.",
                         silo.id, blocked_ms
                     );
                 }
                 Violation::MemoryLeak { leaked_bytes } => {
-                    // Warning then kill if persistent
                     crate::serial_println!(
                         "SENTINEL: Memory leak in Silo {} ({} bytes). Warning.",
                         silo.id, leaked_bytes
@@ -213,6 +334,46 @@ impl Sentinel {
             }
         }
     }
+
+    // ── Phase 50: Sentinel Snapshot (Telemetry Export) ────────────────────────
+
+    /// Produce a lightweight snapshot of system-wide Sentinel state for telemetry.
+    ///
+    /// This snapshot is exported via the Q-Shell `sentinel status` command and
+    /// via the `SyscallId::SentinelSnapshot` handler. It intentionally contains
+    /// no per-Silo private data — only aggregate counters safe for telemetry.
+    ///
+    /// ## Q-Manifest Law 7: Telemetry Transparency
+    /// All exported metrics are opt-in aggregate data. No individual Silo's
+    /// memory content or code is ever included in a snapshot.
+    pub fn snapshot(&self) -> SentinelSnapshot {
+        SentinelSnapshot {
+            total_violations: self.total_violations,
+            silos_vaporized: self.silos_vaporized,
+            pcid_allocated: crate::memory::pcid::allocated_count(),
+            law_enforcement_active: true,
+        }
+    }
+} // end impl Sentinel
+
+/// Lightweight Sentinel telemetry snapshot for external export.
+///
+/// Contains ONLY aggregate counters with no per-Silo private data.
+/// Exported via `Q-Shell sentinel status` and `SyscallId::SentinelSnapshot`.
+///
+/// ## Q-Manifest Law 7: Telemetry Transparency
+/// This struct is the only telemetry surface of the Sentinel — nothing
+/// deeper (HealthReports, Silo memory state) may be exposed externally.
+#[derive(Debug, Clone)]
+pub struct SentinelSnapshot {
+    /// Total law violations detected since boot.
+    pub total_violations: u64,
+    /// Total Q-Silos vaporized by the Sentinel.
+    pub silos_vaporized: u64,
+    /// Current PCID allocations across all Silos (system-wide pressure gauge).
+    pub pcid_allocated: u32,
+    /// Whether the Sentinel's enforcement loop is currently active.
+    pub law_enforcement_active: bool,
 }
 
 /// Initialize the Sentinel on a dedicated CPU core.

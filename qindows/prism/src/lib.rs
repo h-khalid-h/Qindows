@@ -78,6 +78,8 @@ pub struct QNode {
     pub lineage: Option<OID>,
     /// Object metadata
     pub metadata: ObjectMetadata,
+    /// Chunk hashes from the Deduplication Engine
+    pub chunks: Vec<crate::dedup::ChunkHash>,
 }
 
 /// Metadata associated with a Q-Node.
@@ -99,16 +101,21 @@ pub struct ObjectMetadata {
     pub creator_silo: u64,
 }
 
-/// The Prism Object Graph — the central storage engine.
 pub struct PrismGraph {
     /// All objects in the local graph
     objects: Vec<QNode>,
+    /// Global Chunk Index
+    pub dedup: crate::dedup::DedupEngine,
+    /// Write-Ahead Journal for crash recovery
+    pub journal: crate::journal::Journal,
 }
 
 impl PrismGraph {
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         PrismGraph {
             objects: Vec::new(),
+            dedup: crate::dedup::DedupEngine::new(),
+            journal: crate::journal::Journal::new(),
         }
     }
 
@@ -116,11 +123,25 @@ impl PrismGraph {
     ///
     /// If an object with the same OID already exists (deduplication),
     /// the existing one is returned instead.
-    pub fn store(&mut self, node: QNode) -> &QNode {
+    pub fn store(&mut self, mut node: QNode, data: &[u8]) -> &QNode {
         if let Some(pos) = self.objects.iter().position(|n| n.oid == node.oid) {
             return &self.objects[pos];
         }
+
+        // WAL Step 1: Record intent in journal BEFORE writing
+        let oid_copy = node.oid;
+        let entry = self.journal.begin(crate::journal::JournalOp::Insert, oid_copy);
+        entry.data_length = data.len() as u64;
+        let seq = entry.seq;
+
+        // WAL Step 2: Perform the actual write (chunk + insert)
+        let chunk_hashes = self.dedup.store_object(data);
+        node.chunks = chunk_hashes;
         self.objects.push(node);
+
+        // WAL Step 3: Commit the journal entry — write is now durable
+        self.journal.commit(seq);
+
         self.objects.last().unwrap()
     }
 
@@ -212,10 +233,29 @@ impl PrismGraph {
 ///
 /// The old version becomes a Shadow Object (still accessible
 /// for instant rollback). No data is ever truly deleted.
-pub fn ghost_write(graph: &mut PrismGraph, parent_oid: &OID, new_node: QNode) -> OID {
+pub fn ghost_write(graph: &mut PrismGraph, parent_oid: &OID, new_node: QNode, data: &[u8]) -> OID {
     let oid = new_node.oid;
     let mut versioned = new_node;
     versioned.lineage = Some(*parent_oid);
-    graph.store(versioned);
+
+    // WAL: Journal the Update operation before storing
+    let entry = graph.journal.begin(crate::journal::JournalOp::Update, oid);
+    entry.data_length = data.len() as u64;
+    // Record parent pointer for undo
+    entry.prev_offset = 0;
+    entry.prev_length = 32; // OID size
+    let seq = entry.seq;
+
+    // Dedup + store
+    let chunk_hashes = graph.dedup.store_object(data);
+    versioned.chunks = chunk_hashes;
+
+    // Push without calling store() to avoid double-journaling
+    if graph.objects.iter().all(|n| n.oid != versioned.oid) {
+        graph.objects.push(versioned);
+    }
+
+    // Commit the journal entry
+    graph.journal.commit(seq);
     oid
 }

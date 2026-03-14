@@ -107,3 +107,70 @@ pub unsafe fn switch_address_space(new_cr3: u64) {
 pub unsafe fn invlpg(addr: u64) {
     core::arch::asm!("invlpg [{}]", in(reg) addr, options(nostack));
 }
+
+/// Perform a one-way bridge transition from Kernel Mode (Ring 0) to
+/// User Mode (Ring 3). This function never returns.
+///
+/// It constructs an `iretq` stack frame containing the Ring 3 segment
+/// selectors, the target stack, and the target instruction pointer,
+/// then executes the `iret` instruction to atomically drop privileges
+/// and jump to the user binary.
+///
+/// # Safety
+/// The `entry_point` must point to executable Ring 3 memory.
+/// The `user_stack` must point to valid R/W Ring 3 memory.
+#[unsafe(naked)]
+pub unsafe extern "C" fn switch_to_user_mode(
+    _entry_point: u64, // RDI
+    _user_stack: u64,  // RSI
+) -> ! {
+    core::arch::naked_asm!(
+        // Disable interrupts during the transition
+        "cli",
+        
+        // The AMD64 `iretq` instruction expects 5 values on the stack
+        // in this exact order:
+        // 5. SS (User Data Segment Selector)
+        // 4. RSP (User Stack Pointer)
+        // 3. RFLAGS (Flags including IF=1 to re-enable interrupts in userspace)
+        // 2. CS (User Code Segment Selector)
+        // 1. RIP (User Instruction Pointer)
+
+        // 5. Push User Data Segment Selector (0x18 | 3 = 0x1B)
+        "push 0x1B",
+        
+        // 4. Push User Stack Pointer (RSI)
+        "push rsi",
+        
+        // 3. Push RFLAGS (0x202 = Interrupts Enabled + Reserved Bit 1)
+        "push 0x202",
+        
+        // 2. Push User Code Segment Selector (0x20 | 3 = 0x23)
+        "push 0x23",
+        
+        // 1. Push User Instruction Pointer (RDI)
+        "push rdi",
+        
+        // Clear general purpose registers to prevent data leaks from ring 0
+        "xor rax, rax",
+        "xor rbx, rbx",
+        "xor rcx, rcx",
+        "xor rdx, rdx",
+        "xor r8, r8",
+        "xor r9, r9",
+        "xor r10, r10",
+        "xor r11, r11",
+        "xor r12, r12",
+        "xor r13, r13",
+        "xor r14, r14",
+        "xor r15, r15",
+        "xor rbp, rbp",
+
+        // We can't clear RDI/RSI yet, let's clear them just before iretq
+        "xor rdi, rdi",
+        "xor rsi, rsi",
+
+        // Execute atomic privilege drop and jump
+        "iretq",
+    );
+}

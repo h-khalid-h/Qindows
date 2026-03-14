@@ -80,6 +80,9 @@ pub struct VirtQueue {
     pub free_count: u16,
 }
 
+unsafe impl Send for VirtQueue {}
+unsafe impl Sync for VirtQueue {}
+
 impl VirtQueue {
     pub fn new(queue_idx: u16, queue_size: u16, desc: *mut VqDesc, avail: *mut VqAvail, used: *mut VqUsed) -> Self {
         VirtQueue {

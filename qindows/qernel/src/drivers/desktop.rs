@@ -90,46 +90,20 @@ pub fn render_desktop(fb: &mut AetherFrameBuffer) {
 }
 
 /// The Aether CPU Software Rasterizer.
-/// Resolves the Vector Scene Graph into an ARGB pixel buffer.
+/// Resolves the Vector Scene Graph into an ARGB pixel buffer by delegating
+/// to the cross-platform Aether compositor library.
 fn rasterize_aether_frame(fb: &mut AetherFrameBuffer, frame: &RenderFrame) {
-    for cmd in &frame.commands {
-        match cmd {
-            RenderCommand::RoundedRect { x, y, width, height, radius, fill, border } => {
-                let fill_u32 = color_to_u32(fill);
-                draw_rounded_rect_alpha(fb, *x as usize, *y as usize, *width as usize, *height as usize, *radius as usize, fill_u32, (fill.a * 255.0) as u32);
-                if let Some((stroke_w, stroke_c)) = border {
-                    // Simple hacky stroke outline
-                    draw_rounded_rect_alpha(fb, *x as usize, *y as usize, *width as usize, *stroke_w as usize, *radius as usize, color_to_u32(stroke_c), (stroke_c.a * 255.0) as u32);
-                }
-            }
-            RenderCommand::GlassBlur { x, y, width, height, radius, tint, .. } => {
-                // We can't actually run a 20px gaussian blur on software in real-time,
-                // so we approximate Q-Glass with highly translucent dark tint.
-                let tint_u32 = color_to_u32(tint);
-                draw_rounded_rect_alpha(fb, *x as usize, *y as usize, *width as usize, *height as usize, *radius as usize, tint_u32, (tint.a * 255.0) as u32);
-            }
-            RenderCommand::Shadow { x, y, width, height, radius, offset_y, color, .. } => {
-                let col = color_to_u32(color);
-                let alpha = (color.a * 255.0) as u32;
-                // Layer drop shadows
-                draw_rounded_rect_alpha(fb, (*x) as usize, (*y + *offset_y) as usize, *width as usize, *height as usize, *radius as usize, col, alpha);
-            }
-            RenderCommand::Gradient { x, y, width, height, start_color, end_color, .. } => {
-                // Simple vertical gradient fill
-                for py in (*y as usize)..(*y as usize + *height as usize) {
-                    let t = (py as f32 - *y) / *height;
-                    let c = start_color.lerp(end_color, t);
-                    let cu32 = color_to_u32(&c);
-                    let a = (c.a * 255.0) as u32;
-                    fill_rect_alpha(fb, *x as usize, py, *width as usize, 1, cu32, a);
-                }
-            }
-            RenderCommand::Text { x, y, text, color, .. } => {
-                draw_text_exact(fb, *x as f32 as usize, *y as f32 as usize, text, color_to_u32(color));
-            }
-            _ => {} // Ignore images/clips for the prototype
-        }
-    }
+    // We pass a closure to Aether's rasterizer so Aether (no_std, userspace)
+    // can write physical pixels to the kernel's framebuffer without linking
+    // the kernel or knowing physical memory layout.
+    frame.rasterize(|x, y, color| {
+        let u32_color = color_to_u32(&color);
+        let alpha = (color.a * 255.0) as u32;
+        
+        let bg = fb.read_pixel(x as usize, y as usize);
+        let blended = blend(bg, u32_color, alpha);
+        fb.draw_pixel(x as usize, y as usize, blended);
+    });
 }
 
 #[inline(always)]

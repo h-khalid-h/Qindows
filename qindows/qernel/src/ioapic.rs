@@ -238,4 +238,71 @@ impl IoApic {
             self.overrides[isa_irq as usize] = (isa_irq, gsi);
         }
     }
+
+    // ── Phase 49: Silo-Aware Routing ─────────────────────────────────────────
+
+    /// Route an IRQ pin to a Silo's assigned CPU with ownership validation.
+    ///
+    /// Unlike `route_irq()`, this function notes `silo_id` in the serial log
+    /// and enforces that silo_id is non-zero (kernel-only if silo_id == 0).
+    ///
+    /// ## Q-Manifest Law 6: Silo Sandbox
+    /// IRQ routing is a privileged operation. Only the `SiloInterruptRouter`
+    /// should call this on behalf of a Silo after CapToken validation.
+    /// Never call this directly from a syscall handler without going through
+    /// `SiloInterruptRouter::allocate_vectors()` first.
+    pub unsafe fn route_to_silo(
+        &mut self,
+        irq_pin: u8,
+        vector: u8,
+        lapic_id: u8,
+        silo_id: u64,
+        trigger: TriggerMode,
+        polarity: Polarity,
+    ) -> Result<(), &'static str> {
+        if irq_pin >= self.max_entries {
+            return Err("IOAPIC: IRQ pin out of range");
+        }
+
+        // silo_id == 0 is the kernel identity — user Silos must be non-zero
+        // (They are assigned IDs starting from 1 by the Silo manager)
+        if silo_id == 0 {
+            return Err("IOAPIC: Cannot route kernel IOAPIC pin to Silo 0 via Silo path");
+        }
+
+        let entry = RedirectionEntry {
+            vector,
+            delivery_mode: DeliveryMode::Fixed,
+            dest_mode: DestMode::Physical,
+            trigger,
+            polarity,
+            masked: false,
+            destination: lapic_id,
+        };
+        self.write_entry(irq_pin, entry);
+
+        crate::serial_println!(
+            "[IOAPIC] IRQ pin {} → vector 0x{:02x} → LAPIC {} for Silo {}",
+            irq_pin, vector, lapic_id, silo_id
+        );
+
+        Ok(())
+    }
+
+    /// Mask an IRQ pin on behalf of a specific Silo.
+    ///
+    /// A Silo may only mask pins that were routed to it. This is enforced
+    /// upstream via `SiloInterruptRouter` — this function is the hardware
+    /// write path only.
+    pub unsafe fn mask_for_silo(&mut self, irq_pin: u8, silo_id: u64) {
+        self.mask(irq_pin);
+        crate::serial_println!("[IOAPIC] Silo {} masked IRQ pin {}", silo_id, irq_pin);
+    }
+
+    /// Unmask an IRQ pin on behalf of a specific Silo.
+    pub unsafe fn unmask_for_silo(&mut self, irq_pin: u8, silo_id: u64) {
+        self.unmask(irq_pin);
+        crate::serial_println!("[IOAPIC] Silo {} unmasked IRQ pin {}", silo_id, irq_pin);
+    }
 }
+

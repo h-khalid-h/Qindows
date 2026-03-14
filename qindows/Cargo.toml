@@ -8,8 +8,8 @@ members = [
     "aether",
     "q-shell",
     "chimera",
-    "synapse",
     "nexus",
+    "sentinel",
 ]
 
 [workspace.package]

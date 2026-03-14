@@ -7,7 +7,13 @@ pub mod heap;
 pub mod page_alloc;
 pub mod paging;
 pub mod slab;
+pub mod numa;
 pub mod vmm;
+// Phase 48: MMU hardening modules
+pub mod pcid;
+pub mod cap_mapper;
+pub mod cow;
+
 
 use spin::Mutex;
 
@@ -66,10 +72,17 @@ impl FrameAllocator {
         // Mark all frames as free initially
         bitmap.fill(0);
 
+        // ── Reserve kernel + bootloader region ──────────────────────────
+        // Mark the first 1024 physical frames (0 – 4 MiB) as USED by filling
+        // bitmap bytes 0-127 with 0xFF. This prevents allocate_frame() from
+        // handing out addresses below 4 MiB, protecting the kernel loaded
+        // at 2 MiB, its 64KB stack, its .bss, UEFI, and ACPI memory.
+        bitmap[0..128].fill(0xFF);
+
         FrameAllocator {
             bitmap,
             total_frames,
-            next_free: 0,
+            next_free: 1024, // skip reserved 4 MiB region
         }
     }
 
@@ -96,6 +109,13 @@ impl FrameAllocator {
     /// Free a previously allocated frame.
     pub fn deallocate_frame(&mut self, frame: PhysFrame) {
         let idx = (frame.base_addr / PhysFrame::SIZE) as usize;
+        
+        // Architecture Guardian Fix: Protect kernel + bootloader memory
+        // Do not allow deallocation of reserved frames (0 - 4 MiB)
+        if idx < 1024 {
+            return;
+        }
+
         let byte_idx = idx / 8;
         let bit_idx = idx % 8;
         self.bitmap[byte_idx] &= !(1 << bit_idx);
@@ -125,10 +145,10 @@ pub static FRAME_ALLOCATOR: Mutex<Option<FrameAllocator>> = Mutex::new(None);
 
 /// Physical address of the kernel's PML4 page table.
 ///
-/// Placed at 20 MiB (0x140_0000) — immediately after the 4 MiB kernel heap
-/// at 0x100_0000. The bootloader identity-maps all of physical RAM so this
-/// virtual address equals the physical address on genesis alpha.
+/// Placed at 32 MiB (0x200_0000) — immediately after the 16 MiB kernel heap
+/// at 0x100_0000..0x200_0000. The bootloader identity-maps all of physical RAM so
+/// this virtual address equals the physical address on genesis alpha.
 ///
 /// Used by `silo::QSilo::vaporize()` to restore the kernel address space
 /// after invalidating a dead silo's CR3, preventing use-after-free faults.
-pub const KERNEL_PML4_PHYS: u64 = 0x0140_0000;
+pub const KERNEL_PML4_PHYS: u64 = 0x0200_0000;

@@ -13,3 +13,7 @@ libm = { workspace = true }
 qindows-types = { workspace = true }
 aether = { path = "../aether" }
 q-shell = { path = "../q-shell" }
+sentinel = { path = "../sentinel" }
+nexus = { path = "../nexus" }
+synapse = { path = "../synapse" }
+chimera = { path = "../chimera" }

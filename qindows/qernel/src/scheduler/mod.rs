@@ -83,6 +83,8 @@ pub struct CoreScheduler {
     pub current: Option<Fiber>,
     /// Total fibers processed (for metrics)
     pub fibers_processed: u64,
+    /// Context of the kernel's idle loop (saved when switching to the first fiber)
+    pub idle_context: FiberContext,
 }
 
 impl CoreScheduler {
@@ -92,6 +94,7 @@ impl CoreScheduler {
             ready_queue: VecDeque::new(),
             current: None,
             fibers_processed: 0,
+            idle_context: FiberContext::default(),
         }
     }
 
@@ -108,18 +111,31 @@ impl CoreScheduler {
     /// Must be called with interrupts disabled (already the case in IRQ handlers).
     pub fn schedule(&mut self) {
         // ── Step 1: Account CPU time and re-queue current fiber ──────────────
+        let mut old_ctx_ptr: *mut FiberContext = core::ptr::null_mut();
+
         if let Some(mut fiber) = self.current.take() {
             if fiber.state == FiberState::Running {
                 // Fix #5: increment real per-fiber tick count so Sentinel
                 // can compute actual CPU usage percentage.
                 fiber.cpu_ticks = fiber.cpu_ticks.saturating_add(1);
                 fiber.state = FiberState::Ready;
-                self.ready_queue.push_back(fiber);
-            } else if fiber.state != FiberState::Dead {
+            }
+            if fiber.state != FiberState::Dead {
                 // Blocked or suspended — put back but don't Ready it
                 self.ready_queue.push_back(fiber);
+                // Get stable pointer to the context in the queue
+                old_ctx_ptr = &mut self.ready_queue.back_mut().unwrap().context as *mut FiberContext;
             }
-            // Dead fibers are simply dropped here
+            // Dead fibers are simply dropped here (memory to be reclaimed)
+        } else {
+            // No current fiber means we were executing the kernel idle loop
+            old_ctx_ptr = &mut self.idle_context as *mut FiberContext;
+        }
+
+        // Dummy context required if fiber was Dead, to let switch_context write somewhere
+        let mut dummy_ctx = FiberContext::default();
+        if old_ctx_ptr.is_null() {
+            old_ctx_ptr = &mut dummy_ctx as *mut FiberContext;
         }
 
         // ── Step 2: Pick next Ready fiber ────────────────────────────────────
@@ -136,31 +152,35 @@ impl CoreScheduler {
             }
         }
 
-        if let Some(mut fiber) = next {
-            fiber.state = FiberState::Running;
+        let idle_ctx_ptr = &mut self.idle_context as *mut FiberContext;
+
+        if let Some(mut next_fiber) = next {
+            next_fiber.state = FiberState::Running;
             self.fibers_processed += 1;
 
             // Fix #1: Inform the syscall capability gate which silo is now running
-            if let Some(silo_id) = fiber.silo_id {
+            if let Some(silo_id) = next_fiber.silo_id {
                 crate::syscall::set_current_silo(silo_id);
             } else {
                 crate::syscall::set_current_silo(0); // kernel fiber
             }
 
-            // Save the OLD context (currently on the stack — the IRQ frame)
-            // and restore the NEW context, jumping directly into the new fiber.
-            // We need a stable old_ctx location; we create a temporary one on
-            // the stack that outlives this call because switch_context() is naked.
-            let old_ctx_ptr: *mut FiberContext = &mut FiberContext::default() as *mut FiberContext;
-            let new_ctx_ptr: *const FiberContext = &fiber.context as *const FiberContext;
+            self.current = Some(next_fiber);
+            let new_ctx_ptr = &self.current.as_ref().unwrap().context as *const FiberContext;
 
-            self.current = Some(fiber);
-
-            // Fix #1: Perform the actual CPU context switch.
-            // Safety: interrupts are disabled at IRQ entry, both context
-            // pointers point to valid, aligned FiberContext structs.
+            // Perform the actual CPU context switch.
             unsafe {
                 context::switch_context(old_ctx_ptr, new_ctx_ptr);
+            }
+        } else {
+            // No ready fibers. If we were running a user fiber, we must return to idle context!
+            if old_ctx_ptr != idle_ctx_ptr {
+                self.current = None; // Switch back to idle
+                crate::syscall::set_current_silo(0);
+                
+                unsafe {
+                    context::switch_context(old_ctx_ptr, idle_ctx_ptr as *const FiberContext);
+                }
             }
         }
     }

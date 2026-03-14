@@ -15,6 +15,7 @@ pub mod ioapic;
 pub mod keyboard;
 pub mod mouse;
 pub mod nvme;
+pub mod nvme_block;
 pub mod pci;
 pub mod serial;
 pub mod usb_xhci;

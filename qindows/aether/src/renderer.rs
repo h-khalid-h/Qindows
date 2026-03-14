@@ -291,4 +291,157 @@ impl RenderFrame {
     pub fn memory_bytes(&self) -> usize {
         self.commands.len() * core::mem::size_of::<RenderCommand>()
     }
+
+    /// Software Rasterizer: render this entire frame using a pixel-plotting callback.
+    ///
+    /// Since Aether is a `#![no_std]` UI library isolated from the kernel and hardware,
+    /// it does not talk to the `Framebuffer` directly. Instead, the kernel passes
+    /// a closure `put_pixel(x, y, color)` and Aether executes the math.
+    ///
+    /// This is slow for a full 4K screen, but perfectly demonstrates the architecture
+    /// during Genesis Alpha.
+    pub fn rasterize<F>(&self, mut put_pixel: F)
+    where
+        F: FnMut(u32, u32, Color),
+    {
+        // For software rendering, we compute bounding boxes for every command
+        // and evaluate the SDF for each pixel in that box.
+        for cmd in &self.commands {
+            match cmd {
+                RenderCommand::RoundedRect { x, y, width, height, radius, fill, border } => {
+                    let min_x = *x as i32;
+                    let min_y = *y as i32;
+                    let max_x = (*x + *width) as i32;
+                    let max_y = (*y + *height) as i32;
+
+                    let cx = *x + *width / 2.0;
+                    let cy = *y + *height / 2.0;
+                    let half_w = *width / 2.0;
+                    let half_h = *height / 2.0;
+
+                    for py in min_y..=max_y {
+                        for px in min_x..=max_x {
+                            if px < 0 || py < 0 || px >= self.width as i32 || py >= self.height as i32 {
+                                continue;
+                            }
+
+                            let p = Vec2::new(px as f32, py as f32);
+                            let center = Vec2::new(cx, cy);
+                            let half_size = Vec2::new(half_w, half_h);
+                            
+                            // Evaluate the SDF
+                            let dist = sdf::rounded_rect(p, center, half_size, *radius);
+
+                            if dist <= 0.0 {
+                                // Inside the rect
+                                let mut final_color = *fill;
+
+                                // Handle borders
+                                if let Some((border_width, border_color)) = border {
+                                    if dist > -*border_width {
+                                        final_color = *border_color;
+                                    }
+                                }
+                                put_pixel(px as u32, py as u32, final_color);
+                            }
+                        }
+                    }
+                }
+                RenderCommand::GlassBlur { x, y, width, height, radius, tint, .. } => {
+                    // Glass blur is a heavy convolution matrix in hardware.
+                    // For our software fallback, we will just tint it.
+                    let min_x = *x as i32;
+                    let min_y = *y as i32;
+                    let max_x = (*x + *width) as i32;
+                    let max_y = (*y + *height) as i32;
+
+                    let cx = *x + *width / 2.0;
+                    let cy = *y + *height / 2.0;
+                    let half_size = Vec2::new(*width / 2.0, *height / 2.0);
+
+                    for py in min_y..=max_y {
+                        for px in min_x..=max_x {
+                            if px < 0 || py < 0 || px >= self.width as i32 || py >= self.height as i32 {
+                                continue;
+                            }
+                            let dist = sdf::rounded_rect(
+                                Vec2::new(px as f32, py as f32),
+                                Vec2::new(cx, cy),
+                                half_size,
+                                *radius,
+                            );
+                            if dist <= 0.0 {
+                                put_pixel(px as u32, py as u32, *tint);
+                            }
+                        }
+                    }
+                }
+                RenderCommand::Shadow { x, y, width, height, radius, blur, offset_x, offset_y, color } => {
+                    // Shadows are just larger, faint rounded rects under the main body.
+                    let shadow_width = *width + *blur * 2.0;
+                    let shadow_height = *height + *blur * 2.0;
+                    let sx = *x - *blur + *offset_x;
+                    let sy = *y - *blur + *offset_y;
+
+                    let min_x = sx as i32;
+                    let min_y = sy as i32;
+                    let max_x = (sx + shadow_width) as i32;
+                    let max_y = (sy + shadow_height) as i32;
+
+                    let cx = sx + shadow_width / 2.0;
+                    let cy = sy + shadow_height / 2.0;
+                    let half_size = Vec2::new(shadow_width / 2.0, shadow_height / 2.0);
+
+                    for py in min_y..=max_y {
+                        for px in min_x..=max_x {
+                            if px < 0 || py < 0 || px >= self.width as i32 || py >= self.height as i32 {
+                                continue;
+                            }
+                            let dist = sdf::rounded_rect(
+                                Vec2::new(px as f32, py as f32),
+                                Vec2::new(cx, cy),
+                                half_size,
+                                *radius + *blur,
+                            );
+                            if dist <= 0.0 {
+                                // Fade the shadow based on distance to the edge
+                                let alpha = 1.0 - (dist / -*blur).max(0.0).min(1.0);
+                                let mut final_color = *color;
+                                final_color.a *= alpha;
+                                put_pixel(px as u32, py as u32, final_color);
+                            }
+                        }
+                    }
+                }
+                RenderCommand::Gradient { x, y, width, height, start_color, end_color, .. } => {
+                    // Top-to-bottom generic linear gradient
+                    let min_x = *x as i32;
+                    let min_y = *y as i32;
+                    let max_x = (*x + *width) as i32;
+                    let max_y = (*y + *height) as i32;
+
+                    for py in min_y..=max_y {
+                        for px in min_x..=max_x {
+                            if px < 0 || py < 0 || px >= self.width as i32 || py >= self.height as i32 {
+                                continue;
+                            }
+                            let t = ((py as f32 - *y) / *height).max(0.0).min(1.0);
+                            let color = start_color.lerp(end_color, t);
+                            put_pixel(px as u32, py as u32, color);
+                        }
+                    }
+                }
+                RenderCommand::Text { x, y, text, size: _, color } => {
+                    // For software rendering without the TTF/SDF glyph atlas loaded,
+                    // we'll just simulate rendering by passing the text layout box back
+                    // as a small debug block or delegating to the kernel's VGA font.
+                    // (Real SDF font rendering requires parsing a TTF table).
+                    // As a hack for the Alpha bootloader demo, we just rely on qernel's debug text.
+                    let _ = (x, y, text, color);
+                }
+                // Ignoring clipping and opacity stacks for the initial software loop
+                _ => {}
+            }
+        }
+    }
 }
