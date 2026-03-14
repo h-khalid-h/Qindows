@@ -644,6 +644,16 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Page Cache Eviction Silo Bridge (max 2048 cached pages/Silo) | `page_cache_eviction_silo_bridge.rs` | ✅ Phase 288 |
 | Disk Scheduler I/O Priority Bridge (Admin:EXEC on Critical/System I/O) | `disk_sched_io_priority_bridge.rs` | ✅ Phase 289 |
 | Entropy Pool Drain Rate Bridge (max 1024 entropy bits/Silo/tick) | `entropy_pool_drain_rate_bridge.rs` | ✅ Phase 290 |
+| ACPI Table Parse Admin Cap Bridge (Admin:EXEC required) | `acpi_table_parse_cap_bridge.rs` | ✅ Phase 291 |
+| CPU Frequency Boost Admin Cap Bridge (Admin:EXEC required) | `cpu_freq_boost_cap_bridge.rs` | ✅ Phase 292 |
+| DMA Engine Silo Ranges Cap Bridge (Admin:EXEC required) | `dma_engine_silo_ranges_cap_bridge.rs` | ✅ Phase 293 |
+| EFI Boot Services Exit Audit Bridge (Law 2 Integrity log) | `efi_boot_services_audit_bridge.rs` | ✅ Phase 294 |
+| Aether A11y Node Upsert Rate Bridge (max 512 nodes/Silo/tick) | `aether_a11y_upsert_rate_bridge.rs` | ✅ Phase 295 |
+| CGroup Limit Admin Cap Bridge (Admin:EXEC required) | `cgroup_limit_admin_cap_bridge.rs` | ✅ Phase 296 |
+| Collab Session Peer Join Audit Bridge (Law 4 Global Data log) | `collab_session_join_audit_bridge.rs` | ✅ Phase 297 |
+| Digital Antibody Threat Score Cap Bridge (Sentinel:READ required) | `digital_antibody_score_cap_bridge.rs` | ✅ Phase 298 |
+| EFI Memory Map Parse Cap Bridge (Admin:EXEC required) | `efi_memory_map_parse_cap_bridge.rs` | ✅ Phase 299 |
+| Collab Session Delta Sync Rate Bridge (max 16 syncs/peer/tick) | `collab_delta_sync_rate_bridge.rs` | ✅ Phase 300 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

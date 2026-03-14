@@ -294,6 +294,11 @@ pub mod cpu_freq_boost_cap_bridge;     // Phase 292: Admin:EXEC on CPU Frequency
 pub mod dma_engine_silo_ranges_cap_bridge; // Phase 293: Admin:EXEC on DMA Silo mappings
 pub mod efi_boot_services_audit_bridge; // Phase 294: Audit Law 2 on EFI Exit Boot Services
 pub mod aether_a11y_upsert_rate_bridge; // Phase 295: Max 512 A11y node upserts per Silo
+pub mod cgroup_limit_admin_cap_bridge; // Phase 296: Admin:EXEC on CGroup limit config
+pub mod collab_session_join_audit_bridge; // Phase 297: Audit Collab Peer join
+pub mod digital_antibody_score_cap_bridge; // Phase 298: Sentinel:READ on Threat Intel
+pub mod efi_memory_map_parse_cap_bridge; // Phase 299: Admin:EXEC on EFI memory parsing
+pub mod collab_delta_sync_rate_bridge; // Phase 300: Rate limit Collab Delta Sync requests
 
 
 
