@@ -247,6 +247,11 @@ pub mod qring_dispatch_rate_bridge;    // Phase 252: Max 128 Q-Ring dispatches/S
 pub mod virtio_queue_silo_bridge;      // Phase 253: Max 32 VirtIO descriptors/Silo/tick
 pub mod prism_live_index_eviction_bridge; // Phase 254: Max 1024 live objects/Silo quota
 pub mod wasm_runtime_validation_bridge; // Phase 255: 16 MiB WASM binary size cap (Law 4)
+pub mod timeline_slider_version_cap_bridge; // Phase 256: Max 10K tick version age cap on previews
+pub mod fiber_offload_transmission_cap_bridge; // Phase 257: Max 64 MiB Fiber snapshot transmission
+pub mod compute_auction_bid_cap_bridge; // Phase 258: power_score>1000 needs Admin:EXEC
+pub mod digital_antibody_rate_bridge;  // Phase 259: Max 8 antibodies generated per tick
+pub mod prism_search_rate_bridge;      // Phase 260: Max 16 Prism search queries/Silo/tick
 
 
 

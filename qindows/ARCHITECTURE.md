@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 255 / March 2026)
+## IMPLEMENTATION STATUS (Phase 260 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -609,6 +609,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Virtio Queue Silo Bridge (max 32 VirtIO descriptors/Silo/tick) | `virtio_queue_silo_bridge.rs` | ✅ Phase 253 |
 | Prism Live Index Eviction Bridge (max 1024 live objects/Silo) | `prism_live_index_eviction_bridge.rs` | ✅ Phase 254 |
 | WASM Runtime Validation Bridge (16 MiB binary size cap, Law 4) | `wasm_runtime_validation_bridge.rs` | ✅ Phase 255 |
+| Timeline Slider Version Cap Bridge (max 10K tick version age) | `timeline_slider_version_cap_bridge.rs` | ✅ Phase 256 |
+| Fiber Offload Transmission Cap Bridge (max 64 MiB snapshot) | `fiber_offload_transmission_cap_bridge.rs` | ✅ Phase 257 |
+| Compute Auction Bid Cap Bridge (power_score>1000 needs Admin:EXEC) | `compute_auction_bid_cap_bridge.rs` | ✅ Phase 258 |
+| Digital Antibody Rate Bridge (max 8 antibodies per tick) | `digital_antibody_rate_bridge.rs` | ✅ Phase 259 |
+| Prism Search Rate Bridge (max 16 queries/Silo/tick) | `prism_search_rate_bridge.rs` | ✅ Phase 260 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*
