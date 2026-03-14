@@ -262,6 +262,11 @@ pub mod nexus_peer_tier_cap_bridge;    // Phase 267: Admin:EXEC gate on Core/Mas
 pub mod firstboot_step_audit_bridge;   // Phase 268: Law 2 audit on each firstboot step advance
 pub mod update_pipeline_rate_bridge;   // Phase 269: Min 500 ticks between update cycles
 pub mod smp_core_silo_affinity_bridge; // Phase 270: Admin:EXEC gate on CPU core affinity pinning
+pub mod q_kit_sdk_widget_rate_bridge; // Phase 271: Max 8192 widgets per Silo
+pub mod identity_token_bind_bridge;    // Phase 272: IdentityToken silo_id binding (Law 1)
+pub mod ledger_package_hash_cap_bridge; // Phase 273: Max 4 package publishes/Silo/tick
+pub mod sentinel_anomaly_whitelist_bridge; // Phase 274: Skip scoring for whitelisted system Silos
+pub mod q_view_browser_process_cap_bridge; // Phase 275: Max 32 browser tab Silos per session
 
 
 

@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 270 / March 2026)
+## IMPLEMENTATION STATUS (Phase 275 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -624,6 +624,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Firstboot Step Audit Bridge (Law 2 audit on each step advance) | `firstboot_step_audit_bridge.rs` | ✅ Phase 268 |
 | Update Pipeline Rate Bridge (min 500 ticks between update cycles) | `update_pipeline_rate_bridge.rs` | ✅ Phase 269 |
 | SMP Core Silo Affinity Bridge (Admin:EXEC on CPU core pinning) | `smp_core_silo_affinity_bridge.rs` | ✅ Phase 270 |
+| Q-Kit SDK Widget Rate Bridge (max 8192 widgets/Silo) | `q_kit_sdk_widget_rate_bridge.rs` | ✅ Phase 271 |
+| Identity Token Bind Bridge (token.bound_silo binding, Law 1) | `identity_token_bind_bridge.rs` | ✅ Phase 272 |
+| Ledger Package Hash Cap Bridge (max 4 publishes/Silo/tick) | `ledger_package_hash_cap_bridge.rs` | ✅ Phase 273 |
+| Sentinel Anomaly Whitelist Bridge (skip scoring for system Silos) | `sentinel_anomaly_whitelist_bridge.rs` | ✅ Phase 274 |
+| Q-View Browser Process Cap Bridge (max 32 tab Silos/session) | `q_view_browser_process_cap_bridge.rs` | ✅ Phase 275 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*
