@@ -222,7 +222,11 @@ pub mod secure_boot_pcr_audit_bridge;  // Phase 227: PCR extend → Law 2 audit 
 pub mod coredump_cap_bridge;           // Phase 228: Admin:EXEC gate on cross-Silo coredump read
 pub mod genesis_silo_audit_bridge;     // Phase 229: Retroactive genesis CapType grant audit (Law 1)
 pub mod boot_sequence_integrity_bridge; // Phase 230: Boot stage order verification (Law 2)
-
+pub mod qview_widget_cap_bridge;       // Phase 231: Law 6 gate on cross-Silo QKitTree writes
+pub mod pcm_audio_silo_cap_bridge;     // Phase 232: Max 4 audio streams per Silo quota
+pub mod npu_scheduler_cap_bridge;      // Phase 233: Admin:EXEC gate on NpuPriority::Critical
+pub mod qview_browser_nav_cap_bridge;  // Phase 234: Law 6 gate on cross-Silo DOM injection
+pub mod qview_wm_monitor_cap_bridge;   // Phase 235: Admin:EXEC gate on Fullscreen/Presentation
 
 
 

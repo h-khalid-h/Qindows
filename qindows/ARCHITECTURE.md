@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 230 / March 2026)
+## IMPLEMENTATION STATUS (Phase 235 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -584,6 +584,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Coredump Cap Bridge (Admin:EXEC gate on cross-Silo coredump) | `coredump_cap_bridge.rs` | ✅ Phase 228 |
 | Genesis Silo Audit Bridge (retroactive genesis CapType grant audit) | `genesis_silo_audit_bridge.rs` | ✅ Phase 229 |
 | Boot Sequence Integrity Bridge (boot stage order verification, Law 2) | `boot_sequence_integrity_bridge.rs` | ✅ Phase 230 |
+| QView Widget Cap Bridge (Law 6 gate on cross-Silo QKitTree writes) | `qview_widget_cap_bridge.rs` | ✅ Phase 231 |
+| PCM Audio Silo Cap Bridge (max 4 audio streams per Silo) | `pcm_audio_silo_cap_bridge.rs` | ✅ Phase 232 |
+| NPU Scheduler Cap Bridge (Admin:EXEC gate on Critical NPU priority) | `npu_scheduler_cap_bridge.rs` | ✅ Phase 233 |
+| QView Browser Nav Cap Bridge (Law 6 gate on cross-Silo DOM injection) | `qview_browser_nav_cap_bridge.rs` | ✅ Phase 234 |
+| QView WM Monitor Cap Bridge (Admin:EXEC gate on Monocle layout mode) | `qview_wm_monitor_cap_bridge.rs` | ✅ Phase 235 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*
