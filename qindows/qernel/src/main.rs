@@ -272,6 +272,11 @@ pub mod q_admin_escalation_rate_bridge; // Phase 277: Max 4 escalations/Silo per
 pub mod power_manager_governor_cap_bridge; // Phase 278: Admin:EXEC gate on Performance governor
 pub mod qtraffic_flow_account_cap_bridge; // Phase 279: Max 256 flow events/Silo/tick
 pub mod aether_window_layer_silo_bridge; // Phase 280: Admin:EXEC gate on System/Overlay window layer
+pub mod synapse_neural_intent_rate_bridge; // Phase 281: Max 32 neural intents/Silo/tick
+pub mod elf_binary_load_cap_bridge;    // Phase 282: Max 512 MiB ELF LOAD segment memsz
+pub mod qfs_ghost_version_rate_bridge; // Phase 283: Max 256 versions per PrismObject
+pub mod elastic_render_scene_cap_bridge; // Phase 284: Max 64 MiB SceneGraph wire size
+pub mod ghost_write_engine_transaction_rate_bridge; // Phase 285: Max 1024 ops per GwTransaction
 
 
 

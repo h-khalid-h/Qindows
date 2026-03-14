@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 280 / March 2026)
+## IMPLEMENTATION STATUS (Phase 285 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -634,6 +634,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Power Manager Governor Cap Bridge (Admin:EXEC on Performance governor) | `power_manager_governor_cap_bridge.rs` | ✅ Phase 278 |
 | QTraffic Flow Account Cap Bridge (max 256 flow events/Silo/tick) | `qtraffic_flow_account_cap_bridge.rs` | ✅ Phase 279 |
 | Aether Window Layer Silo Bridge (Admin:EXEC on Overlay/Notification layer) | `aether_window_layer_silo_bridge.rs` | ✅ Phase 280 |
+| Synapse Neural Intent Rate Bridge (max 32 intents/Silo/tick) | `synapse_neural_intent_rate_bridge.rs` | ✅ Phase 281 |
+| ELF Binary Load Cap Bridge (max 512 MiB LOAD segment memsz) | `elf_binary_load_cap_bridge.rs` | ✅ Phase 282 |
+| QFS Ghost Version Rate Bridge (max 256 versions/PrismObject) | `qfs_ghost_version_rate_bridge.rs` | ✅ Phase 283 |
+| Elastic Render Scene Cap Bridge (max 64 MiB SceneGraph wire size) | `elastic_render_scene_cap_bridge.rs` | ✅ Phase 284 |
+| Ghost Write Engine Transaction Rate Bridge (max 1024 ops/transaction) | `ghost_write_engine_transaction_rate_bridge.rs` | ✅ Phase 285 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*
