@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 245 / March 2026)
+## IMPLEMENTATION STATUS (Phase 250 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -599,6 +599,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | PMC Anomaly Loop Cap Bridge (4-enforcement-per-tick rate limit) | `pmc_anomaly_loop_cap_bridge.rs` | ✅ Phase 243 |
 | NUMA Allocator Silo Bridge (32-Silo/node imbalance detection) | `numa_alloc_silo_bridge.rs` | ✅ Phase 244 |
 | APIC Timer Silo Bridge (max 1000 Hz per core cap) | `apic_timer_silo_bridge.rs` | ✅ Phase 245 |
+| Virtio GPU Silo Cap Bridge (Law 6 gate on cross-Silo VirtIO GPU resource) | `virtio_gpu_silo_cap_bridge.rs` | ✅ Phase 246 |
+| USB HCI Silo Cap Bridge (Admin:EXEC gate on HID/MassStorage USB) | `usb_hci_silo_cap_bridge.rs` | ✅ Phase 247 |
+| V-GDI Upscale Silo Cap Bridge (Law 6 gate on cross-Silo capture buffer) | `v_gdi_upscale_silo_cap_bridge.rs` | ✅ Phase 248 |
+| Silo Snapshot Ownership Bridge (Admin:EXEC gate on cross-Silo snapshot) | `silo_snapshot_ownership_bridge.rs` | ✅ Phase 249 |
+| UNS Resolver Auth Bridge (Network:EXEC gate on remote path resolution) | `uns_resolver_auth_bridge.rs` | ✅ Phase 250 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

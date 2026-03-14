@@ -237,6 +237,11 @@ pub mod nexus_dht_record_ttl_bridge;   // Phase 242: Periodic DHT stale peer swe
 pub mod pmc_anomaly_loop_cap_bridge;   // Phase 243: Wrap PmcAnomalyLoop::tick with audit
 pub mod numa_alloc_silo_bridge;        // Phase 244: 32-Silo/node NUMA imbalance detection
 pub mod apic_timer_silo_bridge;        // Phase 245: Max 1000 Hz APIC timer cap per core
+pub mod virtio_gpu_silo_cap_bridge;   // Phase 246: Law 6 gate on cross-Silo VirtIO GPU resource
+pub mod usb_hci_silo_cap_bridge;       // Phase 247: Admin:EXEC gate on HID/MassStorage USB access
+pub mod v_gdi_upscale_silo_cap_bridge; // Phase 248: Law 6 gate on cross-Silo GDI capture buffer read
+pub mod silo_snapshot_ownership_bridge; // Phase 249: Admin:EXEC gate on cross-Silo snapshot read
+pub mod uns_resolver_auth_bridge;      // Phase 250: Network:EXEC gate on remote UNS path resolution
 
 
 
