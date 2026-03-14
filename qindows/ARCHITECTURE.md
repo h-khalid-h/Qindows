@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 190 / March 2026)
+## IMPLEMENTATION STATUS (Phase 195 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -544,6 +544,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | WASM Sandbox Exec Bridge (Wasm:EXEC gate on sandbox load/run) | `wasm_sandbox_exec_bridge.rs` | ✅ Phase 188 |
 | Update Pipeline Audit Bridge (Admin:EXEC gate on update authorization) | `update_pipeline_audit_bridge.rs` | ✅ Phase 189 |
 | Thermal Zone Policy Bridge (ThermalMonitor Hot/Critical trip enforcement) | `thermal_zone_policy_bridge.rs` | ✅ Phase 190 |
+| RTC Time-Fence Bridge (Admin:EXEC gate on Rtc::set_time) | `rtc_time_fence_bridge.rs` | ✅ Phase 191 |
+| Timer Wheel Silo Quota Bridge (max 32 timers per Silo) | `timer_wheel_silo_quota_bridge.rs` | ✅ Phase 192 |
+| SMBIOS Audit Bridge (boot-time BIOS/System SMBIOS completeness check) | `smbios_audit_bridge.rs` | ✅ Phase 193 |
+| USB Device Cap Bridge (Admin:EXEC gate on USB HID/MassStorage access) | `usb_device_cap_bridge.rs` | ✅ Phase 194 |
+| Silo Events Audit Bridge (SiloEvent fan-out → QAuditKernel) | `silo_events_audit_bridge.rs` | ✅ Phase 168/195 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

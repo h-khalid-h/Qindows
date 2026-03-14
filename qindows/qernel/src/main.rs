@@ -182,7 +182,11 @@ pub mod timeline_slider_cap_bridge;    // Phase 187: Prism:READ/WRITE gates on T
 pub mod wasm_sandbox_exec_bridge;      // Phase 188: Wasm:EXEC gate on sandbox create/run (new)
 pub mod update_pipeline_audit_bridge;  // Phase 189: Admin:EXEC gate + audit on apply_next
 pub mod thermal_zone_policy_bridge;    // Phase 190: TripAction enforcement (throttle/shutdown)
-
+pub mod rtc_time_fence_bridge;         // Phase 191: Admin:EXEC gate on Rtc::set_time
+pub mod timer_wheel_silo_quota_bridge; // Phase 192: Max 32 timers per Silo
+pub mod smbios_audit_bridge;           // Phase 193: SMBIOS completeness + spoof detection
+pub mod usb_device_cap_bridge;         // Phase 194: Admin:EXEC gate on USB device access
+// Phase 195: silo_events_audit_bridge already declared at Phase 168
 
 
 
