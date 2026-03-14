@@ -152,7 +152,11 @@ pub mod power_gov_energy_bridge;   // Phase 157: PowerGovernor driven by thermal
 pub mod core_dump_audit_bridge;    // Phase 158: CoreDump capture wired to QAuditKernel (Law 8)
 pub mod gpu_sched_silo_bridge;     // Phase 159: GpuCompute:EXEC gate on GPU workloads
 pub mod irq_balance_topo_bridge;   // Phase 160: SMP topology → IRQ balancer
-
+pub mod firstboot_antibody_bridge; // Phase 161: First-boot seeds LocalImmunityRegistry from TPM
+pub mod chimera_handle_quota_bridge; // Phase 162: Win32 handle quota enforcement + vaporize cleanup
+pub mod fiber_offload_cap_bridge;  // Phase 163: Network:EXEC gate on cross-node fiber offload
+pub mod dma_cap_bridge;            // Phase 164: Admin:EXEC DMA gate + IOMMU range registration
+pub mod npu_synapse_bridge;        // Phase 165: Synapse:EXEC gate on NPU inference submissions
 
 
 

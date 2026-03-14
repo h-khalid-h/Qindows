@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 160 / March 2026)
+## IMPLEMENTATION STATUS (Phase 165 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -514,6 +514,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Core Dump Audit Bridge (DumpManager + QAuditKernel, Law 8) | `core_dump_audit_bridge.rs` | ✅ Phase 158 |
 | GPU Sched Silo Bridge (Energy:EXEC gate on GPU workloads) | `gpu_sched_silo_bridge.rs` | ✅ Phase 159 |
 | IRQ Balance Topology Bridge (real balancer wired to SMP) | `irq_balance_topo_bridge.rs` | ✅ Phase 160 |
+| Firstboot Antibody Bridge (boot-time threat seed → LocalImmunityRegistry) | `firstboot_antibody_bridge.rs` | ✅ Phase 161 |
+| Chimera Handle Quota Bridge (16K per-Silo Win32 handle limit) | `chimera_handle_quota_bridge.rs` | ✅ Phase 162 |
+| Fiber Offload Cap Bridge (Network:EXEC gate on cross-node offload) | `fiber_offload_cap_bridge.rs` | ✅ Phase 163 |
+| DMA Cap Bridge (Admin:EXEC gate + IOMMU SG ranges, Law 6) | `dma_cap_bridge.rs` | ✅ Phase 164 |
+| NPU Synapse Bridge (Synapse:EXEC gate + APIC-driven schedule) | `npu_synapse_bridge.rs` | ✅ Phase 165 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*
