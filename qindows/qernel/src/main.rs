@@ -289,6 +289,11 @@ pub mod entropy_pool_drain_rate_bridge;   // Phase 290: Max 1024 entropy bits/Si
 
 
 
+pub mod acpi_table_parse_cap_bridge;   // Phase 291: Admin:EXEC on ACPI table parses
+pub mod cpu_freq_boost_cap_bridge;     // Phase 292: Admin:EXEC on CPU Frequency Boost
+pub mod dma_engine_silo_ranges_cap_bridge; // Phase 293: Admin:EXEC on DMA Silo mappings
+pub mod efi_boot_services_audit_bridge; // Phase 294: Audit Law 2 on EFI Exit Boot Services
+pub mod aether_a11y_upsert_rate_bridge; // Phase 295: Max 512 A11y node upserts per Silo
 
 
 
