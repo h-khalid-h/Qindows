@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 240 / March 2026)
+## IMPLEMENTATION STATUS (Phase 245 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -594,6 +594,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | KProbe Admin Cap Bridge (Admin:EXEC gate on kprobe insertion) | `kprobe_admin_cap_bridge.rs` | ✅ Phase 238 |
 | Object Shard Integrity Bridge (ShardSet recovery health check, Law 9) | `object_shard_integrity_bridge.rs` | ✅ Phase 239 |
 | GPU Scheduler Silo Budget Bridge (2GB VRAM cap + Admin:EXEC on Critical) | `gpu_scheduler_silo_budget_bridge.rs` | ✅ Phase 240 |
+| Collab Session Net Cap Bridge (Prism:WRITE gate on CRDT apply_op) | `collab_session_net_cap_bridge.rs` | ✅ Phase 241 |
+| Nexus DHT Record TTL Bridge (periodic stale peer sweep) | `nexus_dht_record_ttl_bridge.rs` | ✅ Phase 242 |
+| PMC Anomaly Loop Cap Bridge (4-enforcement-per-tick rate limit) | `pmc_anomaly_loop_cap_bridge.rs` | ✅ Phase 243 |
+| NUMA Allocator Silo Bridge (32-Silo/node imbalance detection) | `numa_alloc_silo_bridge.rs` | ✅ Phase 244 |
+| APIC Timer Silo Bridge (max 1000 Hz per core cap) | `apic_timer_silo_bridge.rs` | ✅ Phase 245 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

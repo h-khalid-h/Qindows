@@ -232,6 +232,11 @@ pub mod silo_launch_validation_bridge; // Phase 237: Entry point + Law 2 audit o
 pub mod kprobe_admin_cap_bridge;       // Phase 238: Admin:EXEC gate on KProbe insertion
 pub mod object_shard_integrity_bridge; // Phase 239: ShardSet recovery health check (Law 9)
 pub mod gpu_scheduler_silo_budget_bridge; // Phase 240: 2GB VRAM cap + Admin:EXEC on Critical GPU
+pub mod collab_session_net_cap_bridge;  // Phase 241: Prism:WRITE gate on CRDT apply_op
+pub mod nexus_dht_record_ttl_bridge;   // Phase 242: Periodic DHT stale peer sweep
+pub mod pmc_anomaly_loop_cap_bridge;   // Phase 243: Wrap PmcAnomalyLoop::tick with audit
+pub mod numa_alloc_silo_bridge;        // Phase 244: 32-Silo/node NUMA imbalance detection
+pub mod apic_timer_silo_bridge;        // Phase 245: Max 1000 Hz APIC timer cap per core
 
 
 
