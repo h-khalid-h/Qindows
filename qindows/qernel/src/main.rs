@@ -157,7 +157,11 @@ pub mod chimera_handle_quota_bridge; // Phase 162: Win32 handle quota enforcemen
 pub mod fiber_offload_cap_bridge;  // Phase 163: Network:EXEC gate on cross-node fiber offload
 pub mod dma_cap_bridge;            // Phase 164: Admin:EXEC DMA gate + IOMMU range registration
 pub mod npu_synapse_bridge;        // Phase 165: Synapse:EXEC gate on NPU inference submissions
-
+pub mod timer_wheel_silo_bridge;   // Phase 166: TimerWheel per-Silo tracking + vaporize cleanup
+pub mod silo_ipc_router_cap_bridge; // Phase 167: Ipc:EXEC gate on SiloIpcRouter + kernel Silo guard
+pub mod silo_events_audit_bridge;  // Phase 168: SiloEvent → QAuditKernel (vaporize/cap/quota)
+pub mod quota_prism_bridge;        // Phase 169: Storage quota gate before every Prism write
+pub mod network_rate_silo_bridge;  // Phase 170: Per-tick byte rate limiter + anomaly throttle
 
 
 

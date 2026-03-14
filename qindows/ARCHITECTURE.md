@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 165 / March 2026)
+## IMPLEMENTATION STATUS (Phase 170 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -519,6 +519,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Fiber Offload Cap Bridge (Network:EXEC gate on cross-node offload) | `fiber_offload_cap_bridge.rs` | ✅ Phase 163 |
 | DMA Cap Bridge (Admin:EXEC gate + IOMMU SG ranges, Law 6) | `dma_cap_bridge.rs` | ✅ Phase 164 |
 | NPU Synapse Bridge (Synapse:EXEC gate + APIC-driven schedule) | `npu_synapse_bridge.rs` | ✅ Phase 165 |
+| Timer Wheel Silo Bridge (per-Silo tracking + vaporize cleanup) | `timer_wheel_silo_bridge.rs` | ✅ Phase 166 |
+| Silo IPC Router Cap Bridge (kernel Silo ID<16 protection) | `silo_ipc_router_cap_bridge.rs` | ✅ Phase 167 |
+| Silo Events Audit Bridge (Vaporized → QAuditKernel audit trail) | `silo_events_audit_bridge.rs` | ✅ Phase 168 |
+| Quota Prism Bridge (10GiB storage quota gate on Prism writes) | `quota_prism_bridge.rs` | ✅ Phase 169 |
+| Network Rate Silo Bridge (per-tick byte limiter + anomaly throttle) | `network_rate_silo_bridge.rs` | ✅ Phase 170 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*
