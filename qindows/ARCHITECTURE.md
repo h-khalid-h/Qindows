@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 180 / March 2026)
+## IMPLEMENTATION STATUS (Phase 185 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -534,6 +534,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | HotSwap Audit Bridge (stage/verify/apply pipeline + Admin:EXEC gate) | `hotswap_audit_bridge.rs` | ✅ Phase 178 |
 | Q-Admin Escalation Audit Bridge (escalation request/approve audit) | `q_admin_escalation_audit_bridge.rs` | ✅ Phase 179 |
 | Telemetry Quota Bridge (max 16 data points per Silo per tick) | `telemetry_quota_bridge.rs` | ✅ Phase 180 |
+| Q-Credits Budget Bridge (SpendingLimit::check_and_update enforcement) | `q_credits_budget_bridge.rs` | ✅ Phase 181 |
+| Silo Fork CoW Bridge (SiloForkEngine + Network:EXEC gate) | `silo_fork_cow_bridge.rs` | ✅ Phase 182 |
+| Nexus Mesh Audit Bridge (64 packets/tick rate limit per Silo, Law 4) | `nexus_mesh_audit_bridge.rs` | ✅ Phase 183 |
+| Entropy RNG Bridge (128-bit entropy gate before extraction) | `entropy_rng_bridge.rs` | ✅ Phase 184 |
+| Power Gov Silo Throttle Bridge (energy budget + thermal throttle, Law 8) | `power_gov_silo_throttle_bridge.rs` | ✅ Phase 185 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

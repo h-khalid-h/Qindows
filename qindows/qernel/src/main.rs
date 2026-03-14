@@ -172,7 +172,11 @@ pub mod qring_guard_audit_bridge;   // Phase 177: harden_qring_batch + audit rej
 pub mod hotswap_audit_bridge;       // Phase 178: stage/verify/apply hotswap + rollback on fail
 pub mod q_admin_escalation_audit_bridge; // Phase 179: Escalation request/approve audit log
 pub mod telemetry_quota_bridge;     // Phase 180: Max 16 telemetry records/Silo/tick
-
+pub mod q_credits_budget_bridge;    // Phase 181: SpendingLimit enforcement per Silo/kind
+pub mod silo_fork_cow_bridge;       // Phase 182: Memory:EXEC gate on fork + CoW page GC
+pub mod nexus_mesh_audit_bridge;    // Phase 183: Nexus mesh 64pkt/tick rate limit (Law 4)
+pub mod entropy_rng_bridge;         // Phase 184: 128-bit entropy gate before pool extraction
+pub mod power_gov_silo_throttle_bridge; // Phase 185: Energy budget + thermal throttle (Law 8)
 
 
 
