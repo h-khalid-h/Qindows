@@ -147,7 +147,11 @@ pub mod cgroup_quota_bridge;       // Phase 152: CGroupManager wired to Silo lif
 pub mod object_shard_prism_bridge; // Phase 153: 1MiB+ objects trigger distributed sharding
 pub mod kprobe_sentinel_bridge;    // Phase 154: KProbeManager fed from real kernel hotpaths
 pub mod cap_mapper_token_bridge;   // Phase 155: Page table perms derived from CapToken at spawn
-
+pub mod irq_silo_bridge;           // Phase 156: IRQ vector alloc+routing wired to Silo lifecycle
+pub mod power_gov_energy_bridge;   // Phase 157: PowerGovernor driven by thermal + APIC tick
+pub mod core_dump_audit_bridge;    // Phase 158: CoreDump capture wired to QAuditKernel (Law 8)
+pub mod gpu_sched_silo_bridge;     // Phase 159: GpuCompute:EXEC gate on GPU workloads
+pub mod irq_balance_topo_bridge;   // Phase 160: SMP topology → IRQ balancer
 
 
 

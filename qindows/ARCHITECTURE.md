@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 150 / March 2026)
+## IMPLEMENTATION STATUS (Phase 160 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -504,6 +504,16 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Message Bus Cap Bridge (Ipc:EXEC gate, Law 1) | `message_bus_cap_bridge.rs` | ✅ Phase 148 |
 | Sentinel Firewall Bridge (QTraffic → rule table) | `sentinel_firewall_bridge.rs` | ✅ Phase 149 |
 | Watchdog Anomaly Bridge (Q-Ring/Sentinel liveness) | `watchdog_anomaly_bridge.rs` | ✅ Phase 150 |
+| Prism ACL Cap Bridge (CapToken+ACL conjunction, Law 1) | `prism_acl_cap_bridge.rs` | ✅ Phase 151 |
+| CGroup Quota Bridge (CGroupManager wired to Silo lifecycle) | `cgroup_quota_bridge.rs` | ✅ Phase 152 |
+| Object Shard Prism Bridge (1MiB+ → distributed sharding) | `object_shard_prism_bridge.rs` | ✅ Phase 153 |
+| KProbe Sentinel Bridge (boot probes + hotpath recording) | `kprobe_sentinel_bridge.rs` | ✅ Phase 154 |
+| Cap Mapper Token Bridge (CapToken-derived page table perms) | `cap_mapper_token_bridge.rs` | ✅ Phase 155 |
+| IRQ Silo Bridge (vector alloc+routing wired to Silo lifecycle) | `irq_silo_bridge.rs` | ✅ Phase 156 |
+| Power Gov Energy Bridge (thermal + APIC tick → P-state) | `power_gov_energy_bridge.rs` | ✅ Phase 157 |
+| Core Dump Audit Bridge (DumpManager + QAuditKernel, Law 8) | `core_dump_audit_bridge.rs` | ✅ Phase 158 |
+| GPU Sched Silo Bridge (Energy:EXEC gate on GPU workloads) | `gpu_sched_silo_bridge.rs` | ✅ Phase 159 |
+| IRQ Balance Topology Bridge (real balancer wired to SMP) | `irq_balance_topo_bridge.rs` | ✅ Phase 160 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*
