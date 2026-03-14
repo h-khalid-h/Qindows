@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 220 / March 2026)
+## IMPLEMENTATION STATUS (Phase 230 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -574,6 +574,16 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | PCI Device Cap Bridge (Admin:EXEC gate on PCI MMIO mapping) | `pci_device_cap_bridge.rs` | ✅ Phase 218 |
 | QFabric Traffic Audit Bridge (max 256 fabric pkts/Silo/tick) | `qfabric_traffic_audit_bridge.rs` | ✅ Phase 219 |
 | QLedger Integrity Bridge (prev_hash chain verification, Law 9) | `qledger_integrity_bridge.rs` | ✅ Phase 220 |
+| Active Task Token Audit Bridge (expired TaskToken → Law 1 audit) | `active_task_token_audit_bridge.rs` | ✅ Phase 221 |
+| CGroup Hard Limit Bridge (Notify → Throttle enforcement upgrade) | `cgroup_hard_limit_bridge.rs` | ✅ Phase 222 |
+| QQuota Hard Enforcement Bridge (HardDenied → Law 4 audit gate) | `qquota_hard_enforcement_bridge.rs` | ✅ Phase 223 |
+| IRQ Balance Silo Audit Bridge (Admin:EXEC gate on IRQ affinity) | `irq_balance_silo_audit_bridge.rs` | ✅ Phase 224 |
+| Black Box PostMortem Cap Bridge (Admin:EXEC on cross-Silo trace) | `black_box_postmortem_cap_bridge.rs` | ✅ Phase 225 |
+| QShell Admin Pipeline Cap Bridge (AdminEscalation re-check per stage) | `qshell_admin_pipeline_cap_bridge.rs` | ✅ Phase 226 |
+| Secure Boot PCR Audit Bridge (PCR extend → Law 2 audit) | `secure_boot_pcr_audit_bridge.rs` | ✅ Phase 227 |
+| Coredump Cap Bridge (Admin:EXEC gate on cross-Silo coredump) | `coredump_cap_bridge.rs` | ✅ Phase 228 |
+| Genesis Silo Audit Bridge (retroactive genesis CapType grant audit) | `genesis_silo_audit_bridge.rs` | ✅ Phase 229 |
+| Boot Sequence Integrity Bridge (boot stage order verification, Law 2) | `boot_sequence_integrity_bridge.rs` | ✅ Phase 230 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

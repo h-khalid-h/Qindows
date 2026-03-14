@@ -212,7 +212,16 @@ pub mod rcu_grace_audit_bridge;        // Phase 217: RCU grace period stall dete
 pub mod pci_device_cap_bridge;         // Phase 218: Admin:EXEC gate on PCI MMIO mapping
 pub mod qfabric_traffic_audit_bridge;  // Phase 219: Max 256 fabric pkts/Silo/tick
 pub mod qledger_integrity_bridge;      // Phase 220: QLedger prev_hash chain verification (Law 9)
-
+pub mod active_task_token_audit_bridge; // Phase 221: Expired TaskToken → Law 1 audit
+pub mod cgroup_hard_limit_bridge;      // Phase 222: Upgrade SoftWarning → HardThrottle cgroup
+pub mod qquota_hard_enforcement_bridge; // Phase 223: HardDenied QuotaResult → Law 4 audit gate
+pub mod irq_balance_silo_audit_bridge; // Phase 224: Admin:EXEC gate on IRQ core affinity
+pub mod black_box_postmortem_cap_bridge; // Phase 225: Admin:EXEC gate on cross-Silo trace read
+pub mod qshell_admin_pipeline_cap_bridge; // Phase 226: AdminEscalation re-check per stage (Law 1)
+pub mod secure_boot_pcr_audit_bridge;  // Phase 227: PCR extend → Law 2 audit via log_hotswap
+pub mod coredump_cap_bridge;           // Phase 228: Admin:EXEC gate on cross-Silo coredump read
+pub mod genesis_silo_audit_bridge;     // Phase 229: Retroactive genesis CapType grant audit (Law 1)
+pub mod boot_sequence_integrity_bridge; // Phase 230: Boot stage order verification (Law 2)
 
 
 
