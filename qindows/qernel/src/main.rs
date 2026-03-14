@@ -177,7 +177,11 @@ pub mod silo_fork_cow_bridge;       // Phase 182: Memory:EXEC gate on fork + CoW
 pub mod nexus_mesh_audit_bridge;    // Phase 183: Nexus mesh 64pkt/tick rate limit (Law 4)
 pub mod entropy_rng_bridge;         // Phase 184: 128-bit entropy gate before pool extraction
 pub mod power_gov_silo_throttle_bridge; // Phase 185: Energy budget + thermal throttle (Law 8)
-
+pub mod synapse_neural_gate_bridge;    // Phase 186: Synapse:READ cap + ThoughtGateState
+pub mod timeline_slider_cap_bridge;    // Phase 187: Prism:READ/WRITE gates on Timeline Slider
+pub mod wasm_sandbox_exec_bridge;      // Phase 188: Wasm:EXEC gate on sandbox create/run (new)
+pub mod update_pipeline_audit_bridge;  // Phase 189: Admin:EXEC gate + audit on apply_next
+pub mod thermal_zone_policy_bridge;    // Phase 190: TripAction enforcement (throttle/shutdown)
 
 
 
