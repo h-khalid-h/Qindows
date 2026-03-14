@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 260 / March 2026)
+## IMPLEMENTATION STATUS (Phase 265 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -614,6 +614,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Compute Auction Bid Cap Bridge (power_score>1000 needs Admin:EXEC) | `compute_auction_bid_cap_bridge.rs` | ✅ Phase 258 |
 | Digital Antibody Rate Bridge (max 8 antibodies per tick) | `digital_antibody_rate_bridge.rs` | ✅ Phase 259 |
 | Prism Search Rate Bridge (max 16 queries/Silo/tick) | `prism_search_rate_bridge.rs` | ✅ Phase 260 |
+| Q-Fonts Glyph Cache Rate Bridge (max 512 cached glyphs/Silo) | `q_fonts_glyph_cache_rate_bridge.rs` | ✅ Phase 261 |
+| Q-Metrics Sample Rate Bridge (max 32 samples/Silo/tick) | `q_metrics_sample_rate_bridge.rs` | ✅ Phase 262 |
+| Prism Query Result Cap Bridge (max 10K results per query) | `prism_query_result_cap_bridge.rs` | ✅ Phase 263 |
+| Chimera Handle Leak Bridge (max 4096 Win32 handles/Silo) | `chimera_handle_leak_bridge.rs` | ✅ Phase 264 |
+| Q-Credits Spend Rate Bridge (max 100 spend ops/Silo/tick) | `q_credits_spend_rate_bridge.rs` | ✅ Phase 265 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

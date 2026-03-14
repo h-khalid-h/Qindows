@@ -252,6 +252,11 @@ pub mod fiber_offload_transmission_cap_bridge; // Phase 257: Max 64 MiB Fiber sn
 pub mod compute_auction_bid_cap_bridge; // Phase 258: power_score>1000 needs Admin:EXEC
 pub mod digital_antibody_rate_bridge;  // Phase 259: Max 8 antibodies generated per tick
 pub mod prism_search_rate_bridge;      // Phase 260: Max 16 Prism search queries/Silo/tick
+pub mod q_fonts_glyph_cache_rate_bridge; // Phase 261: Max 512 cached glyphs per Silo
+pub mod q_metrics_sample_rate_bridge;  // Phase 262: Max 32 metric samples/Silo/tick
+pub mod prism_query_result_cap_bridge; // Phase 263: Max 10K results per Prism query
+pub mod chimera_handle_leak_bridge;    // Phase 264: Max 4096 Win32 handles per Silo
+pub mod q_credits_spend_rate_bridge;   // Phase 265: Max 100 Q-Credits spends/Silo/tick
 
 
 
