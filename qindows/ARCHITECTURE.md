@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 215 / March 2026)
+## IMPLEMENTATION STATUS (Phase 220 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -569,6 +569,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | ACPI Power Profile Bridge (Admin:EXEC gate on PowerProfile change) | `acpi_power_profile_bridge.rs` | ✅ Phase 213 |
 | ELF Load Cap Bridge (Admin:EXEC + binary hash gate, Law 2) | `elf_load_cap_bridge.rs` | ✅ Phase 214 |
 | Firstboot Genesis Audit Bridge (genesis event audit trail at firstboot) | `firstboot_genesis_audit_bridge.rs` | ✅ Phase 215 |
+| QRing Async Silo Bridge (max 4096-depth SiloRing creation quota) | `qring_async_silo_bridge.rs` | ✅ Phase 216 |
+| RCU Grace Period Audit Bridge (advance_grace_period rate limit, Law 4) | `rcu_grace_audit_bridge.rs` | ✅ Phase 217 |
+| PCI Device Cap Bridge (Admin:EXEC gate on PCI MMIO mapping) | `pci_device_cap_bridge.rs` | ✅ Phase 218 |
+| QFabric Traffic Audit Bridge (max 256 fabric pkts/Silo/tick) | `qfabric_traffic_audit_bridge.rs` | ✅ Phase 219 |
+| QLedger Integrity Bridge (prev_hash chain verification, Law 9) | `qledger_integrity_bridge.rs` | ✅ Phase 220 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

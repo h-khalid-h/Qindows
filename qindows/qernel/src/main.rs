@@ -207,7 +207,11 @@ pub mod identity_token_expiry_bridge;  // Phase 212: IdentityToken expiry enforc
 pub mod acpi_power_profile_bridge;     // Phase 213: Admin:EXEC gate on ACPI PowerProfile
 pub mod elf_load_cap_bridge;           // Phase 214: Admin:EXEC + hash gate on ELF load
 pub mod firstboot_genesis_audit_bridge; // Phase 215: Genesis event audit trail at firstboot
-
+pub mod qring_async_silo_bridge;       // Phase 216: Max 4096-depth SiloRing creation quota
+pub mod rcu_grace_audit_bridge;        // Phase 217: RCU grace period stall detection (Law 4)
+pub mod pci_device_cap_bridge;         // Phase 218: Admin:EXEC gate on PCI MMIO mapping
+pub mod qfabric_traffic_audit_bridge;  // Phase 219: Max 256 fabric pkts/Silo/tick
+pub mod qledger_integrity_bridge;      // Phase 220: QLedger prev_hash chain verification (Law 9)
 
 
 
