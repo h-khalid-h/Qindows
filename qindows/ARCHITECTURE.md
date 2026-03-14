@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 200 / March 2026)
+## IMPLEMENTATION STATUS (Phase 205 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -554,6 +554,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | CPU Freq Silo Cap Bridge (Admin:EXEC gate on governor/freq) | `cpu_freq_silo_cap_bridge.rs` | ✅ Phase 198 |
 | NUMA Affinity Bridge (Silo→NUMA node binding + locality score) | `numa_affinity_bridge.rs` | ✅ Phase 199 |
 | PMC Anomaly Gate Bridge (PmcSample → SentinelAnomalyGate block, Law 6) | `pmc_anomaly_gate_bridge.rs` | ✅ Phase 200 |
+| RNG Entropy Feeder Audit Bridge (check_refresh before every generate()) | `rng_entropy_feeder_audit_bridge.rs` | ✅ Phase 201 |
+| Page Cache Silo Quota Bridge (max 4096 pages per Silo) | `page_cache_silo_quota_bridge.rs` | ✅ Phase 202 |
+| Elastic Render Cap Bridge (Network:EXEC gate on Q-Server GPU offload) | `elastic_render_cap_bridge.rs` | ✅ Phase 203 |
+| Kernel Integration Health Bridge (boot-time kstate_ext subsystem probe) | `kernel_integration_health_bridge.rs` | ✅ Phase 204 |
+| Collab CRDT Cap Bridge (Prism:READ/WRITE gates on CRDT ops) | `collab_crdt_cap_bridge.rs` | ✅ Phase 205 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

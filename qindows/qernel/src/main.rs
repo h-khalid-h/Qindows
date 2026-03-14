@@ -192,7 +192,11 @@ pub mod irq_router_cap_bridge;         // Phase 197: Admin:EXEC + 32 vectors/Sil
 pub mod cpu_freq_silo_cap_bridge;      // Phase 198: Admin:EXEC gate on governor/freq change
 pub mod numa_affinity_bridge;          // Phase 199: Silo→NUMA node binding + locality score
 pub mod pmc_anomaly_gate_bridge;       // Phase 200: PmcSample → SentinelAnomalyGate block
-
+pub mod rng_entropy_feeder_audit_bridge; // Phase 201: check_refresh before every generate()
+pub mod page_cache_silo_quota_bridge;  // Phase 202: Max 4096 pages per Silo quota
+pub mod elastic_render_cap_bridge;     // Phase 203: Network:EXEC gate on Q-Server GPU offload
+pub mod kernel_integration_health_bridge; // Phase 204: Boot-time kstate_ext subsystem probe
+pub mod collab_crdt_cap_bridge;        // Phase 205: Prism:READ/WRITE cap gates on CRDT ops
 
 
 
