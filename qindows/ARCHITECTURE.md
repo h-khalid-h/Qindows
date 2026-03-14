@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 170 / March 2026)
+## IMPLEMENTATION STATUS (Phase 175 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -524,6 +524,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Silo Events Audit Bridge (Vaporized → QAuditKernel audit trail) | `silo_events_audit_bridge.rs` | ✅ Phase 168 |
 | Quota Prism Bridge (10GiB storage quota gate on Prism writes) | `quota_prism_bridge.rs` | ✅ Phase 169 |
 | Network Rate Silo Bridge (per-tick byte limiter + anomaly throttle) | `network_rate_silo_bridge.rs` | ✅ Phase 170 |
+| Snapshot GC Audit Bridge (SnapshotManager GC + QAuditKernel) | `snapshot_gc_audit_bridge.rs` | ✅ Phase 171 |
+| UNS TTL Enforcer Bridge (UnsCache::sweep + vaporize URI invalidation) | `uns_ttl_enforcer_bridge.rs` | ✅ Phase 172 |
+| Prism Key Rotation Bridge (HMAC-SHA256 derive + zeroize on vaporize) | `prism_key_rotation_bridge.rs` | ✅ Phase 173 |
+| WASM JIT Cap Bridge (Wasm:EXEC gate on validate + memory plan) | `wasm_jit_cap_bridge.rs` | ✅ Phase 174 |
+| QFS Ghost Retention Bridge (PrismObjectStore write/read with cap gates) | `qfs_ghost_retention_bridge.rs` | ✅ Phase 175 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

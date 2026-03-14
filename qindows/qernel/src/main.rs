@@ -162,7 +162,11 @@ pub mod silo_ipc_router_cap_bridge; // Phase 167: Ipc:EXEC gate on SiloIpcRouter
 pub mod silo_events_audit_bridge;  // Phase 168: SiloEvent → QAuditKernel (vaporize/cap/quota)
 pub mod quota_prism_bridge;        // Phase 169: Storage quota gate before every Prism write
 pub mod network_rate_silo_bridge;  // Phase 170: Per-tick byte rate limiter + anomaly throttle
-
+pub mod snapshot_gc_audit_bridge;  // Phase 171: SnapshotManager GC on vaporize + audit on create
+pub mod uns_ttl_enforcer_bridge;   // Phase 172: UNS cache sweep + vaporize URI invalidation
+pub mod prism_key_rotation_bridge; // Phase 173: HMAC-SHA256 key derive + zeroize on vaporize (Law 9)
+pub mod wasm_jit_cap_bridge;       // Phase 174: Wasm:EXEC gate on load + call
+pub mod qfs_ghost_retention_bridge; // Phase 175: Ghost TTL enforcement + Prism:READ gate + sweep
 
 
 
