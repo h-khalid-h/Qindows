@@ -187,7 +187,11 @@ pub mod timer_wheel_silo_quota_bridge; // Phase 192: Max 32 timers per Silo
 pub mod smbios_audit_bridge;           // Phase 193: SMBIOS completeness + spoof detection
 pub mod usb_device_cap_bridge;         // Phase 194: Admin:EXEC gate on USB device access
 // Phase 195: silo_events_audit_bridge already declared at Phase 168
-
+pub mod iommu_silo_cap_bridge;         // Phase 196: Admin:EXEC gate on IOMMU DMA mapping
+pub mod irq_router_cap_bridge;         // Phase 197: Admin:EXEC + 32 vectors/Silo quota
+pub mod cpu_freq_silo_cap_bridge;      // Phase 198: Admin:EXEC gate on governor/freq change
+pub mod numa_affinity_bridge;          // Phase 199: Silo→NUMA node binding + locality score
+pub mod pmc_anomaly_gate_bridge;       // Phase 200: PmcSample → SentinelAnomalyGate block
 
 
 

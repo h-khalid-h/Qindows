@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 195 / March 2026)
+## IMPLEMENTATION STATUS (Phase 200 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -549,6 +549,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | SMBIOS Audit Bridge (boot-time BIOS/System SMBIOS completeness check) | `smbios_audit_bridge.rs` | ✅ Phase 193 |
 | USB Device Cap Bridge (Admin:EXEC gate on USB HID/MassStorage access) | `usb_device_cap_bridge.rs` | ✅ Phase 194 |
 | Silo Events Audit Bridge (SiloEvent fan-out → QAuditKernel) | `silo_events_audit_bridge.rs` | ✅ Phase 168/195 |
+| IOMMU Silo Cap Bridge (Admin:EXEC gate on DMA device mapping) | `iommu_silo_cap_bridge.rs` | ✅ Phase 196 |
+| IRQ Router Cap Bridge (Admin:EXEC + 32 vectors/Silo quota) | `irq_router_cap_bridge.rs` | ✅ Phase 197 |
+| CPU Freq Silo Cap Bridge (Admin:EXEC gate on governor/freq) | `cpu_freq_silo_cap_bridge.rs` | ✅ Phase 198 |
+| NUMA Affinity Bridge (Silo→NUMA node binding + locality score) | `numa_affinity_bridge.rs` | ✅ Phase 199 |
+| PMC Anomaly Gate Bridge (PmcSample → SentinelAnomalyGate block, Law 6) | `pmc_anomaly_gate_bridge.rs` | ✅ Phase 200 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*
