@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 265 / March 2026)
+## IMPLEMENTATION STATUS (Phase 270 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -619,6 +619,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Prism Query Result Cap Bridge (max 10K results per query) | `prism_query_result_cap_bridge.rs` | ✅ Phase 263 |
 | Chimera Handle Leak Bridge (max 4096 Win32 handles/Silo) | `chimera_handle_leak_bridge.rs` | ✅ Phase 264 |
 | Q-Credits Spend Rate Bridge (max 100 spend ops/Silo/tick) | `q_credits_spend_rate_bridge.rs` | ✅ Phase 265 |
+| Collab Vector Clock Rate Bridge (max 64 clock ticks/node/tick) | `collab_vector_clock_rate_bridge.rs` | ✅ Phase 266 |
+| Nexus Peer Tier Cap Bridge (Admin:EXEC on Global tier routing) | `nexus_peer_tier_cap_bridge.rs` | ✅ Phase 267 |
+| Firstboot Step Audit Bridge (Law 2 audit on each step advance) | `firstboot_step_audit_bridge.rs` | ✅ Phase 268 |
+| Update Pipeline Rate Bridge (min 500 ticks between update cycles) | `update_pipeline_rate_bridge.rs` | ✅ Phase 269 |
+| SMP Core Silo Affinity Bridge (Admin:EXEC on CPU core pinning) | `smp_core_silo_affinity_bridge.rs` | ✅ Phase 270 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*

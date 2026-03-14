@@ -257,6 +257,11 @@ pub mod q_metrics_sample_rate_bridge;  // Phase 262: Max 32 metric samples/Silo/
 pub mod prism_query_result_cap_bridge; // Phase 263: Max 10K results per Prism query
 pub mod chimera_handle_leak_bridge;    // Phase 264: Max 4096 Win32 handles per Silo
 pub mod q_credits_spend_rate_bridge;   // Phase 265: Max 100 Q-Credits spends/Silo/tick
+pub mod collab_vector_clock_rate_bridge; // Phase 266: Max 64 VectorClock ticks/node/tick
+pub mod nexus_peer_tier_cap_bridge;    // Phase 267: Admin:EXEC gate on Core/Master tier upgrade
+pub mod firstboot_step_audit_bridge;   // Phase 268: Law 2 audit on each firstboot step advance
+pub mod update_pipeline_rate_bridge;   // Phase 269: Min 500 ticks between update cycles
+pub mod smp_core_silo_affinity_bridge; // Phase 270: Admin:EXEC gate on CPU core affinity pinning
 
 
 
