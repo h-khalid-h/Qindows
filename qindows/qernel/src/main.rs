@@ -267,6 +267,11 @@ pub mod identity_token_bind_bridge;    // Phase 272: IdentityToken silo_id bindi
 pub mod ledger_package_hash_cap_bridge; // Phase 273: Max 4 package publishes/Silo/tick
 pub mod sentinel_anomaly_whitelist_bridge; // Phase 274: Skip scoring for whitelisted system Silos
 pub mod q_view_browser_process_cap_bridge; // Phase 275: Max 32 browser tab Silos per session
+pub mod qshell_pipeline_stage_rate_bridge; // Phase 276: Max 64 stages per Q-Shell pipeline
+pub mod q_admin_escalation_rate_bridge; // Phase 277: Max 4 escalations/Silo per 100 ticks
+pub mod power_manager_governor_cap_bridge; // Phase 278: Admin:EXEC gate on Performance governor
+pub mod qtraffic_flow_account_cap_bridge; // Phase 279: Max 256 flow events/Silo/tick
+pub mod aether_window_layer_silo_bridge; // Phase 280: Admin:EXEC gate on System/Overlay window layer
 
 
 

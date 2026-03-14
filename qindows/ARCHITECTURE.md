@@ -395,7 +395,7 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 
 ---
 
-## IMPLEMENTATION STATUS (Phase 275 / March 2026)
+## IMPLEMENTATION STATUS (Phase 280 / March 2026)
 
 | Component | File | Status |
 |---|---|---|
@@ -629,6 +629,11 @@ Enforced by Qernel **at hardware level** — violations trigger immediate Silo v
 | Ledger Package Hash Cap Bridge (max 4 publishes/Silo/tick) | `ledger_package_hash_cap_bridge.rs` | ✅ Phase 273 |
 | Sentinel Anomaly Whitelist Bridge (skip scoring for system Silos) | `sentinel_anomaly_whitelist_bridge.rs` | ✅ Phase 274 |
 | Q-View Browser Process Cap Bridge (max 32 tab Silos/session) | `q_view_browser_process_cap_bridge.rs` | ✅ Phase 275 |
+| QShell Pipeline Stage Rate Bridge (max 64 pipeline stages) | `qshell_pipeline_stage_rate_bridge.rs` | ✅ Phase 276 |
+| Q-Admin Escalation Rate Bridge (max 4 escalations/Silo per 100 ticks) | `q_admin_escalation_rate_bridge.rs` | ✅ Phase 277 |
+| Power Manager Governor Cap Bridge (Admin:EXEC on Performance governor) | `power_manager_governor_cap_bridge.rs` | ✅ Phase 278 |
+| QTraffic Flow Account Cap Bridge (max 256 flow events/Silo/tick) | `qtraffic_flow_account_cap_bridge.rs` | ✅ Phase 279 |
+| Aether Window Layer Silo Bridge (Admin:EXEC on Overlay/Notification layer) | `aether_window_layer_silo_bridge.rs` | ✅ Phase 280 |
 
 ---
 *"Windows has ended. Qindows has begun. The Global Mesh is now 100% operational. Welcome to the Final Operating System."*
