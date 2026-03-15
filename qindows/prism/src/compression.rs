@@ -140,6 +140,16 @@ pub fn decompress(input: &[u8]) -> Result<Vec<u8>, &'static str> {
 
     // Read original length
     let orig_len = u32::from_le_bytes([input[0], input[1], input[2], input[3]]) as usize;
+
+    // Sanity-check before allocating: LZ4 cannot expand data beyond its
+    // uncompressed source, so orig_len must be <= the compressed payload
+    // size times a small constant.  A 4-byte header claiming 4 GiB of
+    // output from 5 bytes of input would otherwise exhaust kernel memory.
+    let payload_len = input.len().saturating_sub(4);
+    if orig_len > payload_len.saturating_mul(256).saturating_add(256) {
+        return Err("Implausible decompressed size");
+    }
+
     let mut output = Vec::with_capacity(orig_len);
     let mut pos = 4;
 
