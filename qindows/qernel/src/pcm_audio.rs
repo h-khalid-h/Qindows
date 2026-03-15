@@ -132,8 +132,7 @@ impl PcmMixer {
         // Soft limiter (prevent clipping)
         for s in output.iter_mut() {
             if *s > 1.0 {
-                *s = 1.0 - (-(*s - 1.0)).exp() * 0.0; // Clamp
-                *s = 1.0;
+                *s = 1.0 - (-(*s - 1.0)).exp(); // Exponential soft saturation
                 self.stats.clips_prevented += 1;
             } else if *s < -1.0 {
                 *s = -1.0;

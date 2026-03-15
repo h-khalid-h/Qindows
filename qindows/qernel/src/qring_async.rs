@@ -197,20 +197,21 @@ impl SiloRing {
     }
 
     pub fn sq_available(&self) -> usize {
-        let depth = self.sq.len() as u32;
-        ((self.sq_tail.wrapping_sub(self.sq_head)) % depth) as usize
+        let mask = self.sq.len() as u32 - 1;
+        (self.sq_tail.wrapping_sub(self.sq_head) & mask) as usize
     }
 
     pub fn cq_free(&self) -> usize {
         let depth = self.cq.len() as u32;
-        let used = (self.cq_tail.wrapping_sub(self.cq_head)) % depth;
-        (self.cq.len() as u32 - used) as usize
+        let mask = depth - 1;
+        let used = self.cq_tail.wrapping_sub(self.cq_head) & mask;
+        (depth - used) as usize
     }
 
     /// Push a submission entry (Silo-side, for testing).
     pub fn submit(&mut self, entry: SqEntry) -> bool {
-        let depth = self.sq.len() as u32;
-        let next_tail = self.sq_tail.wrapping_add(1) % depth;
+        let mask = self.sq.len() as u32 - 1;
+        let next_tail = self.sq_tail.wrapping_add(1) & mask;
         if next_tail == self.sq_head { return false; } // full
         self.sq[self.sq_tail as usize] = entry;
         self.sq_tail = next_tail;
@@ -219,8 +220,8 @@ impl SiloRing {
 
     /// Write a completion entry (kernel-side).
     pub fn complete(&mut self, cqe: CqEntry) -> bool {
-        let depth = self.cq.len() as u32;
-        let next_tail = self.cq_tail.wrapping_add(1) % depth;
+        let mask = self.cq.len() as u32 - 1;
+        let next_tail = self.cq_tail.wrapping_add(1) & mask;
         if next_tail == self.cq_head { return false; } // full
         self.cq[self.cq_tail as usize] = cqe;
         self.cq_tail = next_tail;
@@ -293,7 +294,7 @@ impl QRingProcessor {
         while ring.sq_available() > 0 {
             let idx = ring.sq_head as usize;
             let entry = ring.sq[idx];
-            ring.sq_head = ring.sq_head.wrapping_add(1) % ring.sq.len() as u32;
+            ring.sq_head = ring.sq_head.wrapping_add(1) & (ring.sq.len() as u32 - 1);
 
             let opcode = SqOpcode::from_u16(entry.opcode);
 
