@@ -84,7 +84,7 @@ impl CapabilitySet {
     /// Check if a capability is held.
     pub fn check(&self, cap: &Capability, now: u64) -> CapCheck {
         for token in &self.tokens {
-            if token.expires_at > 0 && now > token.expires_at {
+            if token.expires_at > 0 && now >= token.expires_at {
                 continue; // expired
             }
             if &token.capability == cap || token.capability == Capability::Full {

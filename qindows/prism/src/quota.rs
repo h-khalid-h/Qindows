@@ -133,7 +133,7 @@ impl QuotaManager {
             None => return QuotaCheck::Allowed, // Unknown silo = no quota
         };
 
-        let new_used = quota.used + size;
+        let new_used = quota.used.saturating_add(size);
 
         if new_used <= quota.limit {
             let pct = (new_used as f64 / quota.limit as f64 * 100.0) as f32;
@@ -166,7 +166,7 @@ impl QuotaManager {
         let mut event: Option<QuotaEvent> = None;
 
         if let Some(quota) = self.quotas.get_mut(&silo_id) {
-            quota.used += size;
+            quota.used = quota.used.saturating_add(size);
             quota.object_count += 1;
             if size > quota.largest_object {
                 quota.largest_object = size;
