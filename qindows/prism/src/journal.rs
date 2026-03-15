@@ -172,7 +172,7 @@ impl Journal {
     /// Compact the journal — remove committed entries before the last checkpoint.
     pub fn compact(&mut self) {
         self.entries.retain(|e| {
-            e.seq >= self.last_checkpoint || !e.committed
+            e.seq > self.last_checkpoint || !e.committed
         });
     }
 
