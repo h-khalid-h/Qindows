@@ -125,6 +125,10 @@
   createParticles();
   drawParticles();
 
+  window.addEventListener('unload', () => {
+    if (animFrame) cancelAnimationFrame(animFrame);
+  });
+
   // ─── Navigation ───────────────────────────────────────────────
   const nav = document.getElementById('main-nav');
   const navToggle = document.getElementById('nav-toggle');
@@ -258,6 +262,7 @@
   const otpResend = document.getElementById('otp-resend');
 
   let selectedUsage = new Set();
+  let verificationTimeout = null;
 
   function openModal() {
     if (!regModal) return;
@@ -359,9 +364,7 @@
 
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Backspace' && !e.target.value && idx > 0) {
-        // Skip the separator by checking if prev is an input
-        const prevIdx = idx > 3 ? idx - 1 : (idx === 3 ? 2 : idx - 1);
-        otpInputs[prevIdx].focus();
+        otpInputs[idx - 1].focus();
       }
     });
 
@@ -369,11 +372,12 @@
     input.addEventListener('paste', (e) => {
       e.preventDefault();
       const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
-      for (let i = 0; i < Math.min(pasted.length, 6); i++) {
+      const maxDigits = Math.min(pasted.length, otpInputs.length);
+      for (let i = 0; i < maxDigits; i++) {
         otpInputs[i].value = pasted[i];
       }
-      if (pasted.length >= 6) {
-        otpInputs[5].focus();
+      if (pasted.length >= otpInputs.length) {
+        otpInputs[otpInputs.length - 1].focus();
       }
       validateOTP();
     });
@@ -391,11 +395,11 @@
       regVerifying.style.display = 'flex';
 
       // Simulate verification (2s delay)
-      setTimeout(() => {
+      verificationTimeout = setTimeout(() => {
         // Store data
         const formData = {
-          name: regName.value.trim(),
-          contact: regContact.value.trim(),
+          name: regName ? regName.value.trim() : '',
+          contact: regContact ? regContact.value.trim() : '',
           usage: Array.from(selectedUsage),
           interest: regInterest ? regInterest.value.trim() : '',
           registeredAt: new Date().toISOString(),
@@ -441,6 +445,7 @@
   // Step 3 → Close
   if (regDone) {
     regDone.addEventListener('click', () => {
+      clearTimeout(verificationTimeout);
       closeModal();
       // Reset modal state for potential re-open
       setTimeout(() => {
