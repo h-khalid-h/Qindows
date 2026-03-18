@@ -2827,12 +2827,14 @@ fn handle_virtio_gpu_flush(x: u32, y: u32, width: u32, height: u32) -> i64 {
 // ─── Phase 40: DMA, ACPI, PCM, Hotswap Handlers ─────────────────────────────────────
 
 fn handle_sys_print(ptr: u64, len: u64) -> i64 {
-    // In a real highly-secure Kernel, we must validate `ptr` against the user's VM map.
-    // For Phase 46, we trust the pointer and cast it directly since identities are flat-mapped.
     if ptr == 0 || len == 0 || len > 4096 {
         return -1;
     }
-    
+    // Round 5 fix 2: reject kernel-space print pointers from Ring-3
+    if ptr >= RING3_VA_LIMIT {
+        crate::serial_println!("[SYSCALL SYS_PRINT] Rejected kernel ptr {:#x}", ptr);
+        return -1;
+    }
     let slice = unsafe { core::slice::from_raw_parts(ptr as *const u8, len as usize) };
     if let Ok(s) = core::str::from_utf8(slice) {
         crate::serial_print!("{}", s);
@@ -2966,7 +2968,16 @@ fn handle_sys_send_packet(frame_ptr: *const u8, len: usize) -> i64 {
         return SyscallError::PermissionDenied as i64;
     }
     let frame = unsafe { core::slice::from_raw_parts(frame_ptr, len) };
-    let ok = crate::kstate::virtio_net().send(frame);
+    // Round 5 fix 1: use state_opt() to avoid panic if called before virtio_net is initialized
+    let ok = match crate::kstate::state_opt()
+        .and_then(|s| s.virtio_net.try_lock())
+    {
+        Some(mut net) => net.send(frame),
+        None => {
+            crate::serial_println!("[SYSCALL 305] virtio_net not ready — TX dropped");
+            return -1;
+        }
+    };
     if ok {
         crate::serial_println!("[NET TX] Syscall 305: {} bytes sent via VirtIO-net", len);
         1
