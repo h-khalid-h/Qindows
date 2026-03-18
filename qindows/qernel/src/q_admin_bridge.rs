@@ -139,51 +139,73 @@ impl QAdminQueryBridge {
     }
 
     fn status_report(&self) -> String {
+        // Read real silo count and boot status from kstate
+        let silo_count = {
+            let state = crate::kstate::state();
+            state.silo_mgr.lock().silos.len()
+        };
+        let tick = crate::kstate::global_tick();
+        let uptime_ms = tick / 60; // approximate: 60kHz tick freq
         format!(
             "Qindows Kernel Status (Phase 124)\n\
              ─────────────────────────────────\n\
              Version: qernel-0.124.0\n\
              Laws: 10/10 active\n\
-             Subsystems: 124 phases integrated\n\
+             Subsystems: 20 statics (Phase 84-104)\n\
+             Active Silos: {}\n\
+             Uptime: {}ms (tick={})\n\
              Boot: complete\n\
-             Admin queries today: {}\n",
-            self.stats.queries
+             Admin queries: {}\n",
+            silo_count, uptime_ms, tick, self.stats.queries
         )
     }
 
     fn silo_list_report(&self) -> String {
-        // In production: reads from kstate_ext Q-Ring registry
-        "Silo  State    PState  Cap-Count\n\
-         ────  ──────   ──────  ─────────\n\
-         1     Running  P1      3\n\
-         2     Running  P2      5\n\
-         3     Running  P1      4 (Aether compositor)\n\
-         4     Running  C1      2 (Synapse)\n\
-         5     Running  P3      3 (Nexus)\n\
-         6     Running  C1      3 (Prism)\n".into()
+        // Read real silo list from kstate silo_mgr
+        let state = crate::kstate::state();
+        let silos = state.silo_mgr.lock();
+        let mut out = String::from("Silo  State    Caps  OID\n---  ------   ----  --------\n");
+        for s in silos.silos.iter() {
+            let cap_count = s.capabilities.len();
+            // binary_oid is u64
+            let oid_hex = format!("{:#018x}", s.binary_oid);
+            out.push_str(&format!(
+                "{}     Running  {}     {}\n",
+                s.id, cap_count, oid_hex
+            ));
+        }
+        if silos.silos.is_empty() {
+            out.push_str("(no silos running)\n");
+        }
+        out
     }
 
     fn law_report(&self) -> String {
         "Q-Manifest Law Audit (Phase 107)\n\
          Law  Name                       Status\n\
-         ───  ──────────────────────     ──────\n\
-         L1   Zero-Ambient Authority     ✓ Active\n\
-         L2   Immutable Binaries         ✓ Active\n\
-         L3   No Blocking IO             ✓ Active\n\
-         L4   Vector-Native UI           ✓ Active\n\
-         L5   Global Deduplication       ✓ Active\n\
-         L6   Silo Sandbox               ✓ Active\n\
-         L7   Network Transparency       ✓ Active\n\
-         L8   Energy Proportionality     ✓ Active\n\
-         L9   Intent-Driven UX           ✓ Active\n\
-         L10  Graceful Degradation       ✓ Active\n".into()
+         ---  ----------------------     ------\n\
+         L1   Zero-Ambient Authority     OK\n\
+         L2   Immutable Binaries         OK\n\
+         L3   No Blocking IO             OK\n\
+         L4   Vector-Native UI           OK\n\
+         L5   Global Deduplication       OK\n\
+         L6   Silo Sandbox               OK\n\
+         L7   Network Transparency       OK\n\
+         L8   Energy Proportionality     OK\n\
+         L9   Intent-Driven UX           OK\n\
+         L10  Graceful Degradation       OK\n".into()
     }
 
     fn pmc_report(&self) -> String {
-        "PMC Anomaly Loop (Phase 110)\n\
-         ─── (connect kstate_ext::PMC_LOOP for live data) ───\n\
-         Scan interval: 100 ticks\n\
-         Alert thresholds: CacheMiss>85→Law6, BranchMiss→Law1\n".into()
+        // Read real PMC stats from kstate::pmc()
+        let stats = crate::kstate::pmc().stats.clone();
+        format!(
+            "PMC Anomaly Loop (Phase 110)\n\
+             ------------------------------------------------------------------------------------\n\
+             Readings: {}  Anomalies: {}\n\
+             CacheMiss>85 -> Law6, BranchMiss -> Law1\n",
+            stats.readings_taken, stats.anomalies_detected
+        )
     }
 
     fn energy_report(&self) -> String {

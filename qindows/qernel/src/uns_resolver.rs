@@ -329,18 +329,25 @@ impl UnsResolver {
     }
 
     fn dht_lookup(&self, key: &[u8; 32]) -> [u8; 32] {
-        // In production: calls nexus_dht::lookup(key) → peer nodes,
-        // then issues Nexus network requests to retrieve OID from remote Prism
+        // Query Nexus Kademlia DHT local table via kstate_ext::nexus_dht()
+        // local_lookup checks the in-memory DHT routing table populated by Nexus Silo
+        if let Some(record) = crate::kstate_ext::nexus_dht().local_lookup(key) {
+            return record.oid;
+        }
+        // Fallback: mark as DHT-unresolved with 'D' XOR
         let mut oid = *key;
-        oid[31] ^= 0x44; // 'D' for DHT — marks remote resolution
+        oid[31] ^= 0x44; // 'D' for DHT miss
         oid
     }
 
     fn shadow_lookup(&self, key: &[u8; 32]) -> [u8; 32] {
-        // In production: queries timeline_slider.rs / ghost_write_engine.rs
-        // for the most recent Shadow Object OID at this path
+        // Query GhostWriteEngine for latest shadow OID at this object key
+        if let Some(shadow) = crate::kstate_ext::ghost_write().get_shadow(key) {
+            return shadow.oid;
+        }
+        // Fallback: mark as shadow-unresolved with 'S' XOR
         let mut oid = *key;
-        oid[31] ^= 0x53; // 'S' for Shadow — marks offline fallback
+        oid[31] ^= 0x53; // 'S' for Shadow miss
         oid
     }
 

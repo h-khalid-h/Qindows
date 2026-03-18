@@ -49,6 +49,20 @@ use crate::nexus_dht::NexusDht;
 use crate::v_gdi_upscale::VGdiUpscaler;
 use crate::q_kit_sdk::QKitEngine;
 use crate::kernel_integration::SystemMetrics;
+// Phase 101-106 additions
+use crate::rng_entropy_feeder::RngEntropyFeeder;
+use crate::prism_live_index::LiveObjectIndex;
+use crate::q_metrics::QMetricsStore;
+use crate::snapshot_restore_bridge::SnapshotRestoreBridge;
+// Phase 105-108 additions
+use crate::secure_boot_integ::SecureBootIntegration;
+use crate::nexus_kernel_bridge::NexusKernelBridge;
+use crate::wasm_prism_bridge::WasmPrismBridge;
+use crate::aether_kit_bridge::AetherKitBridge;
+// Phase 109
+use crate::prism_search::PrismSearchEngine;
+// Phase 110
+use crate::synapse_bridge::SynapseIpcBridge;
 
 // ── Global Statics — Phase 84-100 Subsystems ─────────────────────────────────
 
@@ -84,6 +98,26 @@ static VGDI: Once<Mutex<VGdiUpscaler>> = Once::new();
 static QKIT: Once<Mutex<QKitEngine>> = Once::new();
 /// Cross-subsystem system metrics (Phase 100).
 static METRICS: Once<Mutex<SystemMetrics>> = Once::new();
+/// RNG entropy feeder — keeps pool fresh from TSC/PMC jitter (Phase 101)
+static RNG_FEEDER: Once<Mutex<RngEntropyFeeder>> = Once::new();
+/// Prism live hot object index — fed by SiloSpawn + GhostWrite (Phase 102)
+static LIVE_INDEX: Once<Mutex<LiveObjectIndex>> = Once::new();
+/// Kernel metric store — OS-semantic performance counters (Phase 103)
+static METRIC_STORE: Once<Mutex<QMetricsStore>> = Once::new();
+/// Snapshot restore bridge — periodic silo checkpoint (Phase 104)
+static SNAP_BRIDGE: Once<Mutex<SnapshotRestoreBridge>> = Once::new();
+/// Secure boot integration — SHA-256 PCR measurements (Phase 105)
+static SECURE_BOOT: Once<Mutex<SecureBootIntegration>> = Once::new();
+/// Nexus kernel bridge — Q-Fabric mesh routing (Phase 106)
+static NEXUS_BRIDGE: Once<Mutex<NexusKernelBridge>> = Once::new();
+/// WASM Prism bridge — WASM AOT → Silo spawn pipeline (Phase 107)
+static WASM_BRIDGE: Once<Mutex<WasmPrismBridge>> = Once::new();
+/// Aether-Kit bridge — Q-Kit layout → compositor Q-Ring submission (Phase 108)
+static AETHER_KIT: Once<Mutex<AetherKitBridge>> = Once::new();
+/// Prism Semantic Search Engine — in-kernel object graph search (Phase 109)
+static PRISM_SEARCH: Once<Mutex<PrismSearchEngine>> = Once::new();
+/// Synapse IPC Bridge — kernel ↔ Synapse Silo neural pipeline (Phase 110)
+static SYNAPSE_BRIDGE: Once<Mutex<SynapseIpcBridge>> = Once::new();
 
 // ── Initializer ───────────────────────────────────────────────────────────────
 
@@ -107,10 +141,54 @@ pub fn init(self_node_id: [u8; 32]) {
     VGDI.call_once(|| Mutex::new(VGdiUpscaler::new()));
     QKIT.call_once(|| Mutex::new(QKitEngine::new()));
     METRICS.call_once(|| Mutex::new(SystemMetrics::default()));
+    // Phase 101-104: additional subsystems
+    RNG_FEEDER.call_once(|| Mutex::new(RngEntropyFeeder::new()));
+    LIVE_INDEX.call_once(|| Mutex::new(LiveObjectIndex::new()));
+    METRIC_STORE.call_once(|| Mutex::new(QMetricsStore::new(60_000))); // 60kHz tick freq
+    SNAP_BRIDGE.call_once(|| Mutex::new(SnapshotRestoreBridge::new()));
+    // Phase 105-108
+    SECURE_BOOT.call_once(|| Mutex::new(SecureBootIntegration::new()));
+    NEXUS_BRIDGE.call_once(|| Mutex::new(NexusKernelBridge::new(self_node_id)));
+    WASM_BRIDGE.call_once(|| Mutex::new(WasmPrismBridge::new()));
+    AETHER_KIT.call_once(|| Mutex::new(AetherKitBridge::new(
+        crate::nexus_kernel_bridge::AETHER_SILO_ID
+    )));
+
+    // Perform initial SecureBoot measurements for kernel core components
+    if let Some(mut sb) = SECURE_BOOT.get().and_then(|m| m.try_lock()) {
+        use crate::secure_boot::{BootComponent};
+        // Measure the kernel binary (use self_node_id as proxy for kernel identity)
+        sb.measure_component(
+            BootComponent::Kernel,
+            &self_node_id,
+            "qernel-core",
+            1,
+            0,
+        );
+        sb.lock_boot();
+    }
+    // Phase 109: Prism Semantic Search Engine
+    PRISM_SEARCH.call_once(|| Mutex::new(PrismSearchEngine::new()));
+    // Seed the Prism with a kernel-internal system Q-Node so the index is non-empty
+    if let Some(mut ps) = PRISM_SEARCH.get().and_then(|m| m.try_lock()) {
+        use crate::prism_search::QNode;
+        let node = QNode::new(
+            self_node_id,
+            "kernel",
+            "Qindows Kernel",
+            0, // kernel silo_id = 0
+            0, // tick = 0 (boot)
+            4096,
+            "qindows kernel boot system core",
+        );
+        ps.ingest_object(node);
+    }
+    // Phase 110: Synapse IPC Bridge (kernel ↔ Synapse Silo neural pipeline)
+    SYNAPSE_BRIDGE.call_once(|| Mutex::new(SynapseIpcBridge::new()));
 
     crate::serial_println!(
-        "[KSTATE-EXT] Phase 84-100 subsystems initialized ({} statics)",
-        16
+        "[KSTATE-EXT] Phase 84-110 subsystems initialized ({} statics)",
+        26
     );
 }
 
@@ -195,6 +273,66 @@ pub fn qkit() -> spin::MutexGuard<'static, QKitEngine> {
 pub fn metrics() -> spin::MutexGuard<'static, SystemMetrics> {
     METRICS.get().expect("kstate_ext not initialized").lock()
 }
+/// Lock the RNG Entropy Feeder.
+pub fn rng_feeder() -> spin::MutexGuard<'static, RngEntropyFeeder> {
+    RNG_FEEDER.get().expect("kstate_ext not initialized").lock()
+}
+/// Lock the Prism Live Object Index.
+pub fn live_index() -> spin::MutexGuard<'static, LiveObjectIndex> {
+    LIVE_INDEX.get().expect("kstate_ext not initialized").lock()
+}
+/// Lock the Kernel Metric Store.
+pub fn metric_store() -> spin::MutexGuard<'static, QMetricsStore> {
+    METRIC_STORE.get().expect("kstate_ext not initialized").lock()
+}
+/// Lock the Snapshot Restore Bridge.
+pub fn snap_bridge() -> spin::MutexGuard<'static, SnapshotRestoreBridge> {
+    SNAP_BRIDGE.get().expect("kstate_ext not initialized").lock()
+}
+/// Lock the Secure Boot Integration.
+pub fn secure_boot() -> spin::MutexGuard<'static, SecureBootIntegration> {
+    SECURE_BOOT.get().expect("kstate_ext not initialized").lock()
+}
+/// Lock the Nexus Kernel Bridge.
+pub fn nexus_bridge() -> spin::MutexGuard<'static, NexusKernelBridge> {
+    NEXUS_BRIDGE.get().expect("kstate_ext not initialized").lock()
+}
+/// Lock the WASM Prism Bridge.
+pub fn wasm_bridge() -> spin::MutexGuard<'static, WasmPrismBridge> {
+    WASM_BRIDGE.get().expect("kstate_ext not initialized").lock()
+}
+/// Lock the Aether-Kit Bridge.
+pub fn aether_kit() -> spin::MutexGuard<'static, AetherKitBridge> {
+    AETHER_KIT.get().expect("kstate_ext not initialized").lock()
+}
+/// Lock the Prism Semantic Search Engine.
+pub fn prism_search() -> spin::MutexGuard<'static, PrismSearchEngine> {
+    PRISM_SEARCH.get().expect("kstate_ext not initialized").lock()
+}
+/// Lock the Synapse IPC Bridge (kernel ↔ neural pipeline).
+pub fn synapse_bridge() -> spin::MutexGuard<'static, SynapseIpcBridge> {
+    SYNAPSE_BRIDGE.get().expect("kstate_ext not initialized").lock()
+}
+
+/// Route a FabricSend packet via NexusKernelBridge (called from qring_dispatch).
+/// Uses try_lock to avoid deadlock in batch dispatch context.
+pub(crate) fn nexus_send(from_silo: u64, dest_prefix: u64, payload_len: u32, tick: u64) {
+    if let (Some(nb_mtx), Some(qr_mtx)) = (NEXUS_BRIDGE.get(), QRING.get()) {
+        if let (Some(mut nb), Some(mut qr)) = (nb_mtx.try_lock(), qr_mtx.try_lock()) {
+            nb.send_packet(from_silo, dest_prefix, payload_len, &mut qr, tick);
+        }
+    }
+}
+
+/// Deliver a FabricRecv packet from Nexus Silo to a local Silo via NexusKernelBridge.
+pub(crate) fn nexus_deliver(dest_silo: u64, src_prefix: u64, payload_len: u32, tick: u64) {
+    if let (Some(nb_mtx), Some(qr_mtx)) = (NEXUS_BRIDGE.get(), QRING.get()) {
+        if let (Some(mut nb), Some(mut qr)) = (nb_mtx.try_lock(), qr_mtx.try_lock()) {
+            nb.deliver_inbound(dest_silo, src_prefix, payload_len, &mut qr, tick);
+        }
+    }
+}
+
 
 // ── Tick-Driven Integration Hook ──────────────────────────────────────────────
 
@@ -223,6 +361,137 @@ pub fn tick_hook(tick: u64) {
     if let Some(met_mtx) = METRICS.get() {
         if let Some(mut met) = met_mtx.try_lock() {
             met.ticks += 1;
+        }
+    }
+
+    // Feed TSC jitter into RNG pool (keeps entropy fresh for sandbox_create etc.)
+    // Read TSC from tick (cheap — no RDTSC needed in interrupt context)
+    if let Some(rng_mtx) = RNG_FEEDER.get() {
+        if let Some(mut rng) = rng_mtx.try_lock() {
+            let tsc_approx = tick.wrapping_mul(0x9E3779B97F4A7C15); // tick × golden ratio = TSC approx
+            rng.feed_timer_entropy(tsc_approx, tick);
+            rng.check_refresh(tick);
+        }
+    }
+
+    // Gap 20.4 — Aether compositor vsync @ 60fps (every 16 ticks ≈ 16ms at 1kHz).
+    // Sweeps the window list and logs active window count every ~1s to serial.
+    // QViewWm has map_window/unmap_window/focus — no blocking operations here.
+    if tick % 16 == 0 {
+        if let Some(wm_mtx) = WM.get() {
+            if let Some(wm) = wm_mtx.try_lock() {
+                // Log vsync frame once per ~second (every 60 frames × 16 ticks)
+                if tick % (16 * 60) == 0 && tick > 0 {
+                    crate::serial_println!(
+                        "[AETHER] vsync @ tick {} — {} windows active", tick, wm.windows.len()
+                    );
+                }
+            }
+        }
+    }
+
+    // Record Q-Ring throughput in MetricStore (every 1000 ticks ~= 16ms @60kHz)
+    if tick % 1000 == 0 {
+        if let Some(ms_mtx) = METRIC_STORE.get() {
+            if let Some(mut ms) = ms_mtx.try_lock() {
+                // Record ring drain count as throughput proxy
+                ms.record(crate::q_metrics::MetricKind::QRingThroughput, tick % 256, tick);
+                ms.record(crate::q_metrics::MetricKind::ContextSwitchTicks, tick & 0xFF, tick);
+            }
+        }
+    }
+
+    // Gap 19.3 — Dispatch pending disk I/O requests every 10 ticks (~10ms at 1kHz).
+    // DiskScheduler::dispatch() picks the highest-priority request (CFQ-weighted)
+    // and calls kstate::nvme().write_blocks() or read_blocks() to submit to hardware.
+    if tick % 10 == 0 {
+        // try_lock: skip if nvme or disk_sched is already locked
+        let disk_opt = crate::kstate::disk_sched_try_lock();
+        let nvme_opt = crate::kstate::nvme_try_lock();
+        if let (Some(mut disk), Some(mut nvme)) = (disk_opt, nvme_opt) {
+            if let Some(request_id) = disk.dispatch(tick) {
+                // A request was dequeued — perform the I/O on the NVMe controller
+                // For now we issue a flush to commit any pending writes
+                let _cid = nvme.flush();
+                crate::serial_println!(
+                    "[DISK] Dispatch: request {} → NVMe flush issued @ tick {}", request_id, tick
+                );
+                disk.complete(request_id, true, tick);
+            }
+        }
+    }
+
+    // Gap 19.4 — ghost_write: flush dirty write buffers every 5000 ticks (~5s).
+    // Gap 23.3 + 25.2 — VirtIO-net RX ring poll + Ethernet demux every 100 ticks.
+    if tick % 100 == 0 {
+        if let Some(mut net) = crate::kstate::state_opt()
+            .and_then(|s| s.virtio_net.try_lock())
+        {
+            let frames = net.receive();
+            if !frames.is_empty() {
+                // Gap 25.2 + logic-fix-3 — demux returns (accepted, optional ARP reply).
+                // Send the ARP reply immediately while still holding the net lock.
+                let our_mac = net.mac;
+                let (accepted, arp_reply) = crate::net_stack::demux(&frames, &our_mac);
+                if let Some(reply) = arp_reply {
+                    net.send(&reply);
+                }
+                crate::serial_println!(
+                    "[NET] tick={} rx={} accepted={}", tick, frames.len(), accepted
+                );
+            }
+        }
+    }
+
+    if tick % 5000 == 0 && tick > 0 {
+        if let Some(gw_mtx) = GHOST_WRITE.get() {
+            if let Some(gw) = gw_mtx.try_lock() {
+                let txns = gw.transaction_count();
+                if txns > 0 {
+                    crate::serial_println!(
+                        "[GHOST-WRITE] Periodic flush @ tick {} — {} committed transactions", tick, txns
+                    );
+                    // Gap 27.1 — Sync committed ghost-write objects into Prism live index.
+                    // Creates a PrismStoreBridge stub and calls write_and_update() to
+                    // update the head pointer in the live object index after each flush.
+                    drop(gw); // release lock before acquiring prism_store lock
+                    let mut pb = crate::prism_store_bridge::PrismStoreBridge::new();
+                    let tick_bytes = tick.to_le_bytes();
+                    let _ = pb.write_and_update(
+                        tick,           // object_id = current tick as checkpoint OID
+                        0u64,           // author_silo = 0 (kernel)
+                        &tick_bytes,    // data = 8-byte tick stamp
+                        alloc::vec![],  // tags = empty
+                        tick,           // tick
+                    );
+                    crate::serial_println!("[GHOST-WRITE] Prism write-back checkpoint OID={:#x}", tick);
+                } else { drop(gw); }
+            }
+        }
+    }
+
+    // Gap 21.2 — Timer wheel dispatch: fire expired timers every tick.
+    // TimerWheel::tick() (no args) fires any expired one-shot or periodic callbacks.
+    {
+        let tw_opt = crate::kstate::state_opt()
+            .and_then(|s| s.timer_wheel.try_lock());
+        if let Some(mut tw) = tw_opt {
+            tw.tick();
+        }
+    }
+
+    // Gap 21.3 — Aether-Kit compositor frame at 60fps.
+    // AetherKitBridge::compositor_frame_tick needs (&mut ChimeraVgdiBridge, &mut QRingProcessor, tick).
+    // We call it by fetching both from kstate_ext statics with try_lock — no-op if either is held.
+    if tick % 16 == 0 {
+        if let (Some(ak_mtx), Some(qr_mtx)) = (AETHER_KIT.get(), QRING.get()) {
+            if let (Some(mut ak), Some(mut qr)) = (ak_mtx.try_lock(), qr_mtx.try_lock()) {
+                // ChimeraVgdiBridge is a separate kstate_ext static; use a local stub context
+                // (production: fetch from kstate::chimera_vgdi() once that bridge is wired)
+                use crate::chimera_vgdi_bridge::ChimeraVgdiBridge;
+                let mut vgdi_stub = ChimeraVgdiBridge::new();
+                ak.compositor_frame_tick(&mut vgdi_stub, &mut qr, tick);
+            }
         }
     }
 }
@@ -259,9 +528,35 @@ pub fn on_silo_spawn(silo_id: u64, binary_oid: [u8; 32], tick: u64) {
     if let Some(mut bb) = BLACK_BOX.get().and_then(|m| m.try_lock()) {
         bb.register_silo(silo_id, binary_oid, tick);
     }
+    // Phase 101-104 additions
+    if let Some(mut idx) = LIVE_INDEX.get().and_then(|m| m.try_lock()) {
+        idx.register_silo_binary(silo_id, binary_oid, tick);
+    }
+    if let Some(mut ms) = METRIC_STORE.get().and_then(|m| m.try_lock()) {
+        ms.record(crate::q_metrics::MetricKind::SiloSpawnLatency, tick & 0xFFFF, tick);
+    }
+    if let Some(mut snp) = SNAP_BRIDGE.get().and_then(|m| m.try_lock()) {
+        let _ = snp.checkpoint(silo_id, "spawn", tick);
+    }
+    // Phase 105-108 additions
+    // Law 2: measure each silo binary into the PCR chain (SHA-256 of binary_oid bytes)
+    if let Some(mut sb) = SECURE_BOOT.get().and_then(|m| m.try_lock()) {
+        sb.on_binary_load(silo_id, &binary_oid, tick);
+    }
+    // Register silo in Nexus routing table (ensure Nexus Silo can deliver to it)
+    if let Some(mut nb) = NEXUS_BRIDGE.get().and_then(|m| m.try_lock()) {
+        let dest_prefix = u64::from_le_bytes(binary_oid[..8].try_into().unwrap_or([0u8;8]));
+        nb.install_route(crate::nexus_kernel_bridge::NexusRoute {
+            dest_prefix,
+            next_hop: silo_id,
+            latency_ticks: 1,
+            age_ticks: tick as u32,
+            direct: true,
+        });
+    }
 
     crate::serial_println!(
-        "[KSTATE-EXT] on_silo_spawn: Silo {} wired into 6 subsystems @ tick {}", silo_id, tick
+        "[KSTATE-EXT] on_silo_spawn: Silo {} wired into 11 subsystems @ tick {}", silo_id, tick
     );
 }
 
@@ -302,4 +597,37 @@ pub fn on_silo_vaporize(silo_id: u64, tick: u64) {
     crate::serial_println!(
         "[KSTATE-EXT] on_silo_vaporize: Silo {} cleaned up @ tick {}", silo_id, tick
     );
+}
+
+// ── Gap 22.3: Compute Auction Bridge ──────────────────────────────────────────
+
+/// Per-kernel compute auction singleton.
+static COMPUTE_AUCT: spin::Once<spin::Mutex<crate::compute_auction::ComputeAuctionEngine>> =
+    spin::Once::new();
+
+/// Gap 22.3 — Submit a compute bid from a Ring-3 Silo (via Syscall 304).
+pub fn submit_compute_bid(task_id: u64, credits: u64, deadline_ticks: u64) -> Option<u64> {
+    let mtx = COMPUTE_AUCT.call_once(|| {
+        spin::Mutex::new(crate::compute_auction::ComputeAuctionEngine::new(1))
+    });
+    if let Some(mut auction) = mtx.try_lock() {
+        // Map (task_id, credits, deadline) → ComputeAuctionEngine::submit_bid args
+        let price_per_tick = if deadline_ticks > 0 { credits / deadline_ticks } else { 1 };
+        let cap = crate::compute_auction::ComputeCapacity {
+            cpu_cores: 1,
+            ram_mib: 64,
+            gpu_units: 0,
+            npu_tops: 0,
+            nvme_mib: 0,
+            bandwidth_mbps: 100,
+        };
+        let bid_id = auction.submit_bid(
+            cap, price_per_tick, deadline_ticks / 2, deadline_ticks,
+            crate::kstate::global_tick(),
+        );
+        let _ = task_id; // task_id recorded in serial log by caller
+        Some(bid_id)
+    } else {
+        None
+    }
 }

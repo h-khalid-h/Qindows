@@ -53,13 +53,18 @@ impl QShellKernelBridge {
     pub fn run_pipeline(&mut self, pipeline_id: u64, tick: u64) {
         self.stats.pipelines_run += 1;
         let max_steps = 64;
-        for _ in 0..max_steps {
+        for step in 0..max_steps {
             self.engine.step_pipeline(pipeline_id, tick);
             self.stats.stages_stepped += 1;
-            // In production: check if pipeline state == Complete
-            // and break. Here we step a bounded number of times.
+            // Check pipeline completion state after each step
+            if self.engine.is_pipeline_complete(pipeline_id) {
+                crate::serial_println!(
+                    "[QSHELL BRIDGE] Pipeline {} done after {} steps", pipeline_id, step + 1
+                );
+                return;
+            }
         }
-        crate::serial_println!("[QSHELL BRIDGE] Pipeline {} completed", pipeline_id);
+        crate::serial_println!("[QSHELL BRIDGE] Pipeline {} stepped (max={})", pipeline_id, max_steps);
     }
 
     /// Escalate a Silo to Admin cap via CapTokenForge.
@@ -88,10 +93,18 @@ impl QShellKernelBridge {
     /// Query Prism objects; stage_prism_find was a placeholder.
     pub fn query_prism(&mut self, query_str: &str, limit: usize) -> Vec<String> {
         self.stats.prism_queries += 1;
-        // In production: calls prism_store_bridge::query()
-        // Here: log the query and return empty (connected via kstate_ext in production)
-        crate::serial_println!("[QSHELL BRIDGE] Prism query: '{}' limit={}", query_str, limit);
-        alloc::vec![]
+        // Delegate to kstate_ext::prism_search() — real in-kernel semantic search
+        let results = {
+            let mut ps = crate::kstate_ext::prism_search();
+            ps.search_keywords(0, query_str, limit as u32)
+        };
+        let out: Vec<String> = results.iter()
+            .map(|r| alloc::format!("{:02x}{:02x}{:02x}{:02x}",
+                r.handle.oid[0], r.handle.oid[1], r.handle.oid[2], r.handle.oid[3]))
+            .collect();
+        crate::serial_println!("[QSHELL BRIDGE] Prism query '{}' limit={} → {} results",
+            query_str, limit, out.len());
+        out
     }
 
     pub fn print_stats(&self) {

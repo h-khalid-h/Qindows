@@ -72,8 +72,11 @@ pub fn execute_builtin(cmd: &str, args: &[&str]) -> CommandResult {
     match cmd {
         "help" | "?" => cmd_help(),
         "exit" | "quit" | "logout" => CommandResult::Exit,
-        // All other commands (prism, aether, nexus, sentinel, nvme, tcp, etc.)
-        // are dispatched securely across the microkernel Ring 3 boundary via IPC!
+        // Gap 17.5 — stat: synchronous Prism object query via Syscall 14 (PrismQuery)
+        // Calls handle_prism_query which now does a real resolve_intent() lookup
+        // against the kernel-side PrismGraph. Returns the match count.
+        "stat" | "prism" if args.first().copied() == Some("stat") => cmd_prism_stat(),
+        // All other commands are dispatched via IPC
         _ => SyscallBroker::dispatch_command(cmd, args),
     }
 }
@@ -86,9 +89,44 @@ fn cmd_help() -> CommandResult {
          Commands typed here are routed over Syscalls (IPC) for capability checking.\n\
          \n\
          Built-in:\n  \
-           help, ?      Show this message\n  \
-           exit, quit   Exit the shell\n\
+           help, ?       Show this message\n  \
+           stat          Query the Prism graph (Syscall 14 PrismQuery)\n  \
+           prism stat    Alias for stat\n  \
+           exit, quit    Exit the shell\n\
          \n\
          Try testing IPC by typing `prism` or `nexus`."
     )))
+}
+
+/// Gap 17.5 — stat: synchronous Prism query.
+///
+/// Calls Syscall 14 (PrismQuery) with a fixed query string 'qindows'.
+/// The kernel-side handle_prism_query now runs resolve_intent() on the
+/// boot-time PrismGraph and returns the number of matched objects.
+/// This proves the full Ring-3 → syscall → Prism roundtrip works.
+fn cmd_prism_stat() -> CommandResult {
+    let query = b"qindows";
+    let ptr = query.as_ptr() as u64;
+    let len = query.len() as u64;
+    // arg1 = 0 (no output buffer for now), arg2 = 8 (limit 8 results)
+    let result: i64;
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") 14u64,   // SyscallId::PrismQuery
+            in("rdi") ptr,
+            in("rsi") len,
+            in("rdx") 8u64,    // limit
+            out("rcx") _,
+            out("r11") _,
+            lateout("rax") result,
+        );
+    }
+    if result >= 0 {
+        CommandResult::Success(Some(alloc::format!(
+            "[PRISM STAT] query='qindows' matched {} object(s) in kernel graph", result
+        )))
+    } else {
+        CommandResult::Error(alloc::format!("[PRISM STAT] Syscall 14 failed: {}", result))
+    }
 }

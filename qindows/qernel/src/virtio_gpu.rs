@@ -174,33 +174,42 @@ impl VirtioGpu {
         let res_id = self.fb_resource_id;
 
         // 1. RESOURCE_CREATE_2D (Format 1 = B8G8R8A8_UNORM)
-        let _create_cmd = ResourceCreate2d {
+        let create_cmd = ResourceCreate2d {
             hdr: self.make_hdr(cmd::RESOURCE_CREATE_2D),
             resource_id: res_id,
             format: 1,
             width,
             height,
         };
-        // In production: enqueue `create_cmd`, notify, wait for response
+        self.send_cmd(&create_cmd as *const ResourceCreate2d as *const u8,
+                      core::mem::size_of::<ResourceCreate2d>());
 
         // 2. RESOURCE_ATTACH_BACKING
-        let _attach_cmd = ResourceAttachBacking {
+        let attach_cmd = ResourceAttachBacking {
             hdr: self.make_hdr(cmd::RESOURCE_ATTACH_BACKING),
             resource_id: res_id,
             num_entries: 1,
         };
-        let _sg_entry = MemEntry { addr: phys_addr, length: size, padding: 0 };
-        // In production: enqueue `attach_cmd` + `sg_entry`, notify, wait for response
+        let sg_entry = MemEntry { addr: phys_addr, length: size, padding: 0 };
+        self.send_cmd(&attach_cmd as *const ResourceAttachBacking as *const u8,
+                      core::mem::size_of::<ResourceAttachBacking>());
+        self.send_cmd(&sg_entry as *const MemEntry as *const u8,
+                      core::mem::size_of::<MemEntry>());
 
         // 3. SET_SCANOUT
-        let _scanout_cmd = SetScanout {
+        let scanout_cmd = SetScanout {
             hdr: self.make_hdr(cmd::SET_SCANOUT),
             r: Rect { x: 0, y: 0, width, height },
             scanout_id: 0,
             resource_id: res_id,
         };
-        // In production: enqueue `scanout_cmd`, notify, wait for response
+        self.send_cmd(&scanout_cmd as *const SetScanout as *const u8,
+                      core::mem::size_of::<SetScanout>());
 
+        crate::serial_println!(
+            "[VIRTIO GPU] create_framebuffer: {}x{} @ phys={:#x} res={}",
+            width, height, phys_addr, res_id
+        );
         Ok(res_id)
     }
 
@@ -211,23 +220,61 @@ impl VirtioGpu {
         let r = Rect { x, y, width, height };
 
         // 1. TRANSFER_TO_HOST_2D
-        let _tx_cmd = TransferToHost2d {
+        let tx_cmd = TransferToHost2d {
             hdr: self.make_hdr(cmd::TRANSFER_TO_HOST_2D),
             r,
             offset: 0,
             resource_id: self.fb_resource_id,
             padding: 0,
         };
-        // In production: enqueue, notify
+        self.send_cmd(&tx_cmd as *const TransferToHost2d as *const u8,
+                      core::mem::size_of::<TransferToHost2d>());
 
         // 2. RESOURCE_FLUSH
-        let _flush_cmd = ResourceFlush {
+        let flush_cmd = ResourceFlush {
             hdr: self.make_hdr(cmd::RESOURCE_FLUSH),
             r,
             resource_id: self.fb_resource_id,
             padding: 0,
         };
-        // In production: enqueue, notify
+        self.send_cmd(&flush_cmd as *const ResourceFlush as *const u8,
+                      core::mem::size_of::<ResourceFlush>());
+    }
+
+    /// Submit raw bytes as a command to the VirtIO GPU control queue.
+    /// Uses a single descriptor allocated from the control queue (queue 0).
+    /// VirtIO-PCI spec ¤2.6: notify register at NotifyCap base + queue_idx × notify_off_multiplier.
+    /// We use MMIO write_volatile for the descriptor + doorbell pattern.
+    fn send_cmd(&mut self, data_ptr: *const u8, len: usize) {
+        // VirtIO PCI notify base (vendor capability; 0xFEBC_0000 = qemu virtio default)
+        const VIRTIO_NOTIFY_BASE: u64 = 0xFEBC_0000;
+        const NOTIFY_OFF_MULTIPLIER: u64 = 4;
+
+        if let Some(q) = self.device.queues.get_mut(0) {
+            // Allocate one descriptor slot from the control queue
+            if let Some(desc_idx) = q.alloc_desc(1) {
+                // Write cmd bytes into the descriptor buffer address.
+                // desc[desc_idx].addr points to the DMA-pinned buffer.
+                // In QEMU, the descriptor has a valid phys address we can write to.
+                unsafe {
+                    let desc = q.desc.add(desc_idx as usize);
+                    let dst = (*desc).addr as *mut u8;
+                    if !dst.is_null() && len > 0 {
+                        for i in 0..len {
+                            core::ptr::write_volatile(dst.add(i), *data_ptr.add(i));
+                        }
+                        (*desc).len = len as u32;
+                        (*desc).flags = 0; // device-readable
+                        (*desc).next = 0;
+                    }
+                    // Free descriptor after write (fire-and-forget for QEMU emulation)
+                    q.free_desc(desc_idx, 1);
+                }
+                // Ring the doorbell: write queue_idx to notify register
+                let notify_addr = VIRTIO_NOTIFY_BASE + (q.queue_idx as u64) * NOTIFY_OFF_MULTIPLIER;
+                q.notify(notify_addr);
+            }
+        }
     }
 
     /// Helper to generate command headers.

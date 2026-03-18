@@ -21,9 +21,9 @@ impl<'a> DigitalAntibodyScoreCapBridge<'a> {
         forge: &mut CapTokenForge,
         tick: u64,
     ) -> Option<u8> {
-        if !forge.check(silo_id, CapType::Sentinel, CAP_READ, 0, tick) {
+        if !forge.check(silo_id, CapType::Admin, CAP_READ, 0, tick) {
             crate::serial_println!(
-                "[DIGITAL ANTIBODY] Silo {} threat score query denied — Sentinel:READ required", silo_id
+                "[DIGITAL ANTIBODY] Silo {} threat score query denied — Admin:READ required", silo_id
             );
             return None;
         }

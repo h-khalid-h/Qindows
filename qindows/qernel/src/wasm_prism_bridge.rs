@@ -108,10 +108,19 @@ impl WasmPrismBridge {
             }
         };
 
-        // 2. Grant WASM execution cap to kernel (for AOT compile silo)
-        // In production: the AOT compile Silo is granted an ephemeral Wasm cap
+        // 2. Grant ephemeral WASM execution cap to AOT compile silo (Silo 3)
+        // The AOT compile silo needs a time-limited Wasm cap to process this binary.
+        let aot_silo_id: u64 = 3; // AOT compile is always Silo 3
+        forge.mint(
+            aot_silo_id,
+            CapType::Wasm,
+            hash,
+            tick + 60_000,   // 60-second TTL at 1kHz tick rate
+            CAP_EXEC | CAP_READ,
+        );
         crate::serial_println!(
-            "[WASM BRIDGE] Registered '{}' hash={:#x} — queued for AOT compile", app_id, hash
+            "[WASM BRIDGE] Registered '{}' hash={:#x} — AOT cap granted to Silo {}, TTL=60s",
+            app_id, hash, aot_silo_id
         );
 
         // 3. Record the app
@@ -128,20 +137,37 @@ impl WasmPrismBridge {
     }
 
     /// Called by AOT compile Silo when compilation finishes.
+    /// Gap 24.1 — After marking state=Compiled, immediately spawns the silo.
     pub fn on_compilation_complete(&mut self, wasm_hash: u64, compiled_oid: u64, tick: u64) {
         self.runtime.compilation_complete(wasm_hash, compiled_oid);
         self.stats.compilations_complete += 1;
 
-        // Find app by hash
-        for record in self.apps.values_mut() {
-            if record.wasm_hash == wasm_hash {
-                record.compiled_oid = Some(compiled_oid);
-                record.state = WasmAppState::Compiled;
+        // Find app by hash + mark compiled
+        let app_id_found: Option<alloc::string::String> = {
+            let mut found = None;
+            for record in self.apps.values_mut() {
+                if record.wasm_hash == wasm_hash {
+                    record.compiled_oid = Some(compiled_oid);
+                    record.state = WasmAppState::Compiled;
+                    crate::serial_println!(
+                        "[WASM BRIDGE] '{}' AOT complete → OID={:#x} @ tick {}",
+                        record.app_id, compiled_oid, tick
+                    );
+                    found = Some(record.app_id.clone());
+                    break;
+                }
+            }
+            found
+        };
+
+        // Gap 24.1 — Auto-spawn the silo immediately after AOT finishes.
+        // Create a minimal CapTokenForge for this spawn (no external caller available here).
+        if let Some(ref app_id) = app_id_found {
+            let mut forge = CapTokenForge::new();
+            if let Some(silo_id) = self.spawn_wasm_silo(app_id, &mut forge, tick) {
                 crate::serial_println!(
-                    "[WASM BRIDGE] '{}' AOT complete → OID={:#x} @ tick {}",
-                    record.app_id, compiled_oid, tick
+                    "[WASM BRIDGE] Auto-spawned '{}' as Silo {:#x} after AOT", app_id, silo_id
                 );
-                return;
             }
         }
     }
@@ -158,19 +184,28 @@ impl WasmPrismBridge {
 
         let compiled_oid = record.compiled_oid?;
 
-        // In production: calls silo_launch::spawn_from_oid(compiled_oid)
-        let new_silo_id = compiled_oid ^ (tick & 0xFFFF);
+        // Derive a content-addressed silo ID from the compiled binary (sha256 of OID bytes)
+        let oid_bytes = compiled_oid.to_le_bytes();
+        let oid_hash = crate::crypto_primitives::sha256(&oid_bytes);
+        let new_silo_id = u64::from_le_bytes([
+            oid_hash[0], oid_hash[1], oid_hash[2], oid_hash[3],
+            oid_hash[4], oid_hash[5], oid_hash[6], oid_hash[7],
+        ]) | 0x8000_0000; // bit 31 set = WASM silo namespace
         record.silo_ids.push(new_silo_id);
         record.state = WasmAppState::Running;
         self.stats.silos_launched += 1;
 
         // Grant baseline caps + Wasm exec cap to new silo
-        forge.register_silo(new_silo_id, crate::crypto_primitives::sha256(&compiled_oid.to_le_bytes()));
+        forge.register_silo(new_silo_id, oid_hash);
         forge.grant_baseline(new_silo_id, tick);
         forge.mint(new_silo_id, CapType::Wasm, compiled_oid, tick + 1_000_000, CAP_EXEC | CAP_READ);
+        // Notify nexus mesh peers about new silo spawn (broadcasts 24-byte silo spawn packet)
+        crate::kstate_ext::nexus_send(
+            new_silo_id, 0xFFFF_FFFF_FFFF_FFFF, 24, tick
+        );
 
         crate::serial_println!(
-            "[WASM BRIDGE] Spawned '{}' as Silo {} from OID={:#x}", app_id, new_silo_id, compiled_oid
+            "[WASM BRIDGE] Spawned '{}' as Silo {:#x} from OID={:#x}", app_id, new_silo_id, compiled_oid
         );
         Some(new_silo_id)
     }

@@ -45,11 +45,21 @@ fn efi_main(_image: Handle, mut system_table: SystemTable<Boot>) -> Status {
             .open_protocol_exclusive::<GraphicsOutput>(gop_handle)
             .expect("Failed to open Graphics Output Protocol");
 
-        // Select the highest available resolution
-        let mode = gop
-            .modes(system_table.boot_services())
-            .last()
-            .expect("No display modes available");
+        // Select a reasonable standard resolution (e.g. 1024x768 or 1280x720) 
+        // to avoid exhausting the 16MB standard VGA memory or breaking QEMU VNC.
+        let mut target_mode = None;
+        for m in gop.modes(system_table.boot_services()) {
+            let (w, h) = m.info().resolution();
+            if w == 1024 && h == 768 {
+                target_mode = Some(m);
+                break;
+            }
+        }
+        
+        let mode = target_mode.unwrap_or_else(|| {
+            // Fallback to the first available mode if 1024x768 isn't found
+            gop.modes(system_table.boot_services()).next().expect("No display modes available")
+        });
 
         gop.set_mode(&mode).expect("Failed to set display mode");
 
@@ -70,7 +80,7 @@ fn efi_main(_image: Handle, mut system_table: SystemTable<Boot>) -> Status {
     }; // ← GOP borrow dropped here
 
     // ── Step 2: Obtain Memory Map ──────────────────────────────────
-    let (mmap_buffer_addr, entry_count, usable_ram) = {
+    let (mmap_buffer_addr, mmap_size, entry_count, usable_ram) = {
         info!("Scanning physical memory layout...");
 
         let mmap_size = system_table.boot_services().memory_map_size().map_size
@@ -115,7 +125,7 @@ fn efi_main(_image: Handle, mut system_table: SystemTable<Boot>) -> Status {
             }
         }
 
-        (mmap_buffer as u64, count, ram)
+        (mmap_buffer as u64, mmap_size as u64, count, ram)
     }; // ← memory_map borrow dropped here
 
     let _ = usable_ram; // used for logging above
@@ -184,6 +194,8 @@ fn efi_main(_image: Handle, mut system_table: SystemTable<Boot>) -> Status {
             memory_map_addr: mmap_buffer_addr,
             memory_map_entries: entry_count,
             memory_map_desc_size: core::mem::size_of::<MemoryDescriptor>() as u64,
+            memory_map_total_size: mmap_size as u64,
+            usable_ram_bytes: usable_ram,
         });
     }
 

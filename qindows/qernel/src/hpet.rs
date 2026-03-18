@@ -88,11 +88,23 @@ impl Hpet {
         self.enabled = true;
     }
 
-    /// Read main counter value.
+    /// Read main counter value from HPET MMIO register (offset 0xF0).
     pub fn read_counter(&mut self) -> u64 {
         self.stats.reads += 1;
-        // In production: MMIO read from base_addr + 0xF0
-        0
+        if self.base_addr == 0 {
+            // HPET not mapped (early boot or no HPET) — fall back to TSC
+            let tsc: u64;
+            unsafe {
+                let lo: u32; let hi: u32;
+                core::arch::asm!("rdtsc", out("eax") lo, out("edx") hi, options(nostack, nomem));
+                tsc = (hi as u64) << 32 | lo as u64;
+            }
+            return tsc;
+        }
+        // HPET Main Counter Register at base + 0xF0 (HPET Spec §3.3)
+        unsafe {
+            core::ptr::read_volatile((self.base_addr + 0xF0) as *const u64)
+        }
     }
 
     /// Convert ticks to nanoseconds.

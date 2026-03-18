@@ -186,8 +186,9 @@ impl HotSwapVerifier {
 
         if law2_suspected {
             self.stats.rollbacks_law2 += 1;
-            // Get the module's current OID for the violation report
-            let binary_oid_key = [0u8; 32]; // In production: from engine's patch record
+            // Derive a deterministic binary OID from the module name for the audit record
+            // (real OID would be from the module's last verified patch record)
+            let binary_oid_key = sha256(module_name.as_bytes());
             audit_law2_binary_tampered(
                 0, // kernel module (silo_id=0)
                 binary_oid_key,
@@ -196,7 +197,8 @@ impl HotSwapVerifier {
                 audit_stats,
             );
             crate::serial_println!(
-                "[HOTSWAP] Law2 violation suspected for '{}' — rolling back", module_name
+                "[HOTSWAP] Law2 violation: '{}' oid={:02x}{:02x}.. — rolling back",
+                module_name, binary_oid_key[0], binary_oid_key[1]
             );
         }
 

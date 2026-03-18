@@ -93,8 +93,10 @@ impl IdentityToken {
     }
 
     /// Convenience: is valid right now (caller supplies current tick).
+    /// Convenience: is valid right now using the current kernel tick.
     pub fn is_valid(&self) -> bool {
-        true // In production: !self.revoked && tick-check; caller supplies tick
+        // Delegate to is_valid_at() with the live monotonic tick
+        self.is_valid_at(crate::kstate::global_tick())
     }
 }
 

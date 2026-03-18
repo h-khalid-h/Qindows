@@ -223,12 +223,10 @@ impl NexusRouter {
 
     // ── Phase I: Genesis Protocol ─────────────────────────────────────────────
 
-    /// Initiate the Genesis Protocol — broadcast the node beacon.
+    /// Initiate the Genesis Protocol — broadcast the node beacon via NexusKernelBridge.
     ///
     /// This is the "Big Bang" event for the Q-Mesh. The local node begins
     /// multicasting its identity + hardware profile to all reachable peers.
-    ///
-    /// In production: sends a Q-Fabric broadcast to all-nodes multicast address.
     pub fn initiate_genesis(&mut self, tick: u64) {
         if self.genesis_active {
             crate::serial_println!("[NEXUS] Genesis already active.");
@@ -239,6 +237,12 @@ impl NexusRouter {
             "[NEXUS] GENESIS PROTOCOL INITIATED at tick {}. Node ID: {:08x}",
             tick, self.local_id.short_hex()
         );
+        // Broadcast identity beacon to Q-Fabric all-nodes multicast (dest_prefix=0xFFFF...)
+        // 64-byte beacon payload = node_id (16) + local_id short_hex (8 bytes padded)
+        let all_nodes_multicast: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+        let beacon_len: u32 = 64; // node identity packet size
+        crate::kstate_ext::nexus_send(crate::nexus_kernel_bridge::NEXUS_SILO_ID,
+            all_nodes_multicast, beacon_len, tick);
         crate::serial_println!("[NEXUS] Broadcasting identity beacon on Q-Fabric...");
         crate::serial_println!("[NEXUS] Calibrating global clock (PTP-Sync)...");
         crate::serial_println!("[NEXUS] THE MESH IS ALIVE.");
@@ -369,10 +373,7 @@ impl NexusRouter {
 
     // ── Phase V: Sentinel Antibody Propagation ───────────────────────────────
 
-    /// Broadcast a Sentinel antibody to all known peers.
-    ///
-    /// Called when the local Sentinel discovers a new attack pattern.
-    /// All receiving peers update their own Sentinel capability-blockers.
+    /// Broadcast a Sentinel antibody to all known peers via NexusKernelBridge FabricSend.
     pub fn broadcast_antibody(&mut self, antibody: SentinelAntibody, tick: u64) {
         crate::serial_println!(
             "[NEXUS] Antibody broadcast: \"{}\" discovered by {:08x} at tick {}",
@@ -381,7 +382,21 @@ impl NexusRouter {
         crate::serial_println!(
             "[NEXUS] Immunizing {} peers...", self.peers.len()
         );
-        // In production: transmit to each peer via Q-Fabric multicast
+        // Transmit antibody to each known peer via NexusKernelBridge
+        for (peer_id, peer) in &self.peers {
+            if peer.healthy {
+                // Use lower 8 bytes of peer NodeId as dest_prefix for routing
+                let dest_prefix = u64::from_le_bytes([
+                    peer_id.0[0], peer_id.0[1], peer_id.0[2], peer_id.0[3],
+                    peer_id.0[4], peer_id.0[5], peer_id.0[6], peer_id.0[7],
+                ]);
+                // Antibody packet = 32 bytes (pattern_hash) + 8 bytes metadata = 40 bytes
+                crate::kstate_ext::nexus_send(
+                    crate::nexus_kernel_bridge::NEXUS_SILO_ID,
+                    dest_prefix, 40, tick,
+                );
+            }
+        }
         self.antibodies.insert(antibody.pattern_hash, antibody);
         self.stats.antibodies_broadcast += 1;
     }

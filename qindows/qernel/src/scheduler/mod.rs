@@ -158,8 +158,44 @@ impl CoreScheduler {
             next_fiber.state = FiberState::Running;
             self.fibers_processed += 1;
 
-            // Fix #1: Inform the syscall capability gate which silo is now running
+            // Gap 17.3 — PCID-Aware CR3 Switch
+            //
+            // Before telling the syscall gate which silo is active, physically
+            // switch the CPU's page table root (CR3) to the silo's page table.
+            // We embed the silo's PCID in bits [11:0] of CR3.
+            // Bit 63 = 1 (PCID_NOFLUSH) when switching to the *same* silo
+            //           (no TLB flush needed — PCIDs protect foreign entries).
+            // Bit 63 = 0 when the silo is different from the previous entry
+            //           (full TLB flush for this address space).
+            //
+            // If the silo has no page_table_root (== 0), we keep the current
+            // CR3 unchanged — this handles kernel-only fibers safely.
             if let Some(silo_id) = next_fiber.silo_id {
+                let silos = crate::kstate::silos();
+                if let Some(silo) = silos.silos.iter().find(|s| s.id == silo_id) {
+                    let page_table_phys = silo.page_table_root;
+                    if page_table_phys != 0 {
+                        // Use lower 6 bits of silo_id as PCID (64 PCID slots from hardware)
+                        let pcid = (silo_id & 0x3F) as u64;
+                        // Read current CR3 to detect same-silo re-entry
+                        let current_cr3: u64 = unsafe {
+                            let mut val: u64;
+                            core::arch::asm!("mov {}, cr3", out(reg) val, options(nomem, nostack));
+                            val
+                        };
+                        let current_pcid = current_cr3 & 0xFFF;
+                        // NOFLUSH bit: skip TLB flush if PCID matches (same silo re-entering)
+                        let noflush = if current_pcid == pcid { 1u64 << 63 } else { 0 };
+                        let new_cr3 = noflush | (page_table_phys & !0xFFF) | pcid;
+                        unsafe {
+                            core::arch::asm!(
+                                "mov cr3, {}",
+                                in(reg) new_cr3,
+                                options(nomem, nostack)
+                            );
+                        }
+                    }
+                }
                 crate::syscall::set_current_silo(silo_id);
             } else {
                 crate::syscall::set_current_silo(0); // kernel fiber

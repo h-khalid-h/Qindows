@@ -48,6 +48,25 @@ pub fn set_frequency(tps: u64) {
     TICKS_PER_SECOND.store(tps, AtomicOrd::Relaxed);
 }
 
+/// Gap 18.4 — Cooperative sleep: spin until `ticks` have elapsed.
+///
+/// Uses the existing APIC timer tick counter (1 tick ≈ 1 ms at 1 kHz).
+/// Yields via `core::hint::spin_loop()` on each iteration so other hardware
+/// interrupts (especially the APIC timer IRQ itself) can fire and advance
+/// the tick counter.
+///
+/// # Behavior
+/// - Returns immediately if `ticks == 0`
+/// - Safe to call from Ring-3 via Syscall 302 (SysSleep)
+/// - Not suitable for real-time deadlines — timer resolution is ±1 ms
+pub fn sleep_ticks(ticks: u64) {
+    if ticks == 0 { return; }
+    let end = now_ticks().saturating_add(ticks);
+    while now_ticks() < end {
+        core::hint::spin_loop();
+    }
+}
+
 /// A scheduled timer event.
 #[derive(Debug, Clone)]
 pub struct TimerEvent {

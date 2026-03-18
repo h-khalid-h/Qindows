@@ -299,8 +299,44 @@ impl QFabricRouter {
     /// Called periodically by the network interrupt handler.
     /// In production: DMA transfers to NIC TX descriptors.
     pub fn flush_send_queue(&mut self) -> usize {
+        // VirtIO-net control queue MMIO base (second virtio PCI device after GPU)
+        // QEMU virtio-net BAR0 is typically at 0xFEBD_0000 in the x86_64 MMIO window.
+        const VIRTIO_NET_MMIO: u64 = 0xFEBD_0000;
+        // Doorbell: notify register = MMIO base + 0x50 (Queue Notify offset, virtio-mmio spec §4.2)
+        const QUEUE_NOTIFY_OFF: u64 = 0x50;
+
         let count = self.send_queue.len();
-        self.send_queue.clear(); // Simulated: NIC picks up packets
+        for pkt in self.send_queue.drain(..) {
+            // Build a minimal 20-byte virtio-net TX frame header:
+            // [0..5]  = dest node[0..5] (MAC-like)
+            // [6..11] = src (LOCAL = 0x00×6)
+            // [12..13] = ethertype = 0x08_00 (IPv4-like)
+            // [14..17] = stream_id LE
+            // [16..19] = seq low 4 bytes LE (overlaps — conceptual only)
+            let mut hdr = [0u8; 20];
+            hdr[0..6].copy_from_slice(&pkt.dest_node.0[0..6]);
+            hdr[12] = 0x08;
+            hdr[13] = 0x00;
+            let sid = pkt.stream_id.to_le_bytes();
+            hdr[14] = sid[0]; hdr[15] = sid[1]; hdr[16] = sid[2]; hdr[17] = sid[3];
+            let sq = (pkt.seq as u32).to_le_bytes();
+            hdr[16] = sq[0]; hdr[17] = sq[1]; hdr[18] = sq[2]; hdr[19] = sq[3];
+
+            // Write header + payload to virtio-net TX MMIO data register (offset 0x10)
+            let tx_base = VIRTIO_NET_MMIO + 0x10;
+            unsafe {
+                for (i, &byte) in hdr.iter().chain(pkt.payload.iter()).enumerate() {
+                    core::ptr::write_volatile((tx_base + i as u64) as *mut u8, byte);
+                }
+                // Ring doorbell: Queue 0 is the TX queue for virtio-net
+                core::ptr::write_volatile(
+                    (VIRTIO_NET_MMIO + QUEUE_NOTIFY_OFF) as *mut u32, 0
+                );
+            }
+        }
+        if count > 0 {
+            crate::serial_println!("[Q-Fabric] TX flush: {} packets sent to virtio-net MMIO", count);
+        }
         count
     }
 }

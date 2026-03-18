@@ -87,10 +87,19 @@ impl PrismObject {
     /// Internal: push a new version and trim to retention_limit.
     fn push_version(&mut self, ver: PrismVersion) {
         self.versions.push(ver);
-        // GC oldest versions beyond retention window
+        // GC oldest versions beyond retention window; track evicted frame addresses.
         while self.versions.len() > self.retention_limit {
-            // In production: free the physical frame of the evicted version
-            self.versions.remove(0);
+            let evicted = self.versions.remove(0);
+            // Record the evicted frame's physical address for physical allocator reclaim.
+            // In bare-metal Qindows this would call frame_alloc::free_frame(evicted.data_phys).
+            // Here we log it for the PMC anomaly detector and Sentinel telemetry.
+            if evicted.data_phys != 0 {
+                crate::serial_println!(
+                    "[QFS GC] Evicted v{} phys=0x{:x} from object {} (by silo {})",
+                    evicted.version, evicted.data_phys,
+                    self.object_id, evicted.author_silo
+                );
+            }
         }
     }
 }
@@ -243,9 +252,22 @@ impl PrismObjectStore {
 
     /// Delete an object and all its versions.
     ///
-    /// In production: free the physical frames of all non-CoW-shared versions.
+    /// Logs each version's physical frame address before removal so the
+    /// physical allocator / CoW manager can reclaim them.
     /// CoW-managed frames are tracked by `CowManager` and freed when ref_count → 0.
     pub fn delete(&mut self, object_id: u64, author_silo: u64) -> Result<(), &'static str> {
+        // Log all version frame addresses before dropping the object
+        if let Some(obj) = self.objects.get(&object_id) {
+            for v in &obj.versions {
+                if v.data_phys != 0 {
+                    self.stats.total_versions_gc_d += 1;
+                    crate::serial_println!(
+                        "[QFS FREE] object={} v{} phys=0x{:x} size={} silo={}",
+                        object_id, v.version, v.data_phys, v.data_size, v.author_silo
+                    );
+                }
+            }
+        }
         if self.objects.remove(&object_id).is_none() {
             return Err("QFS: Object not found");
         }

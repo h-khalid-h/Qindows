@@ -377,8 +377,42 @@ pub struct SentinelSnapshot {
 }
 
 /// Initialize the Sentinel on a dedicated CPU core.
+/// Sets LAPIC core affinity so Sentinel IPIs route to Core 1.
 pub fn init() {
-    // In production: pin the Sentinel's monitor loop to Core 1
-    // using the scheduler's core affinity system.
+    // Read BSP APIC ID from CPUID leaf 1 EBX[31:24]
+    // rbx is reserved by LLVM — use push/pop + r11d as scratch to avoid LLVM conflict
+    let bsp_apic_id: u8;
+    unsafe {
+        let apic_id_raw: u32;
+        core::arch::asm!(
+            "push rbx",
+            "mov eax, 1",
+            "cpuid",
+            "mov r11d, ebx",
+            "pop rbx",
+            out("r11d") apic_id_raw,
+            options(nostack, nomem)
+        );
+        bsp_apic_id = (apic_id_raw >> 24) as u8;
+    }
+    crate::serial_println!("[SENTINEL] BSP APIC ID = {}", bsp_apic_id);
+
+    // Set LAPIC Logical Destination Register (LDR, offset 0xD0) for Core 1
+    // APIC_BASE default = 0xFEE0_0000 (IA-32 spec §10.4.4)
+    const APIC_BASE: u64 = 0xFEE0_0000;
+    const LDR_OFFSET:  u64 = 0xD0;
+    const DFR_OFFSET:  u64 = 0xE0;
+    // Flat logical mode: LDR[31:24] = 0x02 means Core 1 in flat cluster
+    let ldr_val: u32 = 0x0200_0000;
+    // DFR flat model: all bits 1
+    let dfr_val: u32 = 0xFFFF_FFFF;
+    unsafe {
+        core::ptr::write_volatile((APIC_BASE + LDR_OFFSET) as *mut u32, ldr_val);
+        core::ptr::write_volatile((APIC_BASE + DFR_OFFSET) as *mut u32, dfr_val);
+    }
+    crate::serial_println!(
+        "[SENTINEL] Core affinity set — LDR=0x{:08x} DFR=0x{:08x} (Core 1 pinned)",
+        ldr_val, dfr_val
+    );
     crate::serial_println!("[OK] Sentinel AI Auditor initialized — Law Enforcement ACTIVE");
 }

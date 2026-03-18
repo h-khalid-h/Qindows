@@ -43,8 +43,8 @@ impl FramebufferConsole {
             row: 0,
             max_cols: fb_width / CHAR_WIDTH,
             max_rows: fb_height / CHAR_HEIGHT,
-            fg_color: 0x00_06_D6_A0, // Qindows Cyan
-            bg_color: 0x00_06_06_0E, // Qindows Deep Black
+            fg_color: 0xFF_06_D6_A0, // Qindows Cyan
+            bg_color: 0xFF_06_06_0E, // Qindows Deep Black
             scroll_pending: false,
         }
     }
@@ -189,9 +189,9 @@ impl FramebufferConsole {
     /// Print a boot status line: [OK] message
     pub fn print_ok(&mut self, fb: &mut AetherFrameBuffer, msg: &str) {
         let saved_fg = self.fg_color;
-        self.set_fg(0x00_06_D6_A0); // Cyan
+        self.set_fg(0xFF_06_D6_A0); // Cyan
         self.write_str(fb, "[OK] ");
-        self.set_fg(0x00_A0_A0_B8); // Light gray
+        self.set_fg(0xFF_A0_A0_B8); // Light gray
         self.write_str(fb, msg);
         self.write_char(fb, '\n');
         self.set_fg(saved_fg);
@@ -200,7 +200,7 @@ impl FramebufferConsole {
     /// Print a boot error line: [!!] message
     pub fn print_err(&mut self, fb: &mut AetherFrameBuffer, msg: &str) {
         let saved_fg = self.fg_color;
-        self.set_fg(0x00_EF_47_6F); // Pink/Red
+        self.set_fg(0xFF_EF_47_6F); // Pink/Red
         self.write_str(fb, "[!!] ");
         self.write_str(fb, msg);
         self.write_char(fb, '\n');
@@ -210,16 +210,16 @@ impl FramebufferConsole {
     /// Print the Qindows boot banner.
     pub fn print_banner(&mut self, fb: &mut AetherFrameBuffer) {
         let saved_fg = self.fg_color;
-        self.set_fg(0x00_7B_2F_F7); // Violet
+        self.set_fg(0xFF_7B_2F_F7); // Violet
         self.write_str(fb, " ____  _           _\n");
         self.write_str(fb, "|  _ \\(_)_ __   __| | _____      _____\n");
         self.write_str(fb, "| | | | | '_ \\ / _` |/ _ \\ \\ /\\ / / __|\n");
         self.write_str(fb, "| |_| | | | | | (_| | (_) \\ V  V /\\__ \\\n");
         self.write_str(fb, "|____/|_|_| |_|\\__,_|\\___/ \\_/\\_/ |___/\n");
-        self.set_fg(0x00_06_D6_A0); // Cyan
+        self.set_fg(0xFF_06_D6_A0); // Cyan
         self.write_str(fb, "        The Final Operating System\n");
-        self.set_fg(0x00_A0_A0_B8); // Gray
-        self.write_str(fb, "        v1.0.0-genesis | March 4, 2026\n\n");
+        self.set_fg(0xFF_A0_A0_B8); // Gray
+        self.write_str(fb, "        v1.0.0-genesis | March 14, 2026\n\n");
         self.set_fg(saved_fg);
     }
 }

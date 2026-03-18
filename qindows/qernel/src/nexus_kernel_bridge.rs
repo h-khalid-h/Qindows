@@ -103,8 +103,26 @@ impl NexusKernelBridge {
     ) -> bool {
         self.stats.route_lookups += 1;
 
-        // 1. Law 7: verify NET_SEND cap (in production: cap_token::check)
-        // For now: we trust it passed qring_dispatch's cap check
+        // Law 7: Re-verify NET_SEND capability at nexus bridge layer (defense-in-depth).
+        // qring_dispatch already checked the CapToken, but we re-verify here so a
+        // compromised dispatch table cannot bypass the network gate.
+        let has_net_send = {
+            let silos = crate::kstate::silos();
+            silos.silos.iter()
+                .find(|s| s.id == from_silo)
+                .map(|s| s.capabilities.iter().any(|cap| {
+                    cap.permissions.contains(crate::capability::Permissions::NET_SEND)
+                }))
+                .unwrap_or(false)
+        };
+        if !has_net_send {
+            crate::serial_println!(
+                "[NEXUS BRIDGE] Law7 DENY: Silo {} lacks NET_SEND — packet dropped dest={:#x}",
+                from_silo, dest_node_prefix
+            );
+            self.stats.law7_denials += 1;
+            return false;
+        }
         self.stats.bytes_sent += payload_len as u64;
         self.stats.packets_sent += 1;
 

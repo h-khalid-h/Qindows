@@ -414,6 +414,12 @@ pub fn state() -> &'static KernelState {
     KERNEL.get().expect("Kernel state not initialized")
 }
 
+/// Gap 21.2 — Non-panicking state accessor for IRQ/tick_hook context.
+/// Returns None if init() hasn't completed yet.
+pub fn state_opt() -> Option<&'static KernelState> {
+    KERNEL.get()
+}
+
 /// Convenience: lock the silo manager.
 pub fn silos() -> spin::MutexGuard<'static, SiloManager> {
     state().silo_mgr.lock()
@@ -532,6 +538,16 @@ pub fn npu_sched() -> spin::MutexGuard<'static, alloc::boxed::Box<crate::npu_sch
 /// Convenience: lock the Disk Scheduler.
 pub fn disk_sched() -> spin::MutexGuard<'static, alloc::boxed::Box<crate::disk_sched::DiskScheduler>> {
     state().disk_sched.lock()
+}
+
+/// Gap 19.3 — Non-blocking try_lock for disk_sched (used from IRQ tick_hook).
+pub fn disk_sched_try_lock() -> Option<spin::MutexGuard<'static, alloc::boxed::Box<crate::disk_sched::DiskScheduler>>> {
+    state().disk_sched.try_lock()
+}
+
+/// Gap 19.3 — Non-blocking try_lock for nvme (used from IRQ tick_hook).
+pub fn nvme_try_lock() -> Option<spin::MutexGuard<'static, alloc::boxed::Box<crate::drivers::nvme::NvmeController>>> {
+    state().nvme.try_lock()
 }
 
 /// Convenience: lock the Core Dump Manager.

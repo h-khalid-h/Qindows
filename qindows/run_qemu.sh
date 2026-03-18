@@ -28,9 +28,13 @@ qemu-system-x86_64 \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd \
   -drive format=raw,file=fat:rw:esp \
   -serial file:qemu_output.log \
-  -display none \
+  -vga std \
+  -device qemu-xhci \
+  -device usb-kbd \
+  -device usb-mouse \
+  -vnc :0 \
   -no-reboot \
-  -device isa-debug-exit &
+  &
 
 QEMU_PID=$!
 echo "QEMU PID: $QEMU_PID — waiting 25s for boot to complete..."

@@ -298,21 +298,68 @@ impl QBridge {
         let plan = self.plan.as_ref().ok_or("Q-Bridge: no migration plan")?;
         self.phase = MigrationPhase::Migrating;
 
-        for file in &plan.files_to_migrate {
-            // In production: Q-Ring PrismWrite call with file content
-            crate::serial_println!(
-                "[BRIDGE] Migrating: {} ({} bytes) → Prism",
-                file.windows_path, file.size_bytes
-            );
-            self.stats.files_migrated += 1;
-            self.stats.dedup_bytes_saved += if file.class == LegacyFileClass::UserDocument {
-                file.size_bytes * 3 / 10
-            } else { 0 };
+        for chunk in plan.files_to_migrate.chunks(16) {
+            // Batch up to 16 files per ghost_write transaction
+            let mut gw = crate::kstate_ext::ghost_write();
+            let tick = crate::kstate::global_tick();
+            let tx_id = gw.begin(self.migration_silo, tick);
+            for file in chunk {
+                // Content = content_hash serialized as 8 LE bytes
+                let content: alloc::vec::Vec<u8> = file.content_hash.to_le_bytes().to_vec();
+                let obj_type = match file.class {
+                    LegacyFileClass::UserDocument      => "document",
+                    LegacyFileClass::ExecutableBinary  => "binary",
+                    LegacyFileClass::MediaFile         => "media",
+                    LegacyFileClass::Font              => "font",
+                    LegacyFileClass::RegistryHive      => "registry",
+                    _                                  => "legacy",
+                };
+                let _ = gw.write(tx_id, crate::ghost_write_engine::GwWriteOp {
+                    current_oid: None,
+                    content,
+                    object_type: alloc::string::String::from(obj_type),
+                    creator_silo: self.migration_silo,
+                    new_oid: None,
+                    new_lba_start: None,
+                    new_lba_count: None,
+                });
+                crate::serial_println!(
+                    "[BRIDGE] Staging: {} ({} bytes) -> Prism",
+                    file.windows_path, file.size_bytes
+                );
+                self.stats.files_migrated += 1;
+                self.stats.dedup_bytes_saved += if file.class == LegacyFileClass::UserDocument {
+                    file.size_bytes * 3 / 10
+                } else { 0 };
+            }
+            let _ = gw.commit(tx_id, crate::kstate::global_tick());
         }
 
         self.phase = MigrationPhase::ConvertingRegistry;
         for entry in &plan.registry_entries {
-            // In production: writes to Silo K-V store via PrismWrite
+            // Ingest each registry K-V entry as a searchable Q-Node in PrismSearchEngine
+            let oid_seed = entry.path.bytes()
+                .fold(0xcbf29ce484222325u64, |h, b| h.wrapping_mul(0x100000001b3) ^ b as u64)
+                ^ entry.name.bytes()
+                    .fold(0u64, |h, b| h.wrapping_add(b as u64));
+            let mut oid = [0u8; 32];
+            oid[..8].copy_from_slice(&oid_seed.to_le_bytes());
+            oid[8..16].copy_from_slice(&entry.name.len().to_le_bytes());
+            let keywords = alloc::format!("{} {} {}",
+                entry.path, entry.name, entry.json_value);
+            {
+                let mut ps = crate::kstate_ext::prism_search();
+                let node = crate::prism_search::QNode::new(
+                    oid,
+                    "registry",
+                    &entry.name,
+                    self.migration_silo,
+                    crate::kstate::global_tick(),
+                    entry.json_value.len() as u64,
+                    &keywords,
+                );
+                ps.ingest_object(node);
+            }
             self.stats.registry_keys_converted += 1;
         }
 

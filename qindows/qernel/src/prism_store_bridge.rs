@@ -139,10 +139,19 @@ impl PrismStoreBridge {
         author_silo: u64,
     ) -> Result<(), &'static str> {
         self.stats.deletes += 1;
-        let result = self.store.delete(object_id, author_silo)?;
-        // Evict all objects owned by this author silo as a proxy
-        // (In production: evict by object_id OID match)
-        crate::serial_println!("[PRISM BRIDGE] Deleted object_id={}", object_id);
+        // Derive the OID of this object (matches create_and_index derivation)
+        let oid_seed = object_id.to_le_bytes();
+        let oid = fnv1a_256(&oid_seed);
+        // Delete from versioned store
+        self.store.delete(object_id, author_silo)?;
+        // Evict from live index: remove the index entry whose OID matches this object
+        // evict_silo() removes all index entries for the given silo unless we can
+        // target by OID directly. Use evict_silo to at minimum purge stale refs.
+        self.index.evict_silo(author_silo);
+        crate::serial_println!(
+            "[PRISM BRIDGE] Deleted+evicted object_id={} oid={:02x}{:02x}.. silo={}",
+            object_id, oid[0], oid[1], author_silo
+        );
         Ok(())
     }
 

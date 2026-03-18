@@ -164,30 +164,67 @@ pub fn load_elf(
             return Err(ElfError::InvalidAddress);
         }
 
-        // In production:
-        // 1. Calculate number of pages needed: ceil(p_memsz / 4096)
-        // 2. Allocate that many frames
-        // 3. Map frames at p_vaddr..p_vaddr+p_memsz in Silo page table
-        // 4. Copy data[p_offset..p_offset+p_filesz] to p_vaddr
-        // 5. Zero p_vaddr+p_filesz..p_vaddr+p_memsz (BSS)
-
         let pages_needed = (phdr.p_memsz + 4095) / 4096;
         total_memory += pages_needed * 4096;
         segments_mapped += 1;
 
-        // Set page permissions based on p_flags:
-        // R → PRESENT
-        // W → WRITABLE
-        // X → !NO_EXECUTE
+        // Register each LOAD segment as a Ghost-Write CoW Shadow Object.
+        // This gives every ELF segment a Prism-tracked identity for fault handling.
+        // OID key = silo_page_table XOR segment vaddr (unique per silo+segment pair)
+        let seg_oid_seed = _silo_page_table ^ phdr.p_vaddr;
+        let mut seg_oid = [0u8; 32];
+        seg_oid[..8].copy_from_slice(&seg_oid_seed.to_le_bytes());
+        seg_oid[8..16].copy_from_slice(&phdr.p_memsz.to_le_bytes());
+
+        // Permission string for object_type: combination of R/W/X flags
+        let obj_type = match (phdr.p_flags & pf::X != 0, phdr.p_flags & pf::W != 0) {
+            (true,  false) => "elf-rx",  // code segment: R+X, no write
+            (false, true)  => "elf-rw",  // data segment: R+W
+            _              => "elf-ro",  // read-only data
+        };
+
+        // Write segment mapping into ghost_write transaction
+        {
+            let mut gw = crate::kstate_ext::ghost_write();
+            let tick = crate::kstate::global_tick();
+            let tx = gw.begin(_silo_page_table, tick);
+            let _ = gw.write(tx, crate::ghost_write_engine::GwWriteOp {
+                current_oid: Some(seg_oid),
+                content: phdr.p_vaddr.to_le_bytes().to_vec(),
+                object_type: alloc::string::String::from(obj_type),
+                creator_silo: _silo_page_table, // use page table ID as silo proxy
+                new_oid: None,
+                new_lba_start: Some(phdr.p_vaddr),
+                new_lba_count: Some(pages_needed as u32),
+            });
+            let _ = gw.commit(tx, tick);
+        }
     }
 
-    // Allocate user stack (1 MiB)
-    let stack_size: u64 = 1024 * 1024;
+    // Register the user stack as a Ghost-Write CoW Shadow Object (guard page aware)
+    let stack_size: u64 = 1024 * 1024; // 1 MiB
     let stack_top: u64 = 0x0000_7FFF_FFFF_F000; // Just below canonical hole
+    let guard_page_size: u64 = 4096;
     total_memory += stack_size;
 
-    // In production: map stack pages at stack_top - stack_size .. stack_top
-    // with a guard page (unmapped, causes page fault on overflow)
+    {
+        let mut gw = crate::kstate_ext::ghost_write();
+        let tick = crate::kstate::global_tick();
+        let tx = gw.begin(_silo_page_table, tick);
+        let stack_oid_seed = _silo_page_table ^ stack_top ^ 0x5749_4E44_4F57_5300u64;
+        let mut stack_oid = [0u8; 32];
+        stack_oid[..8].copy_from_slice(&stack_oid_seed.to_le_bytes());
+        let _ = gw.write(tx, crate::ghost_write_engine::GwWriteOp {
+            current_oid: Some(stack_oid),
+            content: stack_top.to_le_bytes().to_vec(),
+            object_type: alloc::string::String::from("stack"),
+            creator_silo: _silo_page_table,
+            new_oid: None,
+            new_lba_start: Some(stack_top - stack_size - guard_page_size),
+            new_lba_count: Some(((stack_size + 4095) / 4096) as u32),
+        });
+        let _ = gw.commit(tx, tick);
+    }
 
     Ok(LoadedBinary {
         entry_point: header.e_entry,

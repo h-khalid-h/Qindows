@@ -12,18 +12,19 @@ use aether::renderer::{RenderFrame, RenderCommand, Color};
 
 // ── Color Palette ──────────────────────────────────────────────
 // The Qindows Aether design system, as ARGB u32 values.
-const BG_DEEP:       u32 = 0x00_06_06_0E; // Desktop background
-const BG_SURFACE:    u32 = 0x00_0C_0C_1A; // Panel background
-const BG_TASKBAR:    u32 = 0x00_0A_0E_17; // Taskbar background
-const ACCENT_CYAN:   u32 = 0x00_06_D6_A0; // Primary accent (Q green-cyan)
-const ACCENT_BLUE:   u32 = 0x00_00_C8_FF; // Secondary accent
-const ACCENT_GOLD:   u32 = 0x00_FF_D7_00; // Warning/highlight
-const TEXT_PRIMARY:  u32 = 0x00_E0_E8_F0; // Main text
-const TEXT_DIM:      u32 = 0x00_60_68_78; // Muted text
-const BORDER:        u32 = 0x00_1A_20_30; // Subtle borders
-const STATUS_GREEN:  u32 = 0x00_06_D6_A0; // Active/OK
-const STATUS_YELLOW: u32 = 0x00_FF_BD_2E; // Warning
-const STATUS_RED:    u32 = 0x00_EF_47_6F; // Error
+pub const BG_DEEP: u32 = 0xFF_06_06_0E;
+pub const BG_SURFACE: u32 = 0xFF_0C_0C_1A; // Panel background
+pub const BG_TASKBAR: u32 = 0xFF_0A_0E_17; // Taskbar background
+pub const ACCENT_CYAN: u32 = 0xFF_00_F0_FF;
+pub const ACCENT_BLUE: u32 = 0xFF_10_70_FF;
+pub const ACCENT_GOLD: u32 = 0xFF_FF_D7_00;
+pub const TEXT_PRIMARY: u32 = 0xFF_E0_E6_ED;
+pub const TEXT_DIM: u32 = 0xFF_8A_96_A6;
+pub const BORDER: u32 = 0xFF_1A_20_30; // Subtle borders
+pub const STATUS_GREEN: u32 = 0xFF_00_FF_AA;
+pub const ALERT_RED: u32 = 0xFF_FF_33_66;
+pub const STATUS_YELLOW: u32 = 0xFF_FF_BD_2E; // Warning
+pub const STATUS_RED: u32 = 0xFF_EF_47_6F; // Error
 
 // ── Taskbar Constants ──────────────────────────────────────────
 const TASKBAR_HEIGHT: usize = 40;
@@ -44,7 +45,7 @@ pub fn render_desktop(fb: &mut AetherFrameBuffer) {
     // ── 1. Desktop Background (Deep Black + Glowing Orbs) ──────
     fb.clear(BG_DEEP);
 
-    let dot_color = 0x00_20_24_38;
+    let dot_color = 0xFF_20_24_38;
     let spacing = 48;
     for y in (0..h).step_by(spacing) {
         for x in (0..w).step_by(spacing) {
@@ -134,7 +135,7 @@ pub fn render_status_text(
     // Glassy panel background
     draw_rounded_rect_alpha(fb, panel_x, panel_y, panel_w, panel_h, 12, BG_SURFACE, 180);
     // Border
-    draw_rounded_rect_alpha(fb, panel_x, panel_y, panel_w, panel_h, 12, 0x00_FF_FF_FF, 20);
+    draw_rounded_rect_alpha(fb, panel_x, panel_y, panel_w, panel_h, 12, 0xFF_FF_FF_FF, 20);
 
     // Position console cursor at the panel location
     let col = panel_x / 8 + 1;
@@ -248,8 +249,8 @@ pub fn run_desktop_loop(fb: &mut AetherFrameBuffer, console: &mut FramebufferCon
     let mut wm = WindowManager::new(fb.width() as f32, fb.height() as f32);
     let mut router = InputRouter::new();
 
-    wm.create_window(5, alloc::string::String::from("Q-Shell - admin@qindows: ~"), 100.0, 120.0, 600.0, 400.0);
-    wm.create_window(0, alloc::string::String::from("System Monitor"), 750.0, 200.0, 500.0, 350.0);
+    wm.create_window(5, alloc::string::String::from("Q-Shell - admin@qindows: ~"), 5.0, 74.0, 622.0, 630.0);
+    wm.create_window(0, alloc::string::String::from("System Monitor"), 636.0, 74.0, 380.0, 340.0);
 
     let (mut cursor_x, mut cursor_y) = crate::drivers::mouse::get_position();
     let mut dragging_win: Option<(u64, f32, f32)> = None;
@@ -266,8 +267,12 @@ pub fn run_desktop_loop(fb: &mut AetherFrameBuffer, console: &mut FramebufferCon
     // Initial render
     render_scene(fb, &wm, console, &qshell_lines, cursor_x as f32, cursor_y as f32);
 
+    // (Test rectangle removed)
+
     save_bg(fb, cursor_x, cursor_y, &mut saved_bg);
     draw_cursor(fb, cursor_x, cursor_y);
+
+    crate::serial_println!("[GUI] Initial render complete. Entering main loop.");
 
     loop {
         let mut needs_redraw = false;
@@ -343,8 +348,15 @@ pub fn run_desktop_loop(fb: &mut AetherFrameBuffer, console: &mut FramebufferCon
                         let cmd = cmd_line.trim_start_matches("admin@qindows:~$ ");
                         if !cmd.trim().is_empty() {
                             let output = crate::syscall::qshell_dispatch(cmd);
-                            for line in output.lines() {
-                                qshell_lines.push(alloc::string::String::from(line));
+                            if output == "\x0C" {
+                                // Clear command — reset to empty shell
+                                qshell_lines.clear();
+                                qshell_lines.push(alloc::string::String::from("Genesis Protocol Initiated..."));
+                                qshell_lines.push(alloc::string::String::from("[OK] Aether Display Active"));
+                            } else {
+                                for line in output.lines() {
+                                    qshell_lines.push(alloc::string::String::from(line));
+                                }
                             }
                         }
                     }
@@ -355,7 +367,8 @@ pub fn run_desktop_loop(fb: &mut AetherFrameBuffer, console: &mut FramebufferCon
                     needs_redraw = true;
                 } else if kev.keycode == crate::drivers::keyboard::KeyCode::Backspace {
                     if let Some(last) = qshell_lines.last_mut() {
-                        if last.len() > 17 { // Protect prompt
+                        const PROMPT: &str = "admin@qindows:~$ ";
+                        if last.len() > PROMPT.len() { // Protect prompt exactly
                             last.pop();
                             needs_redraw = true;
                         }
@@ -385,72 +398,363 @@ pub fn run_desktop_loop(fb: &mut AetherFrameBuffer, console: &mut FramebufferCon
     }
 }
 
-/// Helper function to re-compose the Aether desktop given window manager state
+/// Re-compose the Aether desktop using the real SDF renderer.
+///
+/// Phase 1: Builds an Aether `RenderFrame` (wallpaper gradient, Q-Glass windows
+///          with drop-shadows and focus glow, GlassBlur taskbar) and calls
+///          `rasterize_aether_frame()` — the actual Aether SDF software rasterizer.
+/// Phase 2: Overlays 2× bitmap-font text for the shell, monitor, and log content.
 fn render_scene(fb: &mut AetherFrameBuffer, wm: &aether::window::WindowManager, _console: &mut FramebufferConsole, qshell_lines: &[alloc::string::String], mx: f32, my: f32) {
+    // (RenderFrame, RenderCommand, Color are imported at file top — aether::renderer)
     let w = fb.width();
     let h = fb.height();
+    let tb_y = h - TASKBAR_HEIGHT;
 
-    // Redraw wallpaper
-    fb.clear(BG_DEEP);
-    for y in (0..h).step_by(48) { for x in (0..w).step_by(48) { fb.draw_pixel(x, y, 0x00_20_24_38); } }
-    draw_orb(fb, w / 4, h / 3, 600, ACCENT_CYAN, 30);
-    draw_orb(fb, (w * 3) / 4, (h * 2) / 3, 800, ACCENT_BLUE, 25);
-    draw_orb(fb, w - 200, 100, 400, ACCENT_GOLD, 15);
-    draw_large_q_watermark(fb, w / 2 - 150, h / 2 - 150);
+    // Derive window positions from the WindowManager so dragging persists.
+    let screen_w = w as f32;
+    let screen_h = (h - TASKBAR_HEIGHT) as f32;
 
-    // Dynamic windows based on Z-order
-    for win in wm.visible_windows() {
-        draw_window(fb, win.x as usize, win.y as usize, win.width as usize, win.height as usize, &win.title, win.focused, mx, my);
-        
-        let title_c = if win.focused { TEXT_PRIMARY } else { TEXT_DIM };
-        draw_text_exact(fb, win.x as usize + 20, win.y as usize + 13, &win.title, title_c);
-        
-        if win.title.contains("Q-Shell") {
-            for (i, line) in qshell_lines.iter().enumerate() {
-                let ty = win.y as usize + 50 + (i * 20);
-                if ty + 16 < (win.y + win.height) as usize {
-                    draw_text_exact(fb, win.x as usize + 20, ty, line, ACCENT_CYAN);
-                }
-            }
-            if win.focused {
-                let last = qshell_lines.last().unwrap();
-                let cx = win.x as usize + 20 + (last.len() * 8);
-                let cy = win.y as usize + 50 + ((qshell_lines.len() - 1) * 20);
-                fill_rect_alpha(fb, cx, cy, 8, 16, ACCENT_CYAN, 200); // Block cursor
-            }
+    let find_win = |keyword: &str| -> (usize,usize,usize,usize) {
+        wm.windows.iter()
+            .find(|ww| ww.title.contains(keyword))
+            .map(|ww| (
+                ww.x.max(0.0).min(screen_w - 40.0) as usize,
+                ww.y.max(0.0).min(screen_h - 40.0) as usize,
+                ww.width.max(100.0) as usize,
+                ww.height.max(60.0) as usize,
+            ))
+            .unwrap_or((5, 74, 622, 630))
+    };
+
+    let (w1_x, w1_y, w1_w, w1_h) = find_win("Q-Shell");
+    let (w2_x, w2_y, w2_w, w2_h) = find_win("System Monitor");
+    let w3_x = w2_x; let w3_y = w2_y + w2_h + 4;
+    let w3_w = w2_w; let w3_h = (screen_h as usize).saturating_sub(w3_y + 4).min(280);
+
+    let shell_focused  = wm.windows.iter().any(|ww| ww.focused && ww.title.contains("Q-Shell"));
+    let mon_focused    = wm.windows.iter().any(|ww| ww.focused && ww.title.contains("System Monitor"));
+
+    // ── PHASE 1: AETHER SDF RENDER FRAME ─────────────────────────────
+    // Build the RenderFrame scene graph, then rasterize_aether_frame()
+    // sends every pixel through the SDF math and alpha-blends it into fb.
+    let mut frame = RenderFrame::new(w as f32, h as f32, 1.0);
+
+    // 1a. Wallpaper — deep midnight gradient
+    frame.push(RenderCommand::Gradient {
+        x: 0.0, y: 0.0, width: w as f32, height: h as f32,
+        start_color: Color::rgba(0.04, 0.05, 0.11, 1.0),
+        end_color:   Color::rgba(0.02, 0.02, 0.07, 1.0),
+        angle: 180.0,
+    });
+
+    // 1b. Glowing orbs — Aether SDF Circles at visible opacity for visual depth
+    // Cyan orb — left third
+    frame.push(RenderCommand::Circle {
+        cx: (w / 4) as f32, cy: (h / 3) as f32,
+        radius: 240.0,
+        fill: Color::rgba(0.0, 0.70, 0.95, 0.14),
+    });
+    // Blue orb — right two-thirds
+    frame.push(RenderCommand::Circle {
+        cx: (w * 3 / 4) as f32, cy: (h * 2 / 3) as f32,
+        radius: 300.0,
+        fill: Color::rgba(0.06, 0.28, 0.95, 0.12),
+    });
+    // Gold accent orb — top right
+    frame.push(RenderCommand::Circle {
+        cx: (w as f32 - 180.0), cy: 100.0,
+        radius: 140.0,
+        fill: Color::rgba(1.0, 0.84, 0.0, 0.09),
+    });
+    // Bottom vignette gradient for depth toward taskbar
+    frame.push(RenderCommand::Gradient {
+        x: 0.0, y: (h as f32 * 0.7),
+        width: w as f32, height: (h as f32 * 0.3),
+        start_color: Color::rgba(0.0, 0.0, 0.0, 0.0),
+        end_color: Color::rgba(0.0, 0.0, 0.0, 0.25),
+        angle: 180.0,
+    });
+
+    // 1c. Q-Shell window — Q-Glass + drop-shadow + focus glow
+    frame.draw_window(
+        w1_x as f32, w1_y as f32,
+        w1_w as f32, w1_h as f32,
+        40.0, // title bar height
+        shell_focused,
+    );
+
+    // 1d. System Monitor window
+    frame.draw_window(
+        w2_x as f32, w2_y as f32,
+        w2_w as f32, w2_h as f32,
+        40.0,
+        mon_focused,
+    );
+
+    // 1e. Compositor Log window
+    if w3_h > 60 {
+        frame.draw_window(
+            w3_x as f32, w3_y as f32,
+            w3_w as f32, w3_h as f32,
+            40.0,
+            false, // never focused
+        );
+    }
+
+    // 1f. Taskbar — Q-Glass strip
+    frame.push(RenderCommand::GlassBlur {
+        x: 0.0, y: tb_y as f32,
+        width: w as f32, height: TASKBAR_HEIGHT as f32,
+        radius: 0.0, blur_radius: 20.0,
+        tint: Color::rgba(0.05, 0.06, 0.10, 0.92),
+    });
+    // Taskbar top separator line
+    frame.push(RenderCommand::RoundedRect {
+        x: 0.0, y: tb_y as f32,
+        width: w as f32, height: 1.0,
+        radius: 0.0,
+        fill: Color::rgba(1.0, 1.0, 1.0, 0.08),
+        border: None,
+    });
+    // Q Start button (cyan pill)
+    let hover_q = mx >= 8.0 && mx <= 48.0 && my >= (tb_y + 4) as f32 && my <= (tb_y + 36) as f32;
+    frame.push(RenderCommand::RoundedRect {
+        x: 8.0, y: (tb_y + 4) as f32,
+        width: 36.0, height: 32.0,
+        radius: 8.0,
+        fill: if hover_q {
+            Color::rgba(0.063, 0.9, 0.69, 1.0)  // brighter on hover
         } else {
-            draw_text_exact(fb, win.x as usize + 20, win.y as usize + 60, "Genesis Protocol Initiated...", STATUS_GREEN);
-            draw_text_exact(fb, win.x as usize + 20, win.y as usize + 90, "[OK] Aether Display Active", TEXT_PRIMARY);
+            Color::rgba(0.0, 0.94, 1.0, 0.9)    // ACCENT_CYAN
+        },
+        border: None,
+    });
+    // App taskbar pills
+    let app_pills: &[(&str, Color)] = &[
+        ("Q-Shell",    Color::rgba(0.06, 0.44, 0.78, 0.8)),
+        ("Monitor",    Color::rgba(0.06, 0.24, 0.90, 0.7)),
+        ("Compositor", Color::rgba(1.0, 0.84, 0.0, 0.6)),
+    ];
+    let mut bpx = 56.0f32;
+    for (name, col) in app_pills.iter() {
+        let pw = (name.len() * 8 + 20) as f32;
+        frame.push(RenderCommand::RoundedRect {
+            x: bpx, y: (tb_y + 5) as f32,
+            width: pw, height: 30.0,
+            radius: 6.0,
+            fill: *col,
+            border: None,
+        });
+        bpx += pw + 6.0;
+    }
+
+    // Window titles — rendered via Aether Text in Phase 1 (alpha-blended through rasterize_aether_frame)
+    let title_color = Color::from_hex(TEXT_PRIMARY);
+    let dim_color   = Color::from_hex(TEXT_DIM);
+    frame.push(RenderCommand::Text {
+        x: (w1_x + 16) as f32, y: (w1_y + 13) as f32,
+        text: alloc::string::String::from("Q-Shell  [admin@qindows ~]"),
+        size: 14.0, color: title_color,
+    });
+    frame.push(RenderCommand::Text {
+        x: (w2_x + 16) as f32, y: (w2_y + 13) as f32,
+        text: alloc::string::String::from("System Monitor"),
+        size: 14.0, color: dim_color,
+    });
+    if w3_h > 60 {
+        frame.push(RenderCommand::Text {
+            x: (w3_x + 16) as f32, y: (w3_y + 13) as f32,
+            text: alloc::string::String::from("Compositor Log"),
+            size: 14.0, color: dim_color,
+        });
+    }
+
+    // ── Rasterize the Aether frame ─────────────────────────────────────────
+    rasterize_aether_frame(fb, &frame);
+
+    // ── PHASE 2: 2× BITMAP TEXT OVERLAYS ─────────────────────────────
+    // (These are drawn directly on top of the rasterized Aether chrome)
+
+    // (Window titles are in Phase 1 — no duplication here)
+
+    // Q-Shell content at 2x
+    let sh_y0 = w1_y + 50;
+    let line_h = 34usize;
+    let max_lines = (w1_h - 60) / line_h;
+    let start = qshell_lines.len().saturating_sub(max_lines);
+    for (i, line) in qshell_lines[start..].iter().enumerate() {
+        let ty = sh_y0 + i * line_h;
+        if ty + 32 < w1_y + w1_h {
+            let c = if line.starts_with('[') { STATUS_GREEN }
+                    else if line.starts_with("admin@") { ACCENT_CYAN }
+                    else { TEXT_PRIMARY };
+            draw_text_scaled(fb, w1_x + 14, ty, line, c, 2);
+        }
+    }
+    if shell_focused {
+        if let Some(last) = qshell_lines.last() {
+            let row = (qshell_lines.len() - 1 - start).min(max_lines - 1);
+            let cx = w1_x + 14 + last.len() * 16;
+            let cy = sh_y0 + row * line_h;
+            if cx + 16 < w1_x + w1_w && cy + 26 < w1_y + w1_h {
+                fill_rect_alpha(fb, cx, cy, 12, 26, ACCENT_CYAN, 220);
+            }
         }
     }
 
-    // Taskbar Glass (Enhanced Gradient)
-    let tb_y = (h - TASKBAR_HEIGHT) as f32;
-    draw_gradient_rect_alpha(fb, 0, tb_y as usize, w, TASKBAR_HEIGHT, 0, 0x00_15_18_22, 0x00_0A_0E_17, 240);
-    draw_rounded_rect_alpha(fb, 0, tb_y as usize, w, 1, 0, 0x00_2A_2B_36, 150); // Top border
-    
-    // Start button (Hover state + glow)
-    let hover_start = mx >= 16.0 && mx <= 48.0 && my >= tb_y + 4.0 && my <= tb_y + 36.0;
-    draw_rounded_rect_alpha(fb, 16, tb_y as usize + 4, 32, 32, 8, if hover_start { 0x00_10_E6_B0 } else { ACCENT_CYAN }, 255);
-    draw_q_letter(fb, 26, tb_y as usize + 7, BG_DEEP);
+    // System Monitor content
+    let sm_x = w2_x + 14; let sm_y = w2_y + 50;
+    draw_text_scaled(fb, sm_x, sm_y, "  MEMORY", ACCENT_CYAN, 2);
+    draw_separator(fb, w2_x + 8, sm_y + 36, w2_w.saturating_sub(16));
+    let free_mb = crate::memory::page_alloc::free_bytes() / (1024 * 1024);
+    let total_mb = crate::memory::page_alloc::total_count() * 4096 / (1024 * 1024);
+    draw_kv_2x(fb, sm_x, sm_y + 44,  "Used: ", total_mb.saturating_sub(free_mb), "MB", STATUS_GREEN);
+    draw_kv_2x(fb, sm_x, sm_y + 84,  "Free: ", free_mb, "MB", TEXT_PRIMARY);
+    draw_kv_2x(fb, sm_x, sm_y + 124, "Total:", total_mb, "MB", TEXT_DIM);
+    draw_separator(fb, w2_x + 8, sm_y + 165, w2_w.saturating_sub(16));
+    draw_text_scaled(fb, sm_x, sm_y + 174, "  SILOS", ACCENT_CYAN, 2);
+    let silo_count = crate::kstate::silos().silos.len() as u64;
+    draw_kv_2x(fb, sm_x, sm_y + 212, "Active:", silo_count, "", STATUS_GREEN);
+    let uptime_ms = crate::kstate::global_tick();
+    draw_kv_2x(fb, sm_x, sm_y + 252, "Uptime:", uptime_ms, "ms", TEXT_DIM);
 
-    // Re-render clock using native font
+    // Compositor Log content
+    let lg_x = w3_x + 14; let lg_y = w3_y + 50;
+    let tick = crate::kstate::global_tick();
+    let logs: &[(&str, u32)] = &[
+        ("[ok] BootInfo@0x5FF000", STATUS_GREEN),
+        ("[ok] FB 1024x768 MMIO",  STATUS_GREEN),
+        ("[ok] PCI bochs-display", STATUS_GREEN),
+        ("[ok] Desktop loop live", STATUS_GREEN),
+        ("[>>] Compositor active", ACCENT_CYAN),
+    ];
+    for (i, (line, c)) in logs.iter().enumerate() {
+        let ty = lg_y + i * 34;
+        if w3_h > 60 && ty + 32 < w3_y + w3_h { draw_text_scaled(fb, lg_x, ty, line, *c, 2); }
+    }
+    if w3_h > 220 {
+        let mut tick_str = alloc::string::String::from("[>>] tick=");
+        let mut v = tick; let mut d = [b'0'; 10]; let mut di = 10;
+        if v == 0 { di -= 1; d[di] = b'0'; } else { while v > 0 { di -= 1; d[di] = (v % 10) as u8 + b'0'; v /= 10; } }
+        for b in &d[di..] { tick_str.push(*b as char); }
+        let tick_ty = lg_y + logs.len() * 34;
+        if tick_ty + 32 < w3_y + w3_h { draw_text_scaled(fb, lg_x, tick_ty, &tick_str, ACCENT_GOLD, 2); }
+    }
+
+    // Taskbar text overlays (Q letter + app names + clock)
+    draw_q_letter(fb, 18, tb_y + 10, BG_DEEP);
+    let apps: &[(&str, u32)] = &[
+        ("Q-Shell", ACCENT_CYAN), ("Monitor", ACCENT_BLUE), ("Compositor", ACCENT_GOLD),
+    ];
+    let mut bx = 56usize;
+    for (name, col) in apps.iter() {
+        let pw = name.len() * 8 + 22;
+        draw_text_exact(fb, bx + 11, tb_y + 13, name, *col);
+        bx += pw + 6;
+    }
+    // Clock (RTC)
     let mut rtc = crate::rtc::Rtc::new();
     let time = rtc.read_time();
-    
-    let mut time_str = alloc::string::String::new();
-    let h_12 = if time.hour == 0 { 12 } else if time.hour > 12 { time.hour - 12 } else { time.hour };
-    if h_12 < 10 { time_str.push('0'); }
-    let h1 = (h_12 / 10) as u8 + b'0';
-    let h2 = (h_12 % 10) as u8 + b'0';
-    time_str.push(h1 as char); time_str.push(h2 as char); time_str.push(':');
-    
-    let m1 = (time.minute / 10) as u8 + b'0';
-    let m2 = (time.minute % 10) as u8 + b'0';
-    time_str.push(m1 as char); time_str.push(m2 as char);
-    if time.hour >= 12 { time_str.push_str(" PM"); } else { time_str.push_str(" AM"); }
-    
-    draw_text_exact(fb, w - 80, tb_y as usize + 14, &time_str, TEXT_PRIMARY);
+    let h12 = if time.hour == 0 { 12u8 } else if time.hour > 12 { time.hour - 12 } else { time.hour };
+    let mut tstr = alloc::string::String::new();
+    tstr.push((h12 / 10 + b'0') as char); tstr.push((h12 % 10 + b'0') as char); tstr.push(':');
+    tstr.push((time.minute / 10 + b'0') as char); tstr.push((time.minute % 10 + b'0') as char);
+    if time.hour >= 12 { tstr.push_str(" PM"); } else { tstr.push_str(" AM"); }
+    draw_text_exact(fb, w.saturating_sub(76), tb_y + 7, &tstr, TEXT_PRIMARY);
+    let months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    if (time.month as usize) >= 1 && (time.month as usize) <= 12 {
+        let mut dstr = alloc::string::String::from(months[(time.month - 1) as usize]);
+        dstr.push(' ');
+        if time.day >= 10 { dstr.push((time.day / 10 + b'0') as char); }
+        dstr.push((time.day % 10 + b'0') as char);
+        draw_text_exact(fb, w.saturating_sub(64), tb_y + 23, &dstr, TEXT_DIM);
+    }
+}
+
+/// Horizontal separator
+fn draw_separator(fb: &mut AetherFrameBuffer, x: usize, y: usize, w: usize) {
+    for px in x..x.saturating_add(w).min(fb.width()) { fb.draw_pixel(px, y, 0xFF_2A_2D_39); }
+}
+
+/// Draw key: value metric line at 2x scale
+fn draw_kv_2x(fb: &mut AetherFrameBuffer, x: usize, y: usize, label: &str, val: u64, unit: &str, vc: u32) {
+    draw_text_scaled(fb, x, y, label, TEXT_DIM, 2);
+    let mut lx = x + label.len() * 16; // 2x = 16px per char
+    let mut digits = [b'0'; 12];
+    let mut d = val; let mut di = 12usize;
+    if d == 0 { di -= 1; digits[di] = b'0'; }
+    else { while d > 0 { di -= 1; digits[di] = (d % 10) as u8 + b'0'; d /= 10; } }
+    for &byte in &digits[di..] {
+        let s = [byte];
+        draw_text_scaled(fb, lx, y, core::str::from_utf8(&s).unwrap_or("?"), vc, 2);
+        lx += 16;
+    }
+    draw_text_scaled(fb, lx + 4, y, unit, TEXT_DIM, 2);
+}
+
+/// Draw key: value metric line
+fn draw_kv(fb: &mut AetherFrameBuffer, x: usize, y: usize, label: &str, val: u64, unit: &str, vc: u32) {
+    draw_text_exact(fb, x, y, label, TEXT_DIM);
+    let mut lx = x + label.len() * 8;
+    let mut digits = [b'0'; 12];
+    let mut d = val; let mut di = 12usize;
+    if d == 0 { di -= 1; digits[di] = b'0'; }
+    else { while d > 0 { di -= 1; digits[di] = (d % 10) as u8 + b'0'; d /= 10; } }
+    for &byte in &digits[di..] {
+        let s = [byte];
+        draw_text_exact(fb, lx, y, core::str::from_utf8(&s).unwrap_or("?"), vc);
+        lx += 8;
+    }
+    draw_text_exact(fb, lx, y, unit, TEXT_DIM);
+}
+
+/// Window panel: shadow + dark glass body + gradient header + traffic lights + focus ring
+fn draw_window_pane(fb: &mut AetherFrameBuffer, x: usize, y: usize, w: usize, h: usize, focused: bool, mx: f32, my: f32) {
+    draw_drop_shadow(fb, x, y, w, h, 10, if focused { 20 } else { 10 }, if focused { 150 } else { 70 });
+    fill_rect_alpha(fb, x, y, w, h, 0xFF_0B_0E_16, 255);
+    let bc = if focused { 0xFF_1E_6F_5C } else { 0xFF_1A_1D_28 };
+    draw_rounded_rect_alpha(fb, x, y, w, h, 10, bc, if focused { 200 } else { 120 });
+    draw_gradient_rect_alpha(fb, x + 1, y + 1, w - 2, 40, 10, 0xFF_1C_20_30, 0xFF_12_15_1F, 255);
+    fill_rect_alpha(fb, x + 1, y + 40, w - 2, 1, 0xFF_00_00_00, 180);
+    let hy = y + 15;
+    let is_hov = |bx: usize| mx >= bx as f32 && mx < (bx + 14) as f32 && my >= hy as f32 && my < (hy + 14) as f32;
+    draw_rounded_rect_alpha(fb, x + 14, hy, 13, 13, 6, if is_hov(x+14) { 0xFF_FF_7F_76 } else { 0xFF_FF_5F_56 }, 255);
+    draw_rounded_rect_alpha(fb, x + 35, hy, 13, 13, 6, if is_hov(x+35) { 0xFF_FF_CD_4E } else { 0xFF_FF_BD_2E }, 255);
+    draw_rounded_rect_alpha(fb, x + 56, hy, 13, 13, 6, if is_hov(x+56) { 0xFF_47_E9_5F } else { 0xFF_27_C9_3F }, 255);
+    if focused {
+        for dy in 10..h.saturating_sub(10) {
+            let t = libm::sinf((dy as f32 / h as f32) * core::f32::consts::PI);
+            let a = (t * 60.0) as u32;
+            let bg = fb.read_pixel(x, y + dy);
+            fb.draw_pixel(x, y + dy, blend(bg, ACCENT_CYAN, a));
+        }
+    }
+}
+
+/// Render text at an integer scale multiplier (scale=2 gives 16x32 chars)
+fn draw_text_scaled(fb: &mut AetherFrameBuffer, x: usize, y: usize, text: &str, color: u32, scale: usize) {
+    if scale <= 1 { draw_text_exact(fb, x, y, text, color); return; }
+    let font = crate::drivers::console::FONT_8X16;
+    let mut cx = x;
+    for ch in text.chars() {
+        let ascii = ch as u8;
+        if ascii >= 0x20 && ascii <= 0x7E {
+            let go = ((ascii - 0x20) as usize) * 16;
+            if go + 16 <= font.len() {
+                for dy in 0..16usize {
+                    let rb = font[go + dy];
+                    for dx in 0..8usize {
+                        if rb & (0x80 >> dx) != 0 {
+                            for sy in 0..scale { for sx in 0..scale {
+                                fb.draw_pixel(cx + dx * scale + sx, y + dy * scale + sy, color);
+                            }}
+                        }
+                    }
+                }
+            }
+        }
+        cx += 8 * scale;
+    }
 }
 
 fn save_bg(fb: &AetherFrameBuffer, cx: i32, cy: i32, buf: &mut [u32]) {
@@ -477,8 +781,8 @@ fn restore_bg(fb: &mut AetherFrameBuffer, cx: i32, cy: i32, buf: &[u32]) {
 fn draw_cursor(fb: &mut AetherFrameBuffer, x: i32, y: i32) {
     let ux = x as usize;
     let uy = y as usize;
-    let main_color = 0x00_FF_FF_FF; // White
-    let outline = 0x00_00_00_00;    // Black
+    let main_color = 0xFF_FF_FF_FF; // White
+    let outline = 0xFF_00_00_00;    // Black
 
     // Simple pixel-art cursor shape
     #[rustfmt::skip]
@@ -547,7 +851,7 @@ fn draw_q_letter(fb: &mut AetherFrameBuffer, x: usize, y: usize, color: u32) {
 
 /// Draw a massive faint watermark Q in the center of the screen
 fn draw_large_q_watermark(fb: &mut AetherFrameBuffer, cx: usize, cy: usize) {
-    let color = 0x00_FF_FF_FF;
+    let color = 0xFF_FF_FF_FF;
     let alpha = 6; // incredibly faint
     
     // Draw thick lines forming a Q pattern
@@ -657,8 +961,12 @@ fn draw_rounded_rect_alpha(fb: &mut AetherFrameBuffer, x: usize, y: usize, w: us
             }
 
             if draw {
-                let bg = fb.read_pixel(px, py);
-                fb.draw_pixel(px, py, blend(bg, color, alpha));
+                if alpha == 255 {
+                    fb.draw_pixel(px, py, color);
+                } else {
+                    let bg = fb.read_pixel(px, py);
+                    fb.draw_pixel(px, py, blend(bg, color, alpha));
+                }
             }
         }
     }
@@ -671,17 +979,17 @@ fn draw_window(fb: &mut AetherFrameBuffer, x: usize, y: usize, w: usize, h: usiz
     draw_drop_shadow(fb, x, y, w, h, 12, shadow_spread, shadow_opac);
 
     // Main window body (Glassy Dark)
-    draw_rounded_rect_alpha(fb, x, y, w, h, 12, 0x00_0D_0E_15, 240); // 94% opaque
-    
-    // 1px Border highlight
-    let border_col = if focused { 0x00_06_D6_A0 } else { 0x00_2A_2B_36 }; 
-    draw_rounded_rect_alpha(fb, x, y, w, h, 12, border_col, if focused { 180 } else { 150 });
-    draw_rounded_rect_alpha(fb, x+1, y+1, w-2, h-2, 11, 0x00_0D_0E_15, 255); // Reset inside
+    fill_rect_alpha(fb, x, y, w, h, 0xFF_0B_0E_14, 250);
+    // Top border light
+    draw_rounded_rect_alpha(fb, x, y, w, 1, 0, 0xFF_2A_2D_39, 180);
+    // Subtle gradient outline
+    draw_rounded_rect_alpha(fb, x, y, w, h, 12, 0xFF_1F_22_2D, if focused { 180 } else { 150 });
+    draw_rounded_rect_alpha(fb, x+1, y+1, w-2, h-2, 11, 0xFF_0D_0E_15, 255); // Reset inside
 
     // Header bar (Gradient)
-    draw_gradient_rect_alpha(fb, x+1, y+1, w-2, 40, 11, 0x00_1F_22_32, 0x00_18_1A_24, 255);
-    fill_rect_alpha(fb, x+1, y+20, w-2, 21, 0x00_18_1A_24, 255); // Straighten bottom
-    fill_rect_alpha(fb, x, y + 40, w, 1, 0x00_00_00_00, 180);
+    draw_gradient_rect_alpha(fb, x+1, y+1, w-2, 40, 11, 0xFF_1F_22_32, 0xFF_18_1A_24, 255);
+    fill_rect_alpha(fb, x+1, y+20, w-2, 21, 0xFF_18_1A_24, 255); // Straighten bottom
+    fill_rect_alpha(fb, x, y + 40, w, 1, 0xFF_00_00_00, 180);
 
     // Window controls with Hover states
     let cx = x + 16; let cy = y + 14;

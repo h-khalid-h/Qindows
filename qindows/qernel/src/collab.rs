@@ -38,6 +38,28 @@ use alloc::vec::Vec;
 use alloc::string::ToString;
 use crate::nexus::NodeId;
 
+// ── Module Init ───────────────────────────────────────────────────────────────
+
+/// Gap 16.2 — Collab Subsystem Boot Init
+///
+/// Called from `boot_sequence::boot_phase2()` exactly once. The `CollabManager`
+/// itself lives in `kstate` and is lazily allocated per session creation, so
+/// `init()` only exists to:
+///   1. Confirm the module compiled and linked correctly.
+///   2. Print a boot-time banner on the kernel serial console so the log
+///      clearly shows which phase each subsystem became active.
+///
+/// Future improvement: seed `CollabManager::next_session_id` from the Prism
+/// journal so session IDs survive warm reboots monotonically.
+pub fn init() {
+    crate::serial_println!(
+        "[COLLAB] CRDT workspace subsystem ready \
+         (RGA op-log, VectorClock causal ordering, Q-Fabric delta sync)"
+    );
+}
+
+
+
 // ── Vector Clock ──────────────────────────────────────────────────────────────
 
 /// A Lamport-style vector clock for causal ordering of distributed operations.

@@ -310,6 +310,16 @@ impl GhostWriteEngine {
                     tx_id, op.content.len(), lba, count, new_oid[0], new_oid[1]
                 );
 
+                // Gap 21.1 — Actual NVMe persist: write content to the allocated LBA range.
+                // Uses kstate::nvme_try_lock() (non-blocking — skip if NVMe is busy).
+                if let Some(mut nvme) = crate::kstate::nvme_try_lock() {
+                    let buf_phys = op.content.as_ptr() as u64; // flat-mapped: virt == phys
+                    let _cid = nvme.write_blocks(lba, count as u16, buf_phys);
+                    // _cid = completion queue ID — checked asynchronously by disk_sched
+                }
+
+
+
                 // Create Shadow Object from previous version (if this was an update)
                 if let Some(old_oid) = op.current_oid {
                     let shadow = ShadowObject {
@@ -420,5 +430,15 @@ impl GhostWriteEngine {
         crate::serial_println!("║ Shadows freed:{:>6}                  ║", self.stats.shadow_objects_freed);
         crate::serial_println!("║ Next LBA:     {:>6}                  ║", self.lba_alloc.next_lba);
         crate::serial_println!("╚══════════════════════════════════════╝");
+    }
+
+    /// Gap 19.4 — Return the number of committed transactions (used by tick_hook flush).
+    pub fn transaction_count(&self) -> u64 {
+        self.stats.transactions_committed
+    }
+
+    /// Number of currently active (open) transactions.
+    pub fn active_count(&self) -> usize {
+        self.active.len()
     }
 }

@@ -19,8 +19,12 @@ pub struct BootInfo {
     pub pixels_per_scanline: u32,
     /// Physical address of the UEFI memory map
     pub memory_map_addr: u64,
-    /// Number of memory map entries
+    /// Number of CONVENTIONAL memory entries (usable RAM regions only)
     pub memory_map_entries: u64,
-    /// Size of each memory descriptor
+    /// Size of each memory descriptor in bytes
     pub memory_map_desc_size: u64,
+    /// Total byte size of the memory map buffer (all entry types)
+    pub memory_map_total_size: u64,
+    /// Total usable RAM in bytes (computed from CONVENTIONAL entries before exit_boot_services)
+    pub usable_ram_bytes: u64,
 }

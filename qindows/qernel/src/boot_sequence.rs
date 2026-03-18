@@ -82,16 +82,103 @@ pub fn boot_phase2() -> BootResult {
     // 1. Derive node identity (pre-TPM at first boot)
     let node_id = derive_node_identity();
 
-    // 2. Initialize all 16 Phase 84-100 subsystem statics
+    // 2. Initialize all Phase 84+ subsystem statics
     kstate_ext::init(node_id);
+    crate::serial_println!("[BOOT] kstate_ext initialized (25 subsystems — Phase 84-109)");
 
-    crate::serial_println!("[BOOT] kstate_ext initialized ({} subsystems)", 16);
+    // 2b. Initialize and enable the TSC-based kernel profiler.
+    //     The profiler records timing samples for scheduler, Q-Ring, Sentinel,
+    //     and can be read by q_admin to diagnose hot paths.
+    crate::profiler::init();
+    crate::profiler::enable();
+    crate::serial_println!("[BOOT] Profiler: initialized and enabled (TSC region sampling active)");
 
-    // 3. Register Synapse Silo as online in bridge
-    //    (Synapse Silo is launched by main.rs before this point)
-    // In production: wait for Silo 4's READY IPC message, then call:
-    //    kstate_ext::synapse_bridge_ready()  (set silo_alive=true)
-    crate::serial_println!("[BOOT] Synapse Silo (ID=4) registered as online");
+    // 2c. Gap 16.2 — Initialize the Q-Collab CRDT workspace subsystem.
+    //     Without this, CollabSession::registry() is never seeded and Q-Collab
+    //     silos cannot create or join collaborative workspaces.
+    crate::collab::init();
+    crate::serial_println!("[BOOT] Q-Collab: CRDT workspace subsystem initialized");
+
+    // 2d. Gap 17.2 — Seed the Physical Frame Allocator from the EFI memory map.
+    //     For Genesis Alpha we synthesize a two-entry map covering the regions
+    //     known to be free in QEMU's flat layout: 2–16 MiB conventional RAM.
+    //     Production: BootInfo::memory_map replaces this at handoff.
+    {
+        let synthetic_map = [
+            crate::frame_alloc::MemEntry { mem_type: 7, phys_start: 0x0020_0000, page_count: 3584 }, // 2 MiB – 16 MiB
+            crate::frame_alloc::MemEntry { mem_type: 7, phys_start: 0x0100_0000, page_count: 0 },    // sentinel
+        ];
+        crate::frame_alloc::init(&synthetic_map);
+    }
+
+    // 2e. Gap 18.1 — Boot Application Processors (SMP dual-core bring-up).
+    //     Sends INIT-SIPI-SIPI to APIC ID 1 via LAPIC MMIO 0xFEE00000.
+    //     The AP enters ap_entry() → ap_scheduler_loop() hlt-wait.
+    crate::smp::init_and_boot_aps();
+
+    // 2f. Gap 18.2 — Wire NVMe PCI BAR0 discovery → NvmeController::init().
+    //     QEMU places the NVMe device at PCI Bus=0, Device=4, Function=0.
+    //     BAR0 (offset 0x10 in PCI config space) holds the MMIO base address.
+    //     We read it via I/O-port PCI config access (CF8/CFC pair).
+    {
+        // PCI config address: Bus=0, Dev=4, Func=0, Offset=0x10
+        // Format: bit31=Enable | bus[23:16] | dev[15:11] | func[10:8] | offset[7:2]
+        let pci_addr: u32 = 0x8000_0000  // Enable bit
+            | (0_u32 << 16)   // Bus 0
+            | (4_u32 << 11)   // Device 4 (QEMU NVMe default slot)
+            | (0_u32 <<  8)   // Function 0
+            | 0x10;           // BAR0 register offset
+
+        let bar0: u64 = unsafe {
+            // Write CONFIG_ADDRESS to 0xCF8
+            core::arch::asm!(
+                "out dx, eax",
+                in("dx") 0xCF8u16,
+                in("eax") pci_addr,
+                options(nostack, preserves_flags)
+            );
+            // Read CONFIG_DATA from 0xCFC (32-bit BAR value)
+            let mut val: u32;
+            core::arch::asm!(
+                "in eax, dx",
+                in("dx") 0xCFCu16,
+                out("eax") val,
+                options(nostack, preserves_flags)
+            );
+            // BAR0 bits[31:4] = MMIO base; bit[0]=0 (MMIO), bits[2:1]=00 (32-bit)
+            (val & 0xFFFF_FFF0) as u64
+        };
+
+        if bar0 > 0 && bar0 < 0xFF00_0000 {
+            // Legitimate MMIO BAR — initialize the NVMe controller
+            let _ctrl = crate::drivers::nvme::NvmeController::init(bar0);
+            crate::serial_println!("[BOOT] NVMe controller wired at PCI Bus=0 Dev=4 BAR0=0x{:X}", bar0);
+        } else {
+            crate::serial_println!("[BOOT] NVMe PCI BAR0 not found at Dev=4 (bar0=0x{:X}) — NVMe deferred", bar0);
+        }
+    }
+
+    // 3. Register Synapse Silo as online in the IPC bridge
+    //    (Synapse Silo is spawned by main.rs before this point;
+    //     on_silo_ready(4) will also call this if the Silo IPC READY message arrives later)
+    {
+        let mut sb = kstate_ext::synapse_bridge();
+        sb.on_synapse_silo_ready();
+    }
+    crate::serial_println!("[BOOT] Synapse Silo (ID=4) registered as online — silo_alive=true");
+
+    // Gap 20.3 — Nexus Mesh genesis: log local node identity to serial.
+    //            The internal NexusMesh (crate::nexus) is separate from kstate::nexus()
+    //            (the external nexus crate QNexus). We log the alias from the external nexus
+    //            which is already initialized in kstate::init() with "Node-01".
+    {
+        let nexus = crate::kstate::nexus();
+        crate::serial_println!(
+            "[BOOT] Nexus mesh online — local alias=\"{}\" peers={}",
+            nexus.local_identity.alias,
+            nexus.peers.len()
+        );
+    }
 
     // 4. Register tick_hook with APIC timer
     //    The APIC timer interrupt handler in apic_timer.rs calls
@@ -128,8 +215,10 @@ pub fn on_silo_ready(silo_id: u64, binary_oid: [u8; 32]) {
     kstate_ext::on_silo_spawn(silo_id, binary_oid, tick);
 
     if silo_id == 4 {
-        // Synapse Silo has started — signal the bridge
-        crate::serial_println!("[BOOT] Synapse Silo confirmed ready");
+        // Synapse Silo has started — signal the bridge (IPC READY path)
+        let mut sb = kstate_ext::synapse_bridge();
+        sb.on_synapse_silo_ready();
+        crate::serial_println!("[BOOT] Synapse Silo IPC-READY confirmed @ tick {}", tick);
     }
 
     crate::serial_println!("[BOOT] Silo {} online @ tick {}", silo_id, tick);

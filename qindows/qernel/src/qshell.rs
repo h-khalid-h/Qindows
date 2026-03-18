@@ -176,27 +176,42 @@ pub enum StageResult {
     Error(String),
 }
 
-/// Execute the `prism find` stage: semantic search → object handles.
-///
-/// In production: calls Q-Ring `PrismQuery` syscall with the semantic
-/// query string and returns matching OIDs as handles.
+/// Execute the `prism find` stage: semantic search via in-kernel PrismSearchEngine.
 pub fn stage_prism_find(query: &str, limit: usize) -> StageResult {
     crate::serial_println!("[QSHELL] prism find: query=\"{}\" limit={}", query, limit);
-    // Simulate returning stub handles for architectural demonstration
-    let mut handles = Vec::new();
-    for i in 0..limit.min(3) {
-        let mut meta = BTreeMap::new();
-        meta.insert("query".to_string(), query.to_string());
-        meta.insert("rank".to_string(), i.to_string());
-        handles.push(ObjectHandle {
-            oid: 0x9173_0001_0000_0000 + i as u64,
-            type_tag: "document".to_string(),
-            size_bytes: (1024 * (i + 1)) as u64,
-            metadata: meta,
-            cap_scope: HandleCapScope::ReadOnly,
-        });
+    // Call real prism_search subsystem via public accessor
+    let results = {
+        let mut ps = crate::kstate_ext::prism_search();
+        ps.search_keywords(
+            0, // kernel silo_id=0 for system queries; real silos pass their own silo_id
+            query,
+            limit as u32,
+        )
+    };
+    if !results.is_empty() {
+        let handles: Vec<ObjectHandle> = results.into_iter().map(|r| {
+            // Adapt prism_search ObjectHandle (oid:[u8;32]) -> qshell ObjectHandle (oid:u64)
+            let compact_oid = u64::from_le_bytes([
+                r.handle.oid[0], r.handle.oid[1], r.handle.oid[2], r.handle.oid[3],
+                r.handle.oid[4], r.handle.oid[5], r.handle.oid[6], r.handle.oid[7],
+            ]);
+            let mut meta = BTreeMap::new();
+            meta.insert("title".to_string(), r.handle.title);
+            meta.insert("rank".to_string(), r.handle.rank_score.to_string());
+            meta.insert("type".to_string(), r.handle.object_type);
+            ObjectHandle {
+                oid: compact_oid,
+                type_tag: "prism-object".to_string(),
+                size_bytes: r.handle.size_bytes,
+                metadata: meta,
+                cap_scope: HandleCapScope::ReadOnly,
+            }
+        }).collect();
+        return StageResult::Handles(handles);
     }
-    StageResult::Handles(handles)
+    // Fallback if no results
+    crate::serial_println!("[QSHELL] prism find: no results from index for query");
+    StageResult::Handles(alloc::vec![])
 }
 
 /// Execute the `q_analyze summarize` stage: NPU inference on input handles.
@@ -205,14 +220,46 @@ pub fn stage_q_analyze_summarize(handles: &[ObjectHandle], format: &str) -> Stag
         "[QSHELL] q_analyze summarize: {} handles, format={}",
         handles.len(), format
     );
-    // In production: submits handle OIDs to NPU inference Silo
+    // Submit handle OIDs to Synapse IPC bridge for NPU inference
+    for handle in handles {
+        let oid_bytes = handle.oid.to_le_bytes();
+        // Build a NeuralSampleMsg with the OID packed into the voltages array.
+        // voltages[0..4] carry the OID bytes as i16 pairs (big-endian sign-extended).
+        let mut voltages = [0i16; 256];
+        for (i, chunk) in oid_bytes.chunks(2).enumerate() {
+            if i < 256 {
+                voltages[i] = i16::from_le_bytes([chunk[0], *chunk.get(1).unwrap_or(&0)]);
+            }
+        }
+        let msg = crate::synapse_bridge::NeuralSampleMsg {
+            channel_count: 4,
+            sample_rate_hz: 250,
+            voltages,
+            tick: crate::kstate::global_tick(),
+            submitting_silo: 1, // Shell Silo
+        };
+        {
+            let mut sb = crate::kstate_ext::synapse_bridge();
+            let mut qr = crate::kstate_ext::qring();
+            sb.submit_neural_sample(msg, &mut qr);
+        }
+    }
+    // Derive content-addressed output OID from all input OIDs (FNV-1a chain)
+    let mut h: u64 = 0xCBF2_9CE4_8422_2325;
+    for handle in handles {
+        for b in handle.oid.to_le_bytes() {
+            h ^= b as u64;
+            h = h.wrapping_mul(0x0000_0100_0000_01B3);
+        }
+    }
+    let summary_oid = h;
     let mut out_meta = BTreeMap::new();
     out_meta.insert("source_count".to_string(), handles.len().to_string());
     out_meta.insert("format".to_string(), format.to_string());
     let mut type_tag = "summary-".to_string();
     type_tag.push_str(format);
     let out = ObjectHandle {
-        oid: 0xAA_0000_0000_0001,
+        oid: summary_oid,
         type_tag,
         size_bytes: handles.iter().map(|h| h.size_bytes / 4).sum(),
         metadata: out_meta,
@@ -221,22 +268,53 @@ pub fn stage_q_analyze_summarize(handles: &[ObjectHandle], format: &str) -> Stag
     StageResult::Handles(alloc::vec![out])
 }
 
-/// Execute the `vault export` stage: write handles to a Prism destination.
+/// Execute the `vault export` stage: commit handles into ghost_write atomic transaction.
 pub fn stage_vault_export(handles: &[ObjectHandle], destination: &str) -> StageResult {
     crate::serial_println!(
-        "[QSHELL] vault export: {} handles → {}", handles.len(), destination
+        "[QSHELL] vault export: {} handles -> {}", handles.len(), destination
     );
-    // In production: calls Q-Ring PrismWrite for each handle to the destination scope
+    // Commit each handle's OID as a ghost-write record (atomic CoW save)
+    {
+        let mut gw = crate::kstate_ext::ghost_write();
+        let tick = crate::kstate::global_tick();
+        let tx_id = gw.begin(1, tick); // silo_id=1 (Shell Silo)
+        for h in handles {
+            // Serialize the handle OID (u64) as 8 LE bytes as "content"
+            let content: alloc::vec::Vec<u8> = h.oid.to_le_bytes().to_vec();
+            let _ = gw.write(tx_id, crate::ghost_write_engine::GwWriteOp {
+                current_oid: None, // new object (vault export = copy to destination)
+                content,
+                object_type: h.type_tag.clone(),
+                creator_silo: 1,
+                new_oid: None,
+                new_lba_start: None,
+                new_lba_count: None,
+            });
+        }
+        let _ = gw.commit(tx_id, tick);
+    }
     StageResult::Consumed
 }
 
-/// Execute the `net mesh` stage: transmit handles to a peer node.
+/// Execute the `net mesh` stage: transmit handles to a peer node via NexusKernelBridge.
 pub fn stage_net_mesh(handles: &[ObjectHandle], peer: &str, message: &str) -> StageResult {
     crate::serial_println!(
         "[QSHELL] net mesh ~> {}: {} handles (msg={})",
         peer, handles.len(), message
     );
-    // In production: calls Q-Fabric for P2P object transfer
+    // Compute a stable peer prefix hash (FNV-1a over peer string)
+    let dest_prefix = peer.bytes()
+        .fold(0xcbf29ce484222325u64, |h, b| h.wrapping_mul(0x100000001b3).wrapping_add(b as u64));
+    let tick = crate::kstate::global_tick();
+    // Submit each handle as a FabricSend packet
+    for h in handles {
+        crate::kstate_ext::nexus_send(
+            2,                              // from Shell Silo (ID=2)
+            dest_prefix,                    // destination peer hash
+            h.size_bytes.min(65535) as u32, // payload_len = object size hint
+            tick,
+        );
+    }
     StageResult::Consumed
 }
 
@@ -432,6 +510,15 @@ impl QShellEngine {
         if let Some(p) = self.pipelines.get_mut(&pipeline_id) {
             p.state = PipelineState::Cancelled;
             crate::serial_println!("[QSHELL] Pipeline #{} CANCELLED.", pipeline_id);
+        }
+    }
+
+    /// Returns true when a pipeline has reached Complete or Cancelled state.
+    /// Used by QShellKernelBridge to break early from the step loop.
+    pub fn is_pipeline_complete(&self, pipeline_id: u64) -> bool {
+        match self.pipelines.get(&pipeline_id) {
+            Some(p) => matches!(p.state, PipelineState::Complete | PipelineState::Cancelled),
+            None => true, // Unknown pipeline — treat as complete to avoid infinite loop
         }
     }
 }

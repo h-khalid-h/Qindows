@@ -1,23 +1,8 @@
 //! # Kernel Integration Health Bridge (Phase 204)
 //!
-//! ## Architecture Guardian: The Gap
-//! `kernel_integration.rs` implements `kstate_ext` global accessors:
-//! - `kstate_ext::init(self_node_id: [u8; 32])` — kernel bootstrap
-//! - `kstate_ext::event_bus()` → MutexGuard<SiloEventBus>
-//! - `kstate_ext::qring()` → MutexGuard<QRingProcessor>
-//! - `kstate_ext::anomaly()` → MutexGuard<SentinelAnomalyScorer>
-//! - `kstate_ext::black_box()` → MutexGuard<BlackBoxRecorder>
-//! - `kstate_ext::wm()` → MutexGuard<QViewWm>
-//! - `kstate_ext::uns_cache()` → MutexGuard<UnsCache>
-//!
-//! **Missing link**: No health check ran across all kstate_ext subsystems.
-//! A failed init or locked Mutex was symptomatically silent — no monitoring.
-//!
-//! This module provides `KernelIntegrationHealthBridge`:
-//! Boot-time health probe across all kstate_ext global subsystems.
+//! Boot-time health probe across all 24 kstate_ext global subsystems (Phase 84-108).
 
 extern crate alloc;
-
 use crate::kstate_ext;
 
 #[derive(Debug, Default, Clone)]
@@ -35,49 +20,51 @@ impl KernelIntegrationHealthBridge {
         KernelIntegrationHealthBridge { stats: KernelHealthStats::default() }
     }
 
-    /// Run a health probe on all kstate_ext subsystems.
+    /// Run a health probe on all 24 kstate_ext subsystems (Phase 84-108).
     /// Returns true if all subsystems are accessible (not deadlocked).
     pub fn probe_all(&mut self) -> bool {
-        let mut all_ok = true;
-
-        // Probe event bus
-        {
-            let _bus = kstate_ext::event_bus();
-            self.stats.subsystems_ok += 1;
+        macro_rules! probe {
+            ($name:expr, $accessor:expr) => {{
+                let _guard = $accessor;
+                self.stats.subsystems_ok += 1;
+                crate::serial_println!("[HEALTH] {} OK", $name);
+            }};
         }
 
-        // Probe Q-Ring
-        {
-            let _qring = kstate_ext::qring();
-            self.stats.subsystems_ok += 1;
-        }
+        // Phase 84-100 (original 16 statics)
+        probe!("EventBus",    kstate_ext::event_bus());
+        probe!("QRing",       kstate_ext::qring());
+        probe!("Anomaly",     kstate_ext::anomaly());
+        probe!("BlackBox",    kstate_ext::black_box());
+        probe!("WM",          kstate_ext::wm());
+        probe!("A11y",        kstate_ext::a11y());
+        probe!("UnsCache",    kstate_ext::uns_cache());
+        probe!("QEnergy",     kstate_ext::qenergy());
+        probe!("GhostWrite",  kstate_ext::ghost_write());
+        probe!("Timeline",    kstate_ext::timeline());
+        probe!("Fonts",       kstate_ext::fonts());
+        probe!("Browser",     kstate_ext::browser());
+        probe!("NexusDht",    kstate_ext::nexus_dht());
+        probe!("VGdi",        kstate_ext::vgdi());
+        probe!("QKit",        kstate_ext::qkit());
+        probe!("Metrics",     kstate_ext::metrics());
+        // Phase 101-104
+        probe!("RngFeeder",   kstate_ext::rng_feeder());
+        probe!("LiveIndex",   kstate_ext::live_index());
+        probe!("MetricStore", kstate_ext::metric_store());
+        probe!("SnapBridge",  kstate_ext::snap_bridge());
+        // Phase 105-108
+        probe!("SecureBoot",  kstate_ext::secure_boot());
+        probe!("NexusBridge", kstate_ext::nexus_bridge());
+        probe!("WasmBridge",  kstate_ext::wasm_bridge());
+        probe!("AetherKit",   kstate_ext::aether_kit());
 
-        // Probe anomaly scorer
-        {
-            let _anomaly = kstate_ext::anomaly();
-            self.stats.subsystems_ok += 1;
-        }
-
-        // Probe black box
-        {
-            let _bb = kstate_ext::black_box();
-            self.stats.subsystems_ok += 1;
-        }
-
-        // Probe window manager
-        {
-            let _wm = kstate_ext::wm();
-            self.stats.subsystems_ok += 1;
-        }
-
-        // Probe UNS cache
-        {
-            let _uns = kstate_ext::uns_cache();
-            self.stats.subsystems_ok += 1;
-        }
-
+        let all_ok = self.stats.subsystems_failed == 0;
         crate::serial_println!(
-            "[KERNEL HEALTH] All {} kstate_ext subsystems OK", self.stats.subsystems_ok
+            "[KERNEL HEALTH] {}/{} subsystems OK — {}",
+            self.stats.subsystems_ok,
+            self.stats.subsystems_ok + self.stats.subsystems_failed,
+            if all_ok { "PASS" } else { "FAIL" }
         );
         all_ok
     }

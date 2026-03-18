@@ -114,9 +114,23 @@ pub fn chimera_create_file(
         path, prism_path
     );
 
-    // In production: call PrismOpen syscall and get a Prism OID back
-    // For now: allocate a synthetic handle
-    let prism_oid = alloc_synthetic_prism_oid(&prism_path);
+    // Wire to PrismSearchEngine: search for an object matching this path hash
+    let path_hash = alloc_synthetic_prism_oid(&prism_path);
+    let prism_oid = {
+        let results = {
+            let mut ps = crate::kstate_ext::prism_search();
+            ps.search_keywords(0, &alloc::format!("{:016x}", path_hash), 1)
+        };
+        if let Some(r) = results.first() {
+            u64::from_le_bytes([
+                r.handle.oid[0], r.handle.oid[1], r.handle.oid[2], r.handle.oid[3],
+                r.handle.oid[4], r.handle.oid[5], r.handle.oid[6], r.handle.oid[7],
+            ])
+        } else {
+            // No Prism object: use FNV hash as ephemeral synthetic OID
+            path_hash
+        }
+    };
 
     if prism_oid == 0 {
         return INVALID_HANDLE_VALUE;

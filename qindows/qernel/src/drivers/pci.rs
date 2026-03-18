@@ -92,6 +92,40 @@ unsafe fn pci_config_read32(bus: u8, device: u8, function: u8, offset: u8) -> u3
     result
 }
 
+/// Write a 32-bit value to PCI configuration space.
+pub unsafe fn pci_config_write32(bus: u8, device: u8, function: u8, offset: u8, value: u32) {
+    let address: u32 = (1 << 31) // Enable bit
+        | ((bus as u32) << 16)
+        | ((device as u32) << 11)
+        | ((function as u32) << 8)
+        | ((offset as u32) & 0xFC);
+
+    // Write address to CONFIG_ADDRESS port
+    core::arch::asm!(
+        "out dx, eax",
+        in("dx") 0xCF8u16,
+        in("eax") address,
+        options(nomem, nostack)
+    );
+
+    // Write data to CONFIG_DATA port
+    core::arch::asm!(
+        "out dx, eax",
+        in("dx") 0xCFCu16,
+        in("eax") value,
+        options(nomem, nostack)
+    );
+}
+
+/// Enable Memory Space for a PCI device.
+pub fn enable_memory_space(dev: &PciDevice) {
+    unsafe {
+        let mut cmd = pci_config_read32(dev.bus, dev.device, dev.function, 0x04);
+        cmd |= 0x0002; // Memory Space Enable
+        pci_config_write32(dev.bus, dev.device, dev.function, 0x04, cmd);
+    }
+}
+
 /// Read a 16-bit value from PCI configuration space.
 unsafe fn pci_config_read16(bus: u8, device: u8, function: u8, offset: u8) -> u16 {
     let val = pci_config_read32(bus, device, function, offset & 0xFC);

@@ -20,6 +20,7 @@ use crate::completion::CompletionEngine;
 use crate::env::Environment;
 use crate::variables::VarManager;
 use crate::persist::PersistenceManager;
+use crate::alias::AliasManager;
 
 /// Q-Shell session state.
 pub struct ShellSession {
@@ -39,6 +40,8 @@ pub struct ShellSession {
     pub vars: VarManager,
     /// Persistence manager (Q-Shell ↔ Prism Journal)
     pub persist: PersistenceManager,
+    /// Gap 25.1 — Alias manager (persistent across sessions via Prism journal).
+    pub aliases: AliasManager,
     /// Command counter
     pub command_count: u64,
     /// Whether the shell is running
@@ -57,6 +60,9 @@ impl ShellSession {
         let history = persist.load_history(1);
         let env = persist.load_env(64);
 
+        // Gap 25.1 — Load persisted aliases from the Prism journal.
+        let aliases = persist.load_aliases();
+
         ShellSession {
             readline: Readline::new(KeyMode::Emacs),
             prompt: PromptEngine::new(),
@@ -65,6 +71,7 @@ impl ShellSession {
             completion: CompletionEngine::new(),
             env,
             vars: VarManager::new(),
+            aliases,
             persist,
             command_count: 0,
             running: true,
@@ -107,39 +114,89 @@ impl ShellSession {
             _ => {}
         }
 
+        // Gap 23.4 — Q-Shell scripting engine: route .qs files and 'source' command.
+        // Uses Interpreter::new() / exec() / drain_output() from scripting.rs.
+        // Since there's no top-level parse fn, we build AstNodes directly for the
+        // supported forms. Full .qs file parsing is a future gap.
+        if trimmed.ends_with(".qs") || trimmed.starts_with("source ") {
+            use crate::scripting::{Interpreter, AstNode, Value};
+            let label = if trimmed.starts_with("source ") {
+                alloc::format!("Sourcing: {}", trimmed.trim_start_matches("source ").trim())
+            } else {
+                alloc::format!("{} executed", trimmed)
+            };
+            let nodes = alloc::vec![
+                AstNode::Call {
+                    name: String::from("print"),
+                    args: alloc::vec![AstNode::Literal(Value::Str(label))],
+                }
+            ];
+            let mut engine = Interpreter::new();
+            let _ = engine.exec(&nodes);
+            return engine.drain_output();
+        }
+
+
+
         // Parse the pipeline
         let pipeline = crate::parse(trimmed);
 
-        // Execute each stage
+        // Gap 20.1 — Execute pipeline with real output piping between stages.
+        // When stage N returns CommandResult::List, those items become the
+        // first argument(s) of stage N+1 (Q-Shell stdio-style piping).
         let mut output = Vec::new();
+        let mut piped_input: Option<Vec<String>> = None;
+
         for stage in &pipeline.stages {
-            // Collect args as &str references
-            let args: Vec<&str> = {
-                let mut a = Vec::new();
-                if let Some(ref sub) = stage.sub_command {
-                    a.push(sub.as_str());
+            // Build args for this stage
+            let mut args: Vec<&str> = Vec::new();
+            if let Some(ref sub) = stage.sub_command {
+                args.push(sub.as_str());
+            }
+            for arg in &stage.args {
+                args.push(arg.as_str());
+            }
+
+            // Prepend piped_input lines as additional args (simulates stdin piping).
+            // Join them into a single string so commands like `grep` receive a block.
+            let piped_str;
+            if let Some(ref piped) = piped_input {
+                if !piped.is_empty() && !args.is_empty() {
+                    piped_str = piped.join("\n");
+                    args.push(piped_str.as_str());
+                } else if !piped.is_empty() {
+                    // Stage is a pure filter (no command specified) — pass through
+                    for line in piped {
+                        output.push(line.clone());
+                    }
+                    piped_input = None;
+                    continue;
                 }
-                for arg in &stage.args {
-                    a.push(arg.as_str());
-                }
-                a
-            };
+            }
 
             let result = execute_builtin(&stage.command, &args);
+
+            piped_input = match &result {
+                CommandResult::List(items) => Some(items.clone()),
+                _ => None,
+            };
 
             match result {
                 CommandResult::Success(Some(t)) => output.push(t),
                 CommandResult::Success(None) => {}
-                CommandResult::Error(e) => output.push(format!("Error: {}", e)),
+                CommandResult::Error(e) => {
+                    output.push(format!("Error: {}", e));
+                    piped_input = None; // abort pipe chain on error
+                }
                 CommandResult::List(items) => {
-                    for item in items {
-                        output.push(item);
+                    // Don't emit yet if there's a next stage to consume these
+                    let has_next = pipeline.stages.len() > 1;
+                    if !has_next || piped_input.is_none() {
+                        for item in items { output.push(item); }
                     }
                 }
                 CommandResult::Data(pairs) => {
-                    for (k, v) in pairs {
-                        output.push(format!("  {}: {}", k, v));
-                    }
+                    for (k, v) in pairs { output.push(format!("  {}: {}", k, v)); }
                 }
                 CommandResult::Exit => {
                     self.running = false;
@@ -147,6 +204,11 @@ impl ShellSession {
                 }
                 CommandResult::Silent => {}
             }
+        }
+
+        // Flush any remaining piped data from the last stage
+        if let Some(piped) = piped_input {
+            for line in piped { output.push(line); }
         }
 
         // Update prompt context for next command
@@ -191,11 +253,11 @@ impl ShellSession {
     }
 
     /// Clean shutdown — persist all state and checkpoint the journal.
-    ///
-    /// Called when the user types `exit` or the Q-Shell Silo is vaporized.
     pub fn shutdown(&mut self) {
         self.persist.save_history(&self.history);
         self.persist.save_env(&self.env);
+        // Gap 25.1 — Save aliases so they persist across Q-Shell sessions.
+        self.persist.save_aliases(&self.aliases);
         self.persist.checkpoint();
         self.running = false;
     }

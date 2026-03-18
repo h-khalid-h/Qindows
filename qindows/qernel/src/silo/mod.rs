@@ -137,8 +137,8 @@ impl QSilo {
             let current_cr3: u64;
             core::arch::asm!("mov {}, cr3", out(reg) current_cr3, options(nomem, nostack));
             if current_cr3 == old_cr3 && old_cr3 != 0 {
-                // Switch to a null-like page table to prevent use-after-free.
-                // In production: switch to the kernel page table instead.
+                // Switch to the kernel PML4 to prevent use-after-free on the freed silo page table.
+                // (IA-32 §4.10.4: CR3 must always reference a valid, accessible PML4.)
                 core::arch::asm!(
                     "mov cr3, {}",
                     in(reg) crate::memory::KERNEL_PML4_PHYS,
@@ -146,6 +146,13 @@ impl QSilo {
                 );
             }
         }
+
+        // 5b. Notify all Phase 84-280 subsystems that this Silo is gone.
+        //     This unregisters from Q-Ring, EVENT_BUS, WM, ANOMALY, BLACK_BOX, A11Y.
+        //     Must run before zeroing id so the subsystem can find the entry to remove.
+        let tick = crate::kstate::global_tick();
+        crate::kstate_ext::on_silo_vaporize(self.id, tick);
+        crate::boot_sequence::on_silo_gone(self.id);
 
         crate::serial_println!("SENTINEL: Silo {} vaporized. Zero residue.", self.id);
     }
@@ -166,11 +173,23 @@ impl SiloManager {
         SiloManager { silos: Vec::new() }
     }
 
-    /// Spawn a new Silo.
+    /// Spawn a new Silo and wire it into all live Phase 84-100 subsystems.
+    /// Emits structured serial log. For silos spawned before Phase 16 (boot-time
+    /// system silos), kstate_ext::on_silo_spawn is a no-op (QRING.get().is_none()).
     pub fn spawn(&mut self, binary_oid: u64, page_table_root: u64) -> SiloId {
         let silo = QSilo::create(binary_oid, page_table_root);
         let id = silo.id;
         self.silos.push(silo);
+        crate::serial_println!(
+            "[SILO] Spawned Silo {} (binary_oid={:#x}) — {} total silos",
+            id, binary_oid, self.silos.len()
+        );
+        // Wire into kstate_ext subsystems (SiloEventBus, QRing, A11y, QViewWm,
+        // SentinelAnomaly, BlackBox). No-op if called before boot_phase2() completes.
+        let tick = crate::kstate::global_tick();
+        let mut oid32 = [0u8; 32];
+        oid32[..8].copy_from_slice(&binary_oid.to_le_bytes());
+        crate::kstate_ext::on_silo_spawn(id, oid32, tick);
         id
     }
 

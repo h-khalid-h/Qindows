@@ -380,10 +380,23 @@ impl PrismSearchEngine {
             .filter(|(score, _)| *score > 50) // discard irrelevant results
             .collect();
 
-        // Step 4: Capability filter (Law 1) — only return objects the Silo can access
-        // In production: check CapToken for PRISM_READ on each OID
-        // Here: objects created by this Silo OR marked mesh_public are accessible
-        results.retain(|(_, node)| node.creator_silo == silo_id || node.mesh_public);
+        // Step 4: Capability filter (Law 1) — check Permissions::PRISM via real cap table
+        // Silos with PRISM cap can access all mesh_public objects.
+        // All silos can always access their own objects (own-data principle).
+        let has_prism_cap = {
+            let state = crate::kstate::state();
+            let silos = state.silo_mgr.lock();
+            silos.silos.iter()
+                .find(|s| s.id == silo_id)
+                .map(|s| s.has_capability(crate::capability::Permissions::PRISM))
+                .unwrap_or(false)
+        };
+        results.retain(|(_, node)| {
+            // Own objects always visible
+            node.creator_silo == silo_id
+            // Mesh-public objects visible to PRISM-capable silos
+            || (node.mesh_public && has_prism_cap)
+        });
         self.stats.cap_rejected_results += (self.index.total_nodes as usize)
             .saturating_sub(results.len()) as u64;
 

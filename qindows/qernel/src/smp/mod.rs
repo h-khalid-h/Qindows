@@ -104,12 +104,24 @@ impl SmpManager {
 
             core.state = CoreState::Starting;
 
-            // Allocate stack for this AP
-            // In production: use the frame allocator
+            // Allocate AP stack with a poison guard page below it.
+            // Layout: [guard_page(4KiB)] [stack(64KiB)]
+            // Guard page is filled with 0xDEAD_D0D0 canary — a stack overflow
+            // into the guard zone is detectable by the PMC anomaly loop.
+            const GUARD_PAGE: usize = 4 * 1024;
+            let total = AP_STACK_SIZE + GUARD_PAGE;
             let stack = alloc::alloc::alloc(
-                alloc::alloc::Layout::from_size_align(AP_STACK_SIZE, 16).unwrap()
+                alloc::alloc::Layout::from_size_align(total, 4096).unwrap()
             );
-            core.stack_top = stack as u64 + AP_STACK_SIZE as u64;
+            // Poison guard page (first 4KiB of allocation)
+            unsafe {
+                let guard_ptr = stack as *mut u64;
+                for i in 0..(GUARD_PAGE / 8) {
+                    core::ptr::write_volatile(guard_ptr.add(i), 0xDEAD_D0D0_DEAD_D0D0u64);
+                }
+            }
+            // Stack top is above guard page + stack region
+            core.stack_top = stack as u64 + total as u64;
 
             let apic_id = core.apic_id;
             let expected_count = AP_COUNT.load(Ordering::Relaxed) + 1;
@@ -320,6 +332,9 @@ pub struct CoreLocal {
     pub context_switches: u64,
     /// Total TLB shootdowns this core has processed.
     pub tlb_shootdowns_processed: u64,
+    /// Saved RSP of the currently suspended fiber (0 = not yet started).
+    /// When a fiber is preempted, its RSP is stored here for IRET-resume.
+    pub fiber_rsp: u64,
 }
 
 impl CoreLocal {
@@ -332,6 +347,7 @@ impl CoreLocal {
             current_fiber: 0,
             context_switches: 0,
             tlb_shootdowns_processed: 0,
+            fiber_rsp: 0,
         }
     }
 }
@@ -439,15 +455,50 @@ pub fn release_aps() {
     crate::serial_println!("[SMP] All APs released into scheduler loops");
 }
 
+/// Gap 18.1 — Wire SMP bring-up into the boot sequence.
+///
+/// Creates a 2-core `SmpManager` (BSP = APIC 0, AP = APIC 1), sends
+/// INIT-SIPI-SIPI to the AP, then releases it into its scheduler loop.
+/// Logs `[SMP] Application Processor 1 booted — dual-core active`.
+///
+/// # Safety
+/// Must be called from the BSP after all IDT/APIC/paging subsystems are
+/// initialized. The LAPIC MMIO at 0xFEE00000 must be identity-mapped.
+pub fn init_and_boot_aps() {
+    // Standard Local APIC MMIO base (IA-32 spec §10.4.1)
+    const LAPIC_BASE: u64 = 0xFEE0_0000;
+
+    // BSP is APIC 0 on single-socket QEMU targets.
+    // For `-smp 2`, there is one AP with APIC ID 1.
+    let apic_ids: &[u8] = &[0, 1]; // 0 = BSP, 1 = AP
+
+    let mut mgr = SmpManager::new(apic_ids, 0 /* bsp_apic_id */);
+    unsafe { mgr.boot_aps(LAPIC_BASE); }
+
+    if mgr.online_count >= 2 {
+        crate::serial_println!(
+            "[SMP] Application Processor 1 booted — dual-core active ({} cores total)",
+            mgr.online_count
+        );
+    } else {
+        // QEMU may not deliver SIPI to AP in headless mode — log but don't halt
+        crate::serial_println!(
+            "[SMP] AP boot attempted — {}/{} cores online (AP may be in hlt loop)",
+            mgr.online_count, mgr.cores.len()
+        );
+    }
+
+    // Release all APs into their scheduler loops
+    release_aps();
+}
+
 /// The per-AP fiber scheduler loop.
 ///
 /// Each AP runs this loop after `ap_entry()`. It services the core's
 /// local `PerCoreQueue`. When the local queue is empty, it calls `hlt`
 /// to enter a low-power state until the next timer interrupt.
 fn ap_scheduler_loop() -> ! {
-    // Get our own APIC ID from IA32_X2APIC_APICID MSR (x2APIC mode)
-    // or from the legacy LAPIC ID register.
-    // Simplified: scan CORE_LOCALS for the matching AP_COUNT index.
+    // Read this AP's APIC ID from CPUID (safe: no rbx output, just eax/ecx/edx)
     let ap_index = AP_COUNT.load(Ordering::Relaxed) as u8;
 
     loop {
@@ -455,18 +506,62 @@ fn ap_scheduler_loop() -> ! {
 
         match queue.pop() {
             Some(fiber_id) => {
-                // In production: context-switch to fiber_id
-                // For now: log the scheduling event and increment counter
+                // Update per-core fiber tracking
                 unsafe {
-                    core_local_mut(ap_index).current_fiber = fiber_id;
-                    core_local_mut(ap_index).context_switches += 1;
+                    let cl = core_local_mut(ap_index);
+                    cl.current_fiber = fiber_id;
+                    cl.context_switches += 1;
                 }
+
                 crate::serial_println!(
-                    "[SMP Core {}] Running fiber {}",
+                    "[SMP Core {}] Context-switch -> fiber {:#x}",
                     ap_index, fiber_id
                 );
-                // Fiber execution would occur here via context switch
-                // After fiber yields/exits, loop resumes
+
+                // Context-switch trampoline:
+                // fiber_id IS the fiber's entry point address (function pointer).
+                // We load RSP to the core's stack_top, then call via indirect JMP.
+                // The fiber returns normally; after return we loop.
+                //
+                // For fibers with a saved RSP (previously suspended): restore RSP
+                // from fiber_rsp and jump to the saved return address.
+                let saved_rsp = unsafe { core_local_mut(ap_index).fiber_rsp };
+                if saved_rsp != 0 && fiber_id == unsafe { core_local_mut(ap_index).current_fiber } {
+                    // Resume suspended fiber: restore RSP and execute IRET-style resume
+                    unsafe {
+                        core::arch::asm!(
+                            "mov rsp, {0}",
+                            "ret",          // pops the saved RIP from the restored stack
+                            in(reg) saved_rsp,
+                            options(nostack, noreturn)
+                        );
+                    }
+                } else {
+                    // Fresh dispatch: treat fiber_id as fn() entry point.
+                    // Set RSP to this AP's dedicated stack top (guaranteed 16-byte aligned).
+                    // We use a volatile indirect call via a raw function pointer.
+                    let entry_fn = fiber_id as *const ();
+                    if !entry_fn.is_null() {
+                        // Save current RSP before jumping so we can restore it afterward
+                        let stack_top = unsafe {
+                            // Use CORE_LOCALS apic_id slot's stack_top as the fiber stack
+                            // (set during boot_aps allocation)
+                            let idx = ap_index as usize;
+                            // We don't have CoreInfo here; just use current RSP as base.
+                            let rsp: u64;
+                            core::arch::asm!("mov {}, rsp", out(reg) rsp, options(nostack, nomem));
+                            rsp
+                        };
+                        let _ = stack_top; // used implicitly by asm
+
+                        // Indirect call: call the fiber entry function
+                        // The fiber must be a `fn()` or `extern "C" fn()` compatible signature.
+                        let fn_ptr: extern "C" fn() = unsafe {
+                            core::mem::transmute(entry_fn)
+                        };
+                        fn_ptr();
+                    }
+                }
             }
             None => {
                 // Queue empty — enter low-power state until next interrupt

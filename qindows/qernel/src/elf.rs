@@ -366,6 +366,24 @@ impl ElfLoader {
                 core::ptr::write_bytes(dest.add(file_sz), 0, mem_sz - file_sz);
             }
 
+            // Gap 23.2 (logic-fix 2) — Map all pages of this segment into page table.
+            // Align base down to 4KB so map_page never receives a non-aligned virt.
+            // page_table uses: bit0=PRESENT, bit1=WRITE, bit63=NX (no-execute).
+            // Executable segments clear NX; data/rodata set NX.
+            let write_flag = if seg.prot.write   { crate::page_table::PAGE_WRITE } else { 0 };
+            let nx_flag    = if seg.prot.execute  { 0u64 } else { crate::page_table::PAGE_NX };
+            let page_flags = crate::page_table::PAGE_PRESENT | write_flag | nx_flag;
+            let base_aligned = seg.vaddr & !0xFFF;
+            let top_addr = seg.vaddr + mem_sz as u64;
+            let page_count = ((top_addr - base_aligned) + 0xFFF) / 0x1000;
+            let cr3: u64;
+            core::arch::asm!("mov {cr3}, cr3", cr3 = out(reg) cr3);
+            for page_idx in 0..page_count {
+                let page_virt = base_aligned + page_idx * 0x1000;
+                crate::page_table::map_page(cr3, page_virt, page_virt, page_flags);
+            }
+
+
             // Track memory range
             if seg.vaddr < lowest_addr {
                 lowest_addr = seg.vaddr;

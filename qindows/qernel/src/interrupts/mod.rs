@@ -170,13 +170,16 @@ extern "x86-interrupt" fn timer_handler(_frame: InterruptStackFrame) {
     // Send EOI immediately so the APIC can fire the next timer interrupt.
     unsafe { send_eoi(); }
 
-    // Only attempt preemptive scheduling AFTER boot is complete (Phase 15 done).
-    // BOOT_COMPLETE is set by kstate::signal_boot_complete() at the end of Phase 15.
-    // Before that point, SCHEDULERS may not be safe to access from an interrupt
-    // because heap allocations during boot can hold internal spinlocks.
+    // Only attempt kstate_ext hooks + preemptive scheduling AFTER boot is complete.
+    // BOOT_COMPLETE is set by boot_sequence::boot_phase2() at Phase 16.
     if !crate::kstate::BOOT_COMPLETE.load(core::sync::atomic::Ordering::Acquire) {
         return;
     }
+
+    // Feed tick into kstate_ext: drains Q-Ring batches, sweeps UNS TTLs, increments metrics.
+    // Uses try_lock() to avoid priority inversion — if a lock is held, we skip this tick.
+    let tick = crate::kstate::global_tick();
+    crate::boot_sequence::apic_tick_hook(tick);
 
     // Only preempt if there are OTHER ready fibers to switch to (not just current).
     let mut scheds = crate::scheduler::SCHEDULERS.lock();

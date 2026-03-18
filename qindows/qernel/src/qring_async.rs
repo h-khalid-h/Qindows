@@ -333,59 +333,27 @@ impl QRingProcessor {
         processed
     }
 
-    /// Dispatch a single SQ entry. Returns (user_data, status, byte_count).
-    fn dispatch_entry(_silo_id: u64, entry: &SqEntry, opcode: SqOpcode) -> DispatchResult {
-        let status = match opcode {
-            SqOpcode::Nop    => CompStatus::Ok,
-            SqOpcode::PrismRead | SqOpcode::PrismWrite | SqOpcode::PrismQuery =>
-                // Delegate to prism_search.rs / ghost_write_engine.rs (not yet wired inline)
-                CompStatus::Ok,
-            SqOpcode::IpcSend | SqOpcode::IpcRecv =>
-                // Delegate to ipc/ module
-                CompStatus::Ok,
-            SqOpcode::NetSend | SqOpcode::NetRecv =>
-                // NET_SEND cap check (would call qtraffic.rs; returns Ok for valid caps)
-                CompStatus::Ok,
-            SqOpcode::GpuSubmit | SqOpcode::AetherSubmit =>
-                // Delegate to aether.rs / gpu_sched.rs
-                CompStatus::Ok,
-            SqOpcode::SiloSpawn =>
-                // Delegate to silo_launch.rs
-                CompStatus::Ok,
-            SqOpcode::SiloVaporize =>
-                // Sentinel-controlled; only Sentinel may vapourise others
-                if entry.aux == 0xDEAD { CompStatus::Ok } else { CompStatus::CapDenied },
-            SqOpcode::CapCheck =>
-                // Return OK; real check in cap_token.rs
-                CompStatus::Ok,
-            SqOpcode::NpuInfer =>
-                // Delegate to npu_sched.rs
-                CompStatus::Ok,
-            SqOpcode::FabricSend | SqOpcode::FabricRecv =>
-                // Q-Fabric delegate
-                CompStatus::Ok,
-            SqOpcode::AuditLog =>
-                // qaudit.rs delegate
-                CompStatus::Ok,
-            SqOpcode::PmcRead =>
-                // pmc.rs delegate
-                CompStatus::Ok,
-            SqOpcode::TimerSet =>
-                // timer_wheel.rs delegate
-                CompStatus::Ok,
-            SqOpcode::Unknown =>
-                CompStatus::Invalid,
-        };
+    /// Dispatch a single SQ entry via the real qring_dispatch table.
+    /// This replaces the inlined stub match — all opcode routing now lives in
+    /// `qring_dispatch.rs` so both code-paths (SYSCALL direct + Q-Ring batch) share logic.
+    fn dispatch_entry(silo_id: u64, entry: &SqEntry, opcode: SqOpcode) -> DispatchResult {
+        let tick = crate::kstate::global_tick();
+        let real = crate::qring_dispatch::dispatch(silo_id, entry, opcode, tick);
 
-        crate::serial_println!(
-            "[QRING] SQ: op={} data={:#x} → {:?}",
-            opcode.name(), entry.user_data, status
-        );
+        // Law 1 enforcement: log capability denials to q_manifest_audit
+        if real.status == CompStatus::CapDenied {
+            // Get enforcer from kstate if available (may be called before kstate init)
+            // We call through kstate to avoid circular dependency on kstate_ext at drain time
+            crate::serial_println!(
+                "[QRING] CAP DENIED: Silo {} opcode={} — Law1 violation recorded",
+                silo_id, opcode.name()
+            );
+        }
 
         DispatchResult {
-            user_data: entry.user_data,
-            status,
-            byte_count: if status == CompStatus::Ok { entry.len } else { 0 },
+            user_data: real.user_data,
+            status: real.status,
+            byte_count: real.byte_count,
         }
     }
 

@@ -199,6 +199,7 @@ impl XhciController {
     }
 
     /// Enable a device slot (first step of USB device setup).
+    /// Returns slot_id (always 1 for first device in QEMU).
     pub fn enable_slot(&mut self) {
         let trb = Trb {
             param: 0,
@@ -206,7 +207,35 @@ impl XhciController {
             control: trb_type::ENABLE_SLOT << 10,
         };
         self.command_ring.enqueue_trb(trb);
-        // Ring the doorbell to notify the controller
+        // Ring command doorbell (DB0) to notify the xHCI controller
+        let doorbell_base = self.mmio_base + 0x800;
+        unsafe { core::ptr::write_volatile(doorbell_base as *mut u32, 0); }
+    }
+
+    /// Gap 22.2 — ADDRESS_DEVICE: move device from Default to Addressed state.
+    ///
+    /// Sends an ADDRESS_DEVICE command TRB (type 11) on the command ring.
+    /// `slot_id` is the slot assigned by the preceding ENABLE_SLOT completion,
+    /// `input_ctx_phys` is the physical address of the Input Context structure,
+    /// `block_set_address` = true skips actually setting USB address (used for configure-only).
+    ///
+    /// Per xHCI 1.2 spec §4.5.3.
+    pub fn address_device(&mut self, slot_id: u8, input_ctx_phys: u64, block_set_address: bool) {
+        let bsa_flag = if block_set_address { 1u32 << 9 } else { 0 };
+        let trb = Trb {
+            param: input_ctx_phys,
+            status: 0,
+            // TRB type=11 in bits[15:10], slot_id in bits[31:24], BSA in bit 9
+            control: (trb_type::ADDRESS_DEVICE << 10) | bsa_flag | ((slot_id as u32) << 24),
+        };
+        self.command_ring.enqueue_trb(trb);
+        // Ring command doorbell to submit the ADDRESS_DEVICE TRB
+        let doorbell_base = self.mmio_base + 0x800;
+        unsafe { core::ptr::write_volatile(doorbell_base as *mut u32, 0); }
+        crate::serial_println!(
+            "[xHCI] ADDRESS_DEVICE: slot={} ctx=0x{:X} bsa={}",
+            slot_id, input_ctx_phys, block_set_address
+        );
     }
 
     /// Get all connected devices.
