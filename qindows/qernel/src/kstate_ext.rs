@@ -403,7 +403,8 @@ pub fn tick_hook(tick: u64) {
 
     // Gap 19.3 — Dispatch pending disk I/O requests every 10 ticks (~10ms at 1kHz).
     // DiskScheduler::dispatch() picks the highest-priority request (CFQ-weighted)
-    // and calls kstate::nvme().write_blocks() or read_blocks() to submit to hardware.
+    // and issues nvme.flush() to commit any pending writes to the NVMe controller.
+    // Round 4 fix 2: Comment corrected — uses nvme.flush(), not write_blocks().
     if tick % 10 == 0 {
         // try_lock: skip if nvme or disk_sched is already locked
         let disk_opt = crate::kstate::disk_sched_try_lock();

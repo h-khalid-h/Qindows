@@ -366,13 +366,16 @@ impl ElfLoader {
                 core::ptr::write_bytes(dest.add(file_sz), 0, mem_sz - file_sz);
             }
 
-            // Gap 23.2 (logic-fix 2) — Map all pages of this segment into page table.
+             // Gap 23.2 (logic-fix 2 + Round 4 fix 1) — Map all pages of this segment.
             // Align base down to 4KB so map_page never receives a non-aligned virt.
-            // page_table uses: bit0=PRESENT, bit1=WRITE, bit63=NX (no-execute).
-            // Executable segments clear NX; data/rodata set NX.
+            // PAGE_USER is CRITICAL: without it Ring-3 (CPL=3) access raises #PF
+            // on every instruction fetch/data access even with PRESENT set.
             let write_flag = if seg.prot.write   { crate::page_table::PAGE_WRITE } else { 0 };
             let nx_flag    = if seg.prot.execute  { 0u64 } else { crate::page_table::PAGE_NX };
-            let page_flags = crate::page_table::PAGE_PRESENT | write_flag | nx_flag;
+            let page_flags = crate::page_table::PAGE_PRESENT
+                | crate::page_table::PAGE_USER  // Round 4 fix 1: Ring-3 access required
+                | write_flag
+                | nx_flag;
             let base_aligned = seg.vaddr & !0xFFF;
             let top_addr = seg.vaddr + mem_sz as u64;
             let page_count = ((top_addr - base_aligned) + 0xFFF) / 0x1000;
