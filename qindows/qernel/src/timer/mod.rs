@@ -62,7 +62,13 @@ pub fn set_frequency(tps: u64) {
 pub fn sleep_ticks(ticks: u64) {
     if ticks == 0 { return; }
     let end = now_ticks().saturating_add(ticks);
+    // Round 6 fix 2: spin_loop() emits the x86 PAUSE instruction (REP NOP on older CPUs)
+    // which signals to the CPU that we're in a busy-wait, reducing power and preventing
+    // memory order violations. This is correct for a cooperative kernel without a real
+    // scheduler yield path. When full context-switch scheduling is live, replace with
+    // a scheduler yield syscall (Syscall 0 / Yield) from Ring-3 instead of polling here.
     while now_ticks() < end {
+        core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
         core::hint::spin_loop();
     }
 }

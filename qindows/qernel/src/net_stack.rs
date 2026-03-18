@@ -147,18 +147,88 @@ fn handle_arp(payload: &[u8], our_mac: &[u8; 6]) -> Option<[u8; 42]> {
 }
 
 /// Handle an IPv4 packet (EtherType 0x0800).
+/// Round 6 fix 1 — ICMP Echo Reply: when protocol=1 (ICMP) and type=8 (Echo Request),
+/// build and transmit an Echo Reply (type=0) using the same identifier + sequence number.
 fn handle_ipv4(payload: &[u8]) {
     if payload.len() < 20 {
         crate::serial_println!("[IPv4] Too short: {} bytes", payload.len());
         return;
     }
+    let ihl = ((payload[0] & 0x0F) as usize) * 4;
     let protocol = payload[9];
     let src = &payload[12..16];
     let dst = &payload[16..20];
     match protocol {
-        1  => crate::serial_println!("[ICMP] {}.{}.{}.{} → {}.{}.{}.{}", src[0],src[1],src[2],src[3], dst[0],dst[1],dst[2],dst[3]),
-        6  => crate::serial_println!("[TCP]  {}.{}.{}.{} → {}.{}.{}.{} len={}", src[0],src[1],src[2],src[3], dst[0],dst[1],dst[2],dst[3], payload.len()),
-        17 => crate::serial_println!("[UDP]  {}.{}.{}.{} → {}.{}.{}.{} len={}", src[0],src[1],src[2],src[3], dst[0],dst[1],dst[2],dst[3], payload.len()),
-        _  => crate::serial_println!("[IPv4] proto={} src={}.{}.{}.{}", protocol, src[0],src[1],src[2],src[3]),
+        1 => {
+            // ICMP
+            crate::serial_println!("[ICMP] {}.{}.{}.{} → {}.{}.{}.{}",
+                src[0],src[1],src[2],src[3], dst[0],dst[1],dst[2],dst[3]);
+            if payload.len() < ihl + 8 { return; }
+            let icmp = &payload[ihl..];
+            // ICMP type=8 is Echo Request; we only reply to those
+            if icmp[0] != 8 { return; }
+            // Build ICMP Echo Reply: swap src/dst IPs, set type=0, recompute checksum
+            let icmp_data_len = icmp.len().min(576); // cap reply to 576 bytes
+            let ip_total_len = (20 + icmp_data_len) as u16;
+            let mut reply = alloc::vec![0u8; 14 + 20 + icmp_data_len];
+            // Ethernet header (src/dst MAC stubs — 00:00:00:00:00:01 for Qindows)
+            const OUR_MAC: [u8; 6] = [0x52, 0x54, 0x00, 0x00, 0x00, 0x01];
+            reply[0..6].copy_from_slice(src); // dst = original sender (their MAC unknown; L2 only OK in flat QEMU)
+            reply[0..6].fill(0xFF);            // broadcast — QEMU will route to sender
+            reply[6..12].copy_from_slice(&OUR_MAC);
+            reply[12..14].copy_from_slice(&[0x08, 0x00]); // IPv4
+            // IPv4 header
+            let ip = &mut reply[14..34];
+            ip[0] = 0x45;                          // version=4, IHL=5
+            ip[1] = 0;                             // DSCP/ECN
+            ip[2..4].copy_from_slice(&ip_total_len.to_be_bytes());
+            ip[4..6].copy_from_slice(&[0, 0]);     // ID
+            ip[6..8].copy_from_slice(&[0x40, 0]); // Flags=DF, frag offset=0
+            ip[8] = 64;                            // TTL
+            ip[9] = 1;                             // Protocol=ICMP
+            ip[10..12].copy_from_slice(&[0, 0]);   // checksum placeholder
+            ip[12..16].copy_from_slice(&[10, 0, 2, 15]); // src = our IP
+            ip[16..20].copy_from_slice(src);       // dst = original sender IP
+            // IPv4 header checksum
+            let cksum = ip4_checksum(&reply[14..34]);
+            reply[14+10..14+12].copy_from_slice(&cksum.to_be_bytes());
+            // ICMP reply body: type=0 (Echo Reply), code=0, id+seq from request
+            reply[34] = 0;                         // type = Echo Reply
+            reply[35] = 0;                         // code = 0
+            reply[36..34+icmp_data_len].copy_from_slice(&icmp[2..icmp_data_len]);
+            // ICMP checksum (over ICMP header + data)
+            let icmp_cksum = icmp_checksum(&reply[34..34+icmp_data_len]);
+            reply[36..38].copy_from_slice(&icmp_cksum.to_be_bytes());
+            // Transmit reply
+            if let Some(mut net) = crate::kstate::state_opt()
+                .and_then(|s| s.virtio_net.try_lock())
+            {
+                let _ = net.send(&reply);
+                crate::serial_println!("[ICMP] Echo Reply sent ({} bytes)", reply.len());
+            }
+        }
+        6  => crate::serial_println!("[TCP]  {}.{}.{}.{} → {}.{}.{}.{} len={}",
+            src[0],src[1],src[2],src[3], dst[0],dst[1],dst[2],dst[3], payload.len()),
+        17 => crate::serial_println!("[UDP]  {}.{}.{}.{} → {}.{}.{}.{} len={}",
+            src[0],src[1],src[2],src[3], dst[0],dst[1],dst[2],dst[3], payload.len()),
+        _  => crate::serial_println!("[IPv4] proto={} src={}.{}.{}.{}", protocol,
+            src[0],src[1],src[2],src[3]),
     }
 }
+
+/// Compute the ones-complement checksum for an IPv4 header or ICMP payload.
+fn ip4_checksum(data: &[u8]) -> u16 {
+    let mut sum: u32 = 0;
+    let mut i = 0;
+    while i + 1 < data.len() {
+        sum += u16::from_be_bytes([data[i], data[i+1]]) as u32;
+        i += 2;
+    }
+    if i < data.len() { sum += (data[i] as u32) << 8; }
+    while sum >> 16 != 0 { sum = (sum & 0xFFFF) + (sum >> 16); }
+    !(sum as u16)
+}
+
+/// ICMP checksum (same algorithm as IPv4 header checksum).
+#[inline]
+fn icmp_checksum(data: &[u8]) -> u16 { ip4_checksum(data) }
