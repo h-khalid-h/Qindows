@@ -1023,6 +1023,11 @@ fn handle_ipc_recv(channel_id: u64, out_buf_ptr: u64, max_msgs: usize) -> i64 {
         // Serialize the first message's payload into the caller's buffer
         let msg = &msgs[0];
         let bytes_written = if out_buf_ptr != 0 && max_msgs >= 8 {
+            // Round 3 fix 2: validate out_buf_ptr is in Ring-3 user-space before writing
+            if out_buf_ptr >= RING3_VA_LIMIT {
+                crate::serial_println!("[IPC] Rejected kernel-space out_buf_ptr {:#x}", out_buf_ptr);
+                return SyscallError::PermissionDenied as i64;
+            }
             // Write message type + channel id as a compact 8-byte header
             // Layout: [channel_id:u32][msg_type:u16][payload_len:u16]
             let channel_lo = (channel_id & 0xFFFF_FFFF) as u32;
@@ -2885,7 +2890,11 @@ fn handle_sys_exec_binary(elf_ptr: *const u8, elf_len: usize) -> i64 {
     if elf_ptr.is_null() || elf_len < 64 || elf_len > 256 * 1024 * 1024 {
         return SyscallError::InvalidArg as i64;
     }
-
+    // Round 3 fix 1: reject kernel-space ELF pointers from Ring-3
+    if (elf_ptr as u64) >= RING3_VA_LIMIT {
+        crate::serial_println!("[SYSCALL 303] Rejected kernel-space elf_ptr {:#x}", elf_ptr as u64);
+        return SyscallError::PermissionDenied as i64;
+    }
     // Build a slice over the caller's flat-mapped ELF bytes
     let elf_bytes = unsafe { core::slice::from_raw_parts(elf_ptr, elf_len) };
 

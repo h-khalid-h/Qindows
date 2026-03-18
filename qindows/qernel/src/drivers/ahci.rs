@@ -270,9 +270,21 @@ impl AhciController {
 
             // Issue command (slot 0 → bit 0 in CI)
             core::ptr::write_volatile(core::ptr::addr_of_mut!((*port_regs).ci), 1u32);
+
+            // Round 3 fix 3 — Wait for CI bit 0 to clear (HBA clears it when complete).
+            // Timeout after 10,000 iterations to avoid infinite spin on dead hardware.
+            let mut timeout = 10_000u32;
+            while core::ptr::read_volatile(core::ptr::addr_of!((*port_regs).ci)) & 1 != 0 {
+                timeout -= 1;
+                if timeout == 0 {
+                    crate::serial_println!("[AHCI] READ TIMEOUT port={} lba={}", port, lba);
+                    return Err("AHCI read timeout");
+                }
+                core::hint::spin_loop();
+            }
         }
 
-        crate::serial_println!("[AHCI] READ port={} lba={} count={} → CI issued", port, lba, count);
+        crate::serial_println!("[AHCI] READ port={} lba={} count={} → OK", port, lba, count);
         Ok(())
     }
 
@@ -315,9 +327,20 @@ impl AhciController {
             (*prdt).dbc = (count as u32 * 512) | (1 << 31);
 
             core::ptr::write_volatile(core::ptr::addr_of_mut!((*port_regs).ci), 1u32);
+
+            // Round 3 fix 3 — Poll CI until clear or timeout
+            let mut timeout = 10_000u32;
+            while core::ptr::read_volatile(core::ptr::addr_of!((*port_regs).ci)) & 1 != 0 {
+                timeout -= 1;
+                if timeout == 0 {
+                    crate::serial_println!("[AHCI] WRITE TIMEOUT port={} lba={}", port, lba);
+                    return Err("AHCI write timeout");
+                }
+                core::hint::spin_loop();
+            }
         }
 
-        crate::serial_println!("[AHCI] WRITE port={} lba={} count={} → CI issued", port, lba, count);
+        crate::serial_println!("[AHCI] WRITE port={} lba={} count={} → OK", port, lba, count);
         Ok(())
     }
 
