@@ -208,8 +208,17 @@ pub unsafe fn jump_to_ring3(regs: &SiloEntryRegs) -> ! {
 pub unsafe fn launch_silo(
     binary: &LoadedBinary,
     silo: &QSilo,
-    _allocator: &mut FrameAllocator,
+    allocator: &mut FrameAllocator,  // Round 7 fix 1: removed _ prefix — allocator is now used
 ) -> Result<(), LaunchError> {
+    // Round 7 fix 1: map the user-mode stack before jumping.
+    // Without this, the silo's RSP points to an unmapped page and the first
+    // push/pop in Ring-3 causes an immediate #PF (page fault).
+    // Use CR3 (active PML4 root) — same approach as the ELF loader.
+    let cr3: u64;
+    core::arch::asm!("mov {cr3}, cr3", cr3 = out(reg) cr3);
+    let mut vmm = VirtualMemoryManager::new(cr3);
+    map_user_stack(&mut vmm, allocator)?;
+
     // Build initial register state (validates entry point)
     let regs = build_entry_regs(binary, silo.id)?;
 
