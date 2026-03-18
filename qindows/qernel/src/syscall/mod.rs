@@ -2942,14 +2942,19 @@ fn handle_sys_compute_bid(task_id: u64, credits: u64, deadline_ticks: u64) -> i6
     }
 }
 
-/// Gap 24.4 — SysSendPacket (Syscall 305): Ring-3 Ethernet frame transmit.
-///
-/// Sends `len` bytes at `frame_ptr` as a raw Ethernet frame via VirtIO-net send().
-/// Max frame 1522 bytes (Ethernet MTU 1500 + 14 header + 8 VLAN overhead).
-/// Returns 1 on success, -1 on invalid args or TX queue full.
+/// Round 2 logic fix 1 — SysSendPacket: validate Ring-3 frame ptr falls in user-space.
+/// User-space (Ring-3) virtual addresses in Qindows are below 0x8000_0000_0000 (128 TiB).
+/// Kernel VA space starts at 0xFFFF_8000_0000_0000. Reject any pointer outside user range.
+const RING3_VA_LIMIT: u64 = 0x0000_8000_0000_0000;
+
 fn handle_sys_send_packet(frame_ptr: *const u8, len: usize) -> i64 {
     if frame_ptr.is_null() || len < 14 || len > 1522 {
         return SyscallError::InvalidArg as i64;
+    }
+    // Round 2 fix 1: reject kernel-space pointers from Ring-3
+    if (frame_ptr as u64) >= RING3_VA_LIMIT {
+        crate::serial_println!("[SYSCALL 305] Rejected kernel-space frame_ptr {:#x}", frame_ptr as u64);
+        return SyscallError::PermissionDenied as i64;
     }
     let frame = unsafe { core::slice::from_raw_parts(frame_ptr, len) };
     let ok = crate::kstate::virtio_net().send(frame);

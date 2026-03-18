@@ -138,6 +138,21 @@ impl ShellSession {
 
 
 
+        // Round 2 fix 3 — background job operator (&).
+        // Commands ending in '&' are noted as backgrounded; in a single-process
+        // shell (no fork/exec yet) we record them with a job ID and return immediately.
+        let trimmed = if trimmed.ends_with('&') {
+            let cmd = trimmed.trim_end_matches('&').trim();
+            if !cmd.is_empty() {
+                let job_id = self.command_count;
+                self.command_count += 1;
+                return vec![alloc::format!("[bg] [{}] {} &", job_id, cmd)];
+            }
+            trimmed // fall through if only '&' was entered
+        } else {
+            trimmed
+        };
+
         // Parse the pipeline
         let pipeline = crate::parse(trimmed);
 

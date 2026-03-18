@@ -132,12 +132,14 @@ impl SmpManager {
 
             // Send SIPI (Startup IPI) — trampoline at physical page 0x8
             send_ipi(lapic_base, apic_id, 0x608); // SIPI, vector = 0x08
-            spin_wait_ms(1);
+            // Round 2 fix 2: Intel SDM §10.6.1 requires at least 200µs between
+            // SIPI and the readiness check. 5ms gives QEMU AP emulation enough time.
+            spin_wait_ms(5);
 
-            // If AP didn't respond, send SIPI again
+            // If AP didn't respond, send SIPI again (second of the required pair)
             if AP_COUNT.load(Ordering::Relaxed) < expected_count {
                 send_ipi(lapic_base, apic_id, 0x608);
-                spin_wait_ms(1);
+                spin_wait_ms(5);
             }
 
             // Check if AP booted
