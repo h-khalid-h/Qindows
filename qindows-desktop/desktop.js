@@ -125,7 +125,7 @@ function makeDraggable(el, handle) {
             if (w) { w.maximized = false; el.classList.remove('maximized'); if (w.prevBounds) Object.assign(el.style, w.prevBounds); }
         }
         ox = e.clientX; oy = e.clientY;
-        sx = parseInt(el.style.left); sy = parseInt(el.style.top);
+        sx = parseInt(el.style.left) || 0; sy = parseInt(el.style.top) || 0;
         function move(e) {
             el.style.left = (sx + e.clientX - ox) + 'px';
             el.style.top = (sy + e.clientY - oy) + 'px';
@@ -483,19 +483,33 @@ function createFileManager(container) {
     navigateTo(currentPath, container);
 }
 
+// Escape a string for safe embedding inside a single-quoted HTML attribute value.
+function escAttr(str) {
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+// Escape a string for safe display as HTML text content.
+function escHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function navigateTo(path, container) {
     currentPath = path;
     const pathEl = container.querySelector('#fmPath') || document.getElementById('fmPath');
     const gridEl = container.querySelector('#fmGrid') || document.getElementById('fmGrid');
     const parts = path.split('/');
-    pathEl.innerHTML = parts.map((p, i) => `<span onclick="navigateTo('${parts.slice(0, i + 1).join('/')}', this.closest('.win-body'))">${p}</span>`).join(' / ');
+    pathEl.innerHTML = parts.map((p, i) => {
+        const navPath = escAttr(parts.slice(0, i + 1).join('/'));
+        return `<span onclick="navigateTo('${navPath}', this.closest('.win-body'))">${escHtml(p)}</span>`;
+    }).join(' / ');
     const files = fileSystem[path] || [{ name: '..', type: 'up', icon: '⬆️' }, { name: '(empty)', type: 'none', icon: '📭' }];
     gridEl.innerHTML = files.map(f => {
-        if (f.type === 'none') return `<div class="fm-item"><div class="icon">${f.icon}</div><div class="name">${f.name}</div></div>`;
-        const clickAction = f.type === 'dir' ? `navigateTo('${path}/${f.name}', this.closest('.win-body'))` :
-            f.type === 'up' ? `navigateTo('${parts.slice(0, -1).join('/')}', this.closest('.win-body'))` :
-                `showNotification('📄','${f.name}','${f.size || 'Opening...'} — Prism Object Viewer')`;
-        return `<div class="fm-item" ondblclick="${clickAction}"><div class="icon">${f.icon}</div><div class="name">${f.name}</div></div>`;
+        if (f.type === 'none') return `<div class="fm-item"><div class="icon">${escHtml(f.icon)}</div><div class="name">${escHtml(f.name)}</div></div>`;
+        const clickAction = f.type === 'dir'
+            ? `navigateTo('${escAttr(path + '/' + f.name)}', this.closest('.win-body'))`
+            : f.type === 'up'
+                ? `navigateTo('${escAttr(parts.slice(0, -1).join('/'))}', this.closest('.win-body'))`
+                : `showNotification('📄','${escAttr(f.name)}','${escAttr(f.size || 'Opening...')} — Prism Object Viewer')`;
+        return `<div class="fm-item" ondblclick="${clickAction}"><div class="icon">${escHtml(f.icon)}</div><div class="name">${escHtml(f.name)}</div></div>`;
     }).join('');
     container.querySelectorAll('.fm-sidebar-item').forEach(i => i.classList.toggle('active', i.dataset.path === path));
 }

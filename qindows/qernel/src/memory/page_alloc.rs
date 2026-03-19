@@ -109,9 +109,12 @@ pub fn init(regions: &[MemoryRegion]) {
             total += (end_frame - start_frame) as u64;
         }
 
-        // Always mark frame 0 as used (null guard)
+        // Always mark frame 0 as used (null guard).
+        // Only decrement `free` if frame 0 was actually free (in a conventional region),
+        // otherwise we'd undercount free frames.
+        let frame0_was_free = (BITMAP[0] & 1) == 0;
         BITMAP[0] |= 1;
-        if free > 0 { free -= 1; }
+        if frame0_was_free { free -= 1; }
     }
 
     TOTAL_FRAMES.store(total, Ordering::Relaxed);

@@ -138,6 +138,9 @@ fn efi_main(_image: Handle, mut system_table: SystemTable<Boot>) -> Status {
     const KERNEL_LOAD_ADDR: u64 = 0x20_0000; // 2 MiB
     static KERNEL_ELF: &[u8] = include_bytes!("../blob/qernel.elf");
 
+    // Validate minimum ELF64 header size (64 bytes) before accessing any header fields
+    assert!(KERNEL_ELF.len() >= 64, "Qernel ELF is too small to contain a valid header");
+
     // Read ELF64 entry point (little-endian u64 at offset 24)
     let entry_point = u64::from_le_bytes([
         KERNEL_ELF[24], KERNEL_ELF[25], KERNEL_ELF[26], KERNEL_ELF[27],
@@ -157,6 +160,13 @@ fn efi_main(_image: Handle, mut system_table: SystemTable<Boot>) -> Status {
     ]) as usize;
     let ph_size = u16::from_le_bytes([KERNEL_ELF[54], KERNEL_ELF[55]]) as usize;
     let ph_num = u16::from_le_bytes([KERNEL_ELF[56], KERNEL_ELF[57]]) as usize;
+
+    // Validate that the program header table lies within the ELF blob
+    assert!(ph_size > 0, "ELF program header entry size is zero");
+    assert!(
+        ph_off.saturating_add(ph_num.saturating_mul(ph_size)) <= KERNEL_ELF.len(),
+        "ELF program header table extends beyond end of embedded blob"
+    );
 
     // Allocate enough pages to cover the kernel address range
     // We'll allocate 1024 pages (4 MiB) starting at 2 MiB
@@ -204,16 +214,22 @@ fn efi_main(_image: Handle, mut system_table: SystemTable<Boot>) -> Status {
     // Load each PT_LOAD segment
     let mut segments_loaded = 0u32;
     for i in 0..ph_num {
-        let ph = &KERNEL_ELF[ph_off + i * ph_size..];
+        let ph_start = ph_off + i * ph_size;
+        // Guaranteed safe by the assertion above, but guard defensively
+        if ph_start + ph_size > KERNEL_ELF.len() { break; }
+        let ph = &KERNEL_ELF[ph_start..ph_start + ph_size];
         let p_type = u32::from_le_bytes([ph[0], ph[1], ph[2], ph[3]]);
 
         if p_type != 1 { continue; } // PT_LOAD = 1
 
+        // ELF64 Phdr: p_offset at +8, p_vaddr at +16, p_filesz at +32
+        // Minimum Phdr size to read these fields is 40 bytes
+        if ph_size < 40 { continue; }
         let p_offset = u64::from_le_bytes([ph[8], ph[9], ph[10], ph[11], ph[12], ph[13], ph[14], ph[15]]) as usize;
         let p_vaddr = u64::from_le_bytes([ph[16], ph[17], ph[18], ph[19], ph[20], ph[21], ph[22], ph[23]]);
         let p_filesz = u64::from_le_bytes([ph[32], ph[33], ph[34], ph[35], ph[36], ph[37], ph[38], ph[39]]) as usize;
 
-        if p_filesz > 0 && p_offset + p_filesz <= KERNEL_ELF.len() {
+        if p_filesz > 0 && p_offset.saturating_add(p_filesz) <= KERNEL_ELF.len() {
             unsafe {
                 core::ptr::copy_nonoverlapping(
                     KERNEL_ELF[p_offset..].as_ptr(),

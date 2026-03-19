@@ -127,7 +127,7 @@ impl Environment {
                     if i < chars.len() { i += 1; } // skip '}'
                 } else if chars[i] == '?' {
                     // $? = last exit code from global atomic
-                    let code = LAST_EXIT_CODE.load(Ordering::Relaxed);
+                    let code = LAST_EXIT_CODE.load(Ordering::Acquire);
                     result.push_str(&alloc::format!("{}", code));
                     i += 1;
                 } else {
